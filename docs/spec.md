@@ -49,13 +49,14 @@ The agent reports both visible flow time and total shot time because machines di
 The system is split into small services:
 
 - `frontend`: Next.js web UI for video upload, shot context form, and results.
-- `agent`: FastAPI service with LangGraph. It owns the user conversation and calls MCP tools.
+- `agent`: FastAPI service with LangGraph. It owns the user conversation, follows a system prompt, and calls MCP tools.
 - `espresso-mcp`: custom MCP server exposing video analysis, timing, machine profile, and grind recommendation tools.
-- `video-worker`: optional worker for long video jobs. The first version may run video processing synchronously inside `espresso-mcp`, 'optional' 
 - `model-training`: local scripts/notebooks for frame extraction, labeling support, training, and evaluation.
 - `storage`: S3 for uploaded videos, extracted frames, prediction reports, and model artifacts.
-- `database`: DynamoDB or Postgres for shot history and analysis results.
+- `database`: DynamoDB for shot history, user sessions, and analysis results.
 - `observability`: Prometheus, Grafana, and logs for metrics, dashboards, and debugging.
+
+The MVP processes videos synchronously inside `espresso-mcp`. A separate async `video-worker` with SQS is a future improvement if processing becomes slow or concurrent uploads become a bottleneck.
 
 ## 6. Data Flow
 
@@ -73,6 +74,8 @@ The system is split into small services:
 12. Agent returns a final explanation with timing, confidence, recommendation, and next test instructions.
 13. Result is saved to the database and shown in the frontend.
 
+If model confidence is low, the frontend lets the user correct the detected `machine_start_time`, `first_flow_time`, and `flow_end_time` before the recommendation is finalized.
+
 ## 7. MCP Tools
 
 The custom `espresso-mcp` server exposes:
@@ -88,7 +91,35 @@ The custom `espresso-mcp` server exposes:
 
 An optional `observability-mcp` can expose Prometheus and log-query tools for demo and debugging.
 
-## 8. Recommendation Rules
+## 8. Machine Profiles
+
+The recommendation engine uses machine profiles so it does not apply one generic rule to every espresso machine. The MVP supports 3-5 popular machines plus a generic fallback.
+
+Initial profiles:
+
+- Breville Barista Express
+- Breville Bambino or Bambino Plus
+- Gaggia Classic Pro
+- Rancilio Silvia
+- DeLonghi Dedica
+- Generic Espresso Machine
+
+Each profile includes:
+
+- `machine_name`
+- `aliases`
+- `has_preinfusion`
+- `typical_startup_delay_seconds`
+- `target_total_shot_seconds`
+- `target_visible_flow_seconds`
+- `portafilter_mm`
+- `pressure_type`
+- `grind_adjustment_notes`
+- `source_urls`
+
+Machine profiles are manually curated from official manufacturer documentation first, then retailer specifications or community notes when official information is missing. User shot history can improve these profiles later.
+
+## 9. Recommendation Rules
 
 The recommendation engine starts as rule-based:
 
@@ -102,7 +133,39 @@ The recommendation engine starts as rule-based:
 
 The agent should recommend one next change and tell the user what to keep fixed.
 
-## 9. Error Handling
+## 10. Agent System Prompt
+
+The agent system prompt defines DialedIN as an espresso coach, not a generic chatbot. It must:
+
+- Explain that recommendations are next-step guidance, not guaranteed perfect grind settings.
+- Use MCP tool results for timestamps and recommendation data.
+- Ask for missing machine, grinder, dose, yield, roast, grind setting, or taste details.
+- Avoid inventing timing values or machine specifications.
+- Recommend one main adjustment at a time.
+- Tell the user what to keep fixed on the next shot.
+- Mention low confidence and ask the user to confirm timestamps when needed.
+
+## 11. Dataset Label Schema
+
+The first dataset uses a CSV file with these columns:
+
+```text
+video_id,machine_start_time,first_flow_time,flow_end_time,machine,grinder,dose_g,yield_g,grind_setting,roast_level,taste
+```
+
+The timestamp values are seconds from the start of the video. These labels are used to build the frame-classification dataset and to evaluate model accuracy.
+
+## 12. Model Artifact
+
+The trained Ultralytics classifier is saved as:
+
+```text
+models/shot_state_classifier.pt
+```
+
+For local development, `espresso-mcp` loads the model from the local filesystem. For Docker and Kubernetes, the model is either copied into the `espresso-mcp` image or downloaded from S3 at startup. The first implementation should copy the model into the image for simplicity; S3 model loading can be added later.
+
+## 13. Error Handling
 
 The system handles:
 
@@ -115,7 +178,7 @@ The system handles:
 - LLM failure: return the structured timing result with a basic rule-based recommendation.
 - S3/database failure: report that analysis completed but saving failed, when possible.
 
-## 10. Testing Strategy
+## 14. Testing Strategy
 
 Unit tests cover:
 
@@ -145,7 +208,9 @@ Initial success criteria:
 - Machine start detected within 2 seconds when button/light/lever is visible.
 - Agent returns a useful recommendation for at least three demo shot scenarios: fast, normal, and slow.
 
-## 11. Deployment
+The repository also contains `docs/test-plan.md`, which describes test types, commands, success criteria, and manual demo checks.
+
+## 15. Deployment
 
 The final course deployment uses:
 
@@ -159,7 +224,7 @@ The final course deployment uses:
 - HPA for frontend, agent, and video/MCP service.
 - Terraform for AWS resources: EC2, S3, database, IAM, and optional SQS.
 
-## 12. Observability
+## 16. Observability
 
 Metrics include:
 
@@ -179,9 +244,17 @@ Grafana dashboard shows:
 - agent latency
 - MCP error count
 
+Alerts include:
+
+- high analysis failure rate
+- low average model confidence
+- high MCP tool error rate
+- high agent request latency
+- video processing duration above threshold
+
 Healthy means the API is reachable, MCP tools respond, video analysis completes within the expected time, error rate stays low, and model confidence is high enough for recommendations.
 
-## 13. Demo Scenario
+## 17. Demo Scenario
 
 The live demo uses a controlled espresso shot video. The user uploads the video, enters machine/grinder/shot details, and the system returns:
 

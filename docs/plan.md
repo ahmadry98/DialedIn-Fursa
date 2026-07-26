@@ -6,7 +6,7 @@
 
 **Architecture:** A Next.js frontend uploads videos to a FastAPI agent. The agent stores videos in S3 and calls a custom `espresso-mcp` server. The MCP server extracts frames, runs an Ultralytics classification model, calculates timing, and returns structured data for the agent to explain.
 
-**Tech Stack:** Python, FastAPI, LangChain or LangGraph, MCP, Ultralytics, OpenCV, Next.js, S3, DynamoDB or Postgres, Docker, Kubernetes on AWS EC2, Terraform, Prometheus, Grafana, GitHub Actions.
+**Tech Stack:** Python, FastAPI, LangGraph, MCP, Ultralytics, OpenCV, Next.js, S3, DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus, Grafana, GitHub Actions.
 
 ## Global Constraints
 
@@ -18,6 +18,7 @@
 - Dev and prod must be separated by Kubernetes namespaces.
 - AWS resources must be provisioned with Terraform.
 - Automated tests must include unit tests and MCP integration tests.
+- Video processing runs synchronously inside `espresso-mcp` for the MVP; an async worker/SQS flow is future work.
 
 ---
 
@@ -31,6 +32,7 @@
 
 - [ ] Review `docs/spec.md` and confirm the MVP scope.
 - [ ] Review `docs/plan.md` and confirm checkpoint order.
+- [ ] Confirm the final stack choices: LangGraph for the agent and DynamoDB for shot history.
 - [ ] Commit both documents before coding.
 - [ ] Open a PR for staff approval if required by the course.
 
@@ -48,6 +50,11 @@
 - [ ] Make sure button/light/lever, portafilter, cup, and stream are visible.
 - [ ] Label each video with `machine_start_time`, `first_flow_time`, and `flow_end_time`.
 - [ ] Store metadata: machine, grinder, dose, yield, grind setting, roast level, taste notes.
+- [ ] Use this CSV header exactly:
+
+```text
+video_id,machine_start_time,first_flow_time,flow_end_time,machine,grinder,dose_g,yield_g,grind_setting,roast_level,taste
+```
 
 ## Checkpoint 3: Frame Extraction
 
@@ -99,6 +106,7 @@ data/classification-dataset/
 - Create: `modeling/train_classifier.py`
 - Create: `modeling/evaluate_classifier.py`
 - Output: `models/shot_state_classifier.pt`
+- Create: `docs/model-results.md`
 
 **Deliverable:** First trained shot-state classifier.
 
@@ -107,6 +115,7 @@ data/classification-dataset/
 - [ ] Save the best model artifact.
 - [ ] Evaluate validation accuracy and per-class confidence.
 - [ ] Record results in `docs/model-results.md`.
+- [ ] Document how `espresso-mcp` will load `models/shot_state_classifier.pt` locally and inside Docker.
 
 ## Checkpoint 6: Analyze A Full Video
 
@@ -153,14 +162,29 @@ data/classification-dataset/
 - [ ] Return one primary next action and one explanation.
 - [ ] Include confidence and what to keep fixed.
 
-## Checkpoint 9: Custom Espresso MCP Server
+## Checkpoint 9: Machine Profiles
+
+**Files:**
+- Create: `services/espresso_mcp/machine_profiles.json`
+- Create: `services/espresso_mcp/machine_profiles.py`
+- Create: `services/espresso_mcp/tests/test_machine_profiles.py`
+
+**Deliverable:** Curated machine profile lookup with a generic fallback.
+
+- [ ] Add profiles for Breville Barista Express, Breville Bambino/Bambino Plus, Gaggia Classic Pro, Rancilio Silvia, DeLonghi Dedica, and Generic Espresso Machine.
+- [ ] Include `machine_name`, `aliases`, `has_preinfusion`, `typical_startup_delay_seconds`, `target_total_shot_seconds`, `target_visible_flow_seconds`, `portafilter_mm`, `pressure_type`, `grind_adjustment_notes`, and `source_urls`.
+- [ ] Implement alias matching so `BES870` can resolve to Breville Barista Express.
+- [ ] Return the generic profile when the machine is unknown.
+- [ ] Add tests for exact match, alias match, and fallback.
+
+## Checkpoint 10: Wrap Existing Analysis Logic In MCP
 
 **Files:**
 - Create: `services/espresso_mcp/app.py`
 - Create: `services/espresso_mcp/requirements.txt`
 - Create: `services/espresso_mcp/tests/test_mcp_tools.py`
 
-**Deliverable:** MCP server with espresso video and recommendation tools.
+**Deliverable:** MCP server that exposes the already-built video, timing, recommendation, and machine-profile logic as agent-callable tools.
 
 Expose these tools:
 
@@ -175,16 +199,18 @@ compare_previous_shots(user_id, current_result)
 
 - [ ] Build MCP tool schemas.
 - [ ] Connect tools to timing and recommendation modules.
+- [ ] Connect `get_machine_profile(machine_name)` to `machine_profiles.py`.
 - [ ] Add tests for tool responses.
 - [ ] Run an integration test using real MCP transport.
 
-## Checkpoint 10: Agent API
+## Checkpoint 11: Agent API
 
 **Files:**
 - Create: `services/agent/app.py`
 - Create: `services/agent/agent_runner.py`
 - Create: `services/agent/config.py`
 - Create: `services/agent/schemas.py`
+- Create: `services/agent/prompts.py`
 - Create: `services/agent/tests/test_agent.py`
 
 **Deliverable:** FastAPI agent that calls MCP tools and returns espresso coaching responses.
@@ -193,18 +219,21 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add `POST /chat`.
 - [ ] Add `GET /health`.
 - [ ] Add `GET /metrics`.
+- [ ] Add a system prompt that defines DialedIN as an espresso coach, requires MCP tool results for timing, and forbids invented timestamps.
 - [ ] Store uploaded video in S3 or local storage in development.
 - [ ] Call `espresso-mcp.analyze_video`.
 - [ ] Ask for missing machine/grinder/dose/yield details.
+- [ ] Call `espresso-mcp.get_machine_profile`.
 - [ ] Call `espresso-mcp.recommend_grind_adjustment`.
 - [ ] Return final timing and recommendation.
 
-## Checkpoint 11: Frontend
+## Checkpoint 12: Frontend
 
 **Files:**
 - Create: `services/frontend/app/page.tsx`
 - Create: `services/frontend/components/shot-upload.tsx`
 - Create: `services/frontend/components/shot-result.tsx`
+- Create: `services/frontend/components/timestamp-correction.tsx`
 - Create: `services/frontend/lib/api.ts`
 
 **Deliverable:** User interface for video upload and result display.
@@ -215,8 +244,21 @@ compare_previous_shots(user_id, current_result)
 - [ ] Show timing timeline.
 - [ ] Show recommendation card.
 - [ ] Show low-confidence warning when needed.
+- [ ] Add editable timestamp fields for low-confidence results: machine start, first flow, and shot end.
 
-## Checkpoint 12: Storage
+## Checkpoint 13: Test Plan
+
+**Files:**
+- Create: `docs/test-plan.md`
+
+**Deliverable:** Course-ready test plan before implementation reaches deployment.
+
+- [ ] Document unit tests for timing, smoothing, recommendations, machine profiles, and agent missing-data behavior.
+- [ ] Document integration tests for real MCP transport and agent-to-MCP calls.
+- [ ] Document model evaluation criteria: machine start within 2 seconds, first flow within 1.5 seconds, and flow end within 2 seconds on controlled-angle videos.
+- [ ] Document manual demo checks for fast, normal, and slow shot scenarios.
+
+## Checkpoint 14: Storage
 
 **Files:**
 - Create: `services/agent/storage.py`
@@ -227,11 +269,11 @@ compare_previous_shots(user_id, current_result)
 **Deliverable:** Persistent upload and shot-result storage.
 
 - [ ] Add S3 bucket for videos, frames, and model outputs.
-- [ ] Add DynamoDB or Postgres table for shot results.
+- [ ] Add DynamoDB table for shot results.
 - [ ] Add local development fallback.
 - [ ] Add tests with mocked storage clients.
 
-## Checkpoint 13: Docker Compose
+## Checkpoint 15: Docker Compose
 
 **Files:**
 - Create: `compose.yaml`
@@ -244,11 +286,12 @@ compare_previous_shots(user_id, current_result)
 - [ ] Containerize frontend.
 - [ ] Containerize agent.
 - [ ] Containerize espresso MCP.
+- [ ] Copy `models/shot_state_classifier.pt` into the `espresso-mcp` image for the first deployment.
 - [ ] Add Prometheus and Grafana.
 - [ ] Verify frontend can call agent.
 - [ ] Verify agent can call MCP.
 
-## Checkpoint 14: Kubernetes
+## Checkpoint 16: Kubernetes
 
 **Files:**
 - Create: `infra/k8s/00-namespaces.yaml`
@@ -268,7 +311,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add HPA for frontend, agent, and espresso MCP.
 - [ ] Test access with `kubectl port-forward`.
 
-## Checkpoint 15: Terraform
+## Checkpoint 17: Terraform
 
 **Files:**
 - Create: `infra/terraform/main.tf`
@@ -276,22 +319,21 @@ compare_previous_shots(user_id, current_result)
 - Create: `infra/terraform/iam.tf`
 - Create: `infra/terraform/s3.tf`
 - Create: `infra/terraform/database.tf`
-- Optional: `infra/terraform/sqs.tf`
 
 **Deliverable:** Infrastructure as Code for AWS.
 
 - [ ] Provision EC2 instances for Kubernetes.
 - [ ] Provision S3 bucket.
-- [ ] Provision database table.
+- [ ] Provision DynamoDB table.
 - [ ] Provision IAM permissions.
-- [ ] Optionally provision SQS for async video jobs.
 - [ ] Document apply/destroy commands.
 
-## Checkpoint 16: Observability
+## Checkpoint 18: Observability
 
 **Files:**
 - Create: `monitoring/prometheus.yml`
 - Create: `infra/grafana/dashboards/shot-analysis.json`
+- Create: `monitoring/alerts.yml`
 - Modify: service metrics endpoints.
 
 **Deliverable:** Health metrics and dashboard.
@@ -302,8 +344,9 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add model confidence metrics.
 - [ ] Add failed analysis metrics.
 - [ ] Build Grafana dashboard.
+- [ ] Add alerts for high analysis failure rate, low average model confidence, MCP tool errors, high agent latency, and long video processing duration.
 
-## Checkpoint 17: CI/CD
+## Checkpoint 19: CI/CD
 
 **Files:**
 - Create: `.github/workflows/test.yaml`
@@ -319,11 +362,10 @@ compare_previous_shots(user_id, current_result)
 - [ ] Deploy to dev.
 - [ ] Keep prod deployment manual or protected.
 
-## Checkpoint 18: Final Demo
+## Checkpoint 20: Final Demo
 
 **Files:**
 - Create: `docs/demo-script.md`
-- Create: `docs/test-plan.md`
 - Create: presentation slides.
 
 **Deliverable:** 15-minute presentation and live demo.
