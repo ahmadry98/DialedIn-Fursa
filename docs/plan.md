@@ -4,15 +4,15 @@
 
 **Goal:** Build an AI espresso shot timing agent that analyzes an uploaded espresso video, detects machine start/first flow/flow end, and recommends the next grind adjustment.
 
-**Architecture:** A Next.js frontend uploads videos to a FastAPI agent. The agent stores videos in S3 and calls a custom `espresso-mcp` server. The MCP server extracts frames, runs an Ultralytics classification model, calculates timing, and returns structured data for the agent to explain.
+**Architecture:** A Next.js frontend uploads videos to a FastAPI agent. The agent stores videos in S3 and calls a custom `espresso-mcp` server. The MCP server extracts frames and audio, runs an Ultralytics classification model, detects pump start from audio, fuses the signals, calculates timing, and returns structured data for the agent to explain.
 
 **Tech Stack:** Python, FastAPI, LangGraph, MCP, Ultralytics, OpenCV, Next.js, S3, DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus, Grafana, GitHub Actions.
 
 ## Global Constraints
 
 - The trained model detects shot states, not perfect grind settings.
-- The MVP uses visual frame classification first; audio detection is optional after the visual pipeline works.
-- The LLM must not invent timestamps. It must use MCP tool results.
+- The MVP uses visual frame classification plus audio pump-start detection. Audio starts as a heuristic helper signal; a trained audio classifier is future work.
+- The LLM must not invent timestamps. It must use MCP tool results, including whether machine start came from audio, visual classification, or manual correction.
 - Recommendations must be next-step adjustments, not guaranteed perfect settings.
 - The final deployment must use Kubernetes on AWS EC2, not EKS.
 - Dev and prod must be separated by Kubernetes namespaces.
@@ -50,6 +50,7 @@
 - [ ] Make sure button/light/lever, portafilter, cup, and stream are visible.
 - [ ] Label each video with `machine_start_time`, `first_flow_time`, and `flow_end_time`.
 - [ ] Store metadata: machine, grinder, dose, yield, grind setting, roast level, taste notes.
+- [ ] Confirm each video has usable audio where the pump/machine sound is audible, when possible.
 - [ ] Use this CSV header exactly:
 
 ```text
@@ -117,7 +118,22 @@ data/classification-dataset/
 - [ ] Record results in `docs/model-results.md`.
 - [ ] Document how `espresso-mcp` will load `models/shot_state_classifier.pt` locally and inside Docker.
 
-## Checkpoint 6: Analyze A Full Video
+## Checkpoint 6: Audio Extraction And Pump Start Detection
+
+**Files:**
+- Create: `services/espresso_mcp/audio_analysis.py`
+- Create: `services/espresso_mcp/tests/test_audio_analysis.py`
+
+**Deliverable:** Code that extracts audio from a video and estimates when the machine pump starts.
+
+- [ ] Extract audio from a video into a temporary WAV file.
+- [ ] Compute short-window audio energy or spectrogram features.
+- [ ] Detect the first sustained pump/machine sound increase.
+- [ ] Return `pump_start_time`, `pump_start_confidence`, and `audio_method`.
+- [ ] Fall back gracefully when the video has no audio track.
+- [ ] Test with synthetic or fixture audio where pump start is known.
+
+## Checkpoint 7: Analyze A Full Video
 
 **Files:**
 - Create: `services/espresso_mcp/video_analysis.py`
@@ -131,23 +147,25 @@ data/classification-dataset/
 - [ ] Return ordered predictions with timestamps.
 - [ ] Test using a small fixture frame sequence.
 
-## Checkpoint 7: Prediction Smoothing And Timing
+## Checkpoint 8: Prediction Smoothing And Timing Fusion
 
 **Files:**
 - Create: `services/espresso_mcp/timing.py`
 - Create: `services/espresso_mcp/tests/test_timing.py`
 
-**Deliverable:** Stable machine start, first flow, and flow end timestamps.
+**Deliverable:** Stable machine start, first flow, and flow end timestamps from fused visual and audio signals.
 
 - [ ] Add smoothing that requires repeated frames before changing state.
 - [ ] Ignore one-frame prediction mistakes.
+- [ ] Use high-confidence `pump_start_time` as `machine_start_time` when audio is reliable.
+- [ ] Fall back to visual `machine_started_no_flow` when audio is missing or low confidence.
 - [ ] Calculate `machine_start_time`.
 - [ ] Calculate `first_flow_time`.
 - [ ] Calculate `flow_end_time`.
 - [ ] Calculate `startup_delay_seconds`, `visible_flow_seconds`, and `total_shot_seconds`.
-- [ ] Return confidence and warnings when timestamps are uncertain.
+- [ ] Return confidence, timestamp source, and warnings when timestamps are uncertain.
 
-## Checkpoint 8: Recommendation Rules
+## Checkpoint 9: Recommendation Rules
 
 **Files:**
 - Create: `services/espresso_mcp/recommendations.py`
@@ -162,7 +180,7 @@ data/classification-dataset/
 - [ ] Return one primary next action and one explanation.
 - [ ] Include confidence and what to keep fixed.
 
-## Checkpoint 9: Machine Profiles
+## Checkpoint 10: Machine Profiles
 
 **Files:**
 - Create: `services/espresso_mcp/machine_profiles.json`
@@ -177,7 +195,7 @@ data/classification-dataset/
 - [ ] Return the generic profile when the machine is unknown.
 - [ ] Add tests for exact match, alias match, and fallback.
 
-## Checkpoint 10: Wrap Existing Analysis Logic In MCP
+## Checkpoint 11: Wrap Existing Analysis Logic In MCP
 
 **Files:**
 - Create: `services/espresso_mcp/app.py`
@@ -190,6 +208,9 @@ Expose these tools:
 
 ```text
 analyze_video(video_s3_key, fps)
+extract_audio_track(video_s3_key)
+detect_pump_start(audio_s3_key)
+fuse_timing_signals(visual_predictions, audio_events)
 calculate_shot_timing(predictions, fps)
 recommend_grind_adjustment(shot_context)
 get_machine_profile(machine_name)
@@ -198,12 +219,12 @@ compare_previous_shots(user_id, current_result)
 ```
 
 - [ ] Build MCP tool schemas.
-- [ ] Connect tools to timing and recommendation modules.
+- [ ] Connect tools to video, audio, timing, and recommendation modules.
 - [ ] Connect `get_machine_profile(machine_name)` to `machine_profiles.py`.
 - [ ] Add tests for tool responses.
 - [ ] Run an integration test using real MCP transport.
 
-## Checkpoint 11: Agent API
+## Checkpoint 12: Agent API
 
 **Files:**
 - Create: `services/agent/app.py`
@@ -221,13 +242,13 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add `GET /metrics`.
 - [ ] Add a system prompt that defines DialedIN as an espresso coach, requires MCP tool results for timing, and forbids invented timestamps.
 - [ ] Store uploaded video in S3 or local storage in development.
-- [ ] Call `espresso-mcp.analyze_video`.
+- [ ] Call `espresso-mcp.analyze_video`, which includes frame classification, audio pump-start detection, and signal fusion.
 - [ ] Ask for missing machine/grinder/dose/yield details.
 - [ ] Call `espresso-mcp.get_machine_profile`.
 - [ ] Call `espresso-mcp.recommend_grind_adjustment`.
 - [ ] Return final timing and recommendation.
 
-## Checkpoint 12: Frontend
+## Checkpoint 13: Frontend
 
 **Files:**
 - Create: `services/frontend/app/page.tsx`
@@ -241,24 +262,24 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add video upload control.
 - [ ] Add machine, grinder, grind setting, dose, yield, roast, and taste inputs.
 - [ ] Submit data to the agent.
-- [ ] Show timing timeline.
+- [ ] Show timing timeline, including whether machine start came from audio, visual detection, or manual correction.
 - [ ] Show recommendation card.
 - [ ] Show low-confidence warning when needed.
 - [ ] Add editable timestamp fields for low-confidence results: machine start, first flow, and shot end.
 
-## Checkpoint 13: Test Plan
+## Checkpoint 14: Test Plan
 
 **Files:**
 - Create: `docs/test-plan.md`
 
 **Deliverable:** Course-ready test plan before implementation reaches deployment.
 
-- [ ] Document unit tests for timing, smoothing, recommendations, machine profiles, and agent missing-data behavior.
+- [ ] Document unit tests for audio detection, timing fusion, smoothing, recommendations, machine profiles, and agent missing-data behavior.
 - [ ] Document integration tests for real MCP transport and agent-to-MCP calls.
-- [ ] Document model evaluation criteria: machine start within 2 seconds, first flow within 1.5 seconds, and flow end within 2 seconds on controlled-angle videos.
+- [ ] Document model/evaluator criteria: audio pump start within 2 seconds when pump sound is clear, machine start within 2 seconds, first flow within 1.5 seconds, and flow end within 2 seconds on controlled-angle videos.
 - [ ] Document manual demo checks for fast, normal, and slow shot scenarios.
 
-## Checkpoint 14: Storage
+## Checkpoint 15: Storage
 
 **Files:**
 - Create: `services/agent/storage.py`
@@ -273,7 +294,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add local development fallback.
 - [ ] Add tests with mocked storage clients.
 
-## Checkpoint 15: Docker Compose
+## Checkpoint 16: Docker Compose
 
 **Files:**
 - Create: `compose.yaml`
@@ -291,7 +312,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Verify frontend can call agent.
 - [ ] Verify agent can call MCP.
 
-## Checkpoint 16: Kubernetes
+## Checkpoint 17: Kubernetes
 
 **Files:**
 - Create: `infra/k8s/00-namespaces.yaml`
@@ -311,7 +332,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add HPA for frontend, agent, and espresso MCP.
 - [ ] Test access with `kubectl port-forward`.
 
-## Checkpoint 17: Terraform
+## Checkpoint 18: Terraform
 
 **Files:**
 - Create: `infra/terraform/main.tf`
@@ -328,7 +349,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Provision IAM permissions.
 - [ ] Document apply/destroy commands.
 
-## Checkpoint 18: Observability
+## Checkpoint 19: Observability
 
 **Files:**
 - Create: `monitoring/prometheus.yml`
@@ -341,12 +362,13 @@ compare_previous_shots(user_id, current_result)
 - [ ] Add agent request metrics.
 - [ ] Add MCP tool metrics.
 - [ ] Add video processing duration metrics.
+- [ ] Add audio pump-start confidence metrics.
 - [ ] Add model confidence metrics.
 - [ ] Add failed analysis metrics.
 - [ ] Build Grafana dashboard.
-- [ ] Add alerts for high analysis failure rate, low average model confidence, MCP tool errors, high agent latency, and long video processing duration.
+- [ ] Add alerts for high analysis failure rate, low average model confidence, low average audio confidence, MCP tool errors, high agent latency, and long video processing duration.
 
-## Checkpoint 19: CI/CD
+## Checkpoint 20: CI/CD
 
 **Files:**
 - Create: `.github/workflows/test.yaml`
@@ -362,7 +384,7 @@ compare_previous_shots(user_id, current_result)
 - [ ] Deploy to dev.
 - [ ] Keep prod deployment manual or protected.
 
-## Checkpoint 20: Final Demo
+## Checkpoint 21: Final Demo
 
 **Files:**
 - Create: `docs/demo-script.md`
@@ -384,7 +406,7 @@ compare_previous_shots(user_id, current_result)
 Do not start with the full cloud system. Start with this local proof:
 
 ```text
-video -> frames -> classifier -> predictions -> timing -> recommendation
+video -> frames + audio -> classifier + pump detection -> fused timing -> recommendation
 ```
 
 Once this works, wrap it with MCP, agent, frontend, cloud, Kubernetes, and observability.

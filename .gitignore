@@ -1,0 +1,18 @@
+.DS_Store
+
+# Raw and generated ML data
+data/raw-videos/*.mp4
+data/raw-videos/*.mov
+data/raw-videos/*.m4v
+data/raw-videos/*.avi
+data/frames/
+data/classification-dataset/
+
+# Trained model artifacts
+models/*.pt
+models/*.onnx
+
+# Local Python/cache files
+__pycache__/
+.pytest_cache/
+.venv/
