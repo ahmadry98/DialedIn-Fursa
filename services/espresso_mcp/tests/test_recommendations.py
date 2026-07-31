@@ -1,0 +1,109 @@
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from recommendations import recommend_grind_adjustment
+
+
+class RecommendationRulesTest(unittest.TestCase):
+    def test_fast_sour_shot_recommends_finer(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 17,
+                "taste": "sour and watery",
+                "timing_confidence": 0.9,
+                "dose_g": 18,
+                "yield_g": 36,
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_finer")
+        self.assertIn("finer", result["adjustment"])
+        self.assertEqual(result["confidence"], "high")
+        self.assertIn("dose_g", result["keep_fixed"])
+
+    def test_fast_channeling_shot_recommends_puck_prep_first(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 16,
+                "taste": "spraying and channeling",
+                "timing_confidence": 0.8,
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "improve_puck_prep")
+        self.assertIn("puck prep", result["adjustment"])
+
+    def test_slow_bitter_shot_recommends_coarser(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 42,
+                "taste": "bitter and dry",
+                "timing_confidence": 0.8,
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_coarser")
+        self.assertIn("coarser", result["adjustment"])
+
+    def test_normal_sour_shot_recommends_more_extraction(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 28,
+                "taste": "still sour",
+                "timing_confidence": 0.7,
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "increase_extraction")
+        self.assertIn("longer yield", result["adjustment"])
+
+    def test_normal_balanced_shot_recommends_keep_settings(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 29,
+                "taste": "balanced and sweet",
+                "timing_confidence": 0.7,
+                "machine": "Gaggia Classic Pro",
+                "grinder": "DF54",
+                "dose_g": 18,
+                "yield_g": 36,
+                "grind_setting": "15",
+                "roast_level": "medium",
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "keep_settings")
+        self.assertEqual(result["confidence"], "high")
+        self.assertEqual(result["needs_more_info"], [])
+
+    def test_low_confidence_timing_requires_confirmation(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 17,
+                "taste": "sour",
+                "timing_confidence": 0.2,
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "confirm_timing")
+        self.assertEqual(result["confidence"], "low")
+
+    def test_custom_machine_target_range_is_supported(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 23,
+                "taste": "balanced",
+                "timing_confidence": 0.8,
+                "machine_profile": {"target_total_shot_seconds": [25, 35]},
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_finer")
+        self.assertEqual(result["target_range_seconds"], (25.0, 35.0))
+
+
+if __name__ == "__main__":
+    unittest.main()

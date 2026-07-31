@@ -1,0 +1,230 @@
+"""Rule-based espresso grind recommendations.
+
+The MVP keeps recommendations deterministic and explainable. The agent can pass
+shot timing plus optional taste/yield context and receive one next action.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any
+
+DEFAULT_TARGET_MIN_SECONDS = 20.0
+DEFAULT_TARGET_MAX_SECONDS = 35.0
+LOW_TIMING_CONFIDENCE_THRESHOLD = 0.35
+
+UNDER_EXTRACTED_TASTE_WORDS = {
+    "sour",
+    "acidic",
+    "sharp",
+    "watery",
+    "thin",
+    "weak",
+    "under-extracted",
+    "under extracted",
+}
+OVER_EXTRACTED_TASTE_WORDS = {
+    "bitter",
+    "harsh",
+    "dry",
+    "astringent",
+    "burnt",
+    "over-extracted",
+    "over extracted",
+}
+CHANNELING_WORDS = {
+    "channeling",
+    "spray",
+    "spraying",
+    "spurting",
+    "uneven",
+    "gusher",
+}
+GOOD_TASTE_WORDS = {"balanced", "sweet", "good", "nice", "smooth"}
+
+
+@dataclass(frozen=True)
+class RecommendationResult:
+    recommendation: str
+    adjustment: str
+    reason: str
+    confidence: str
+    keep_fixed: list[str]
+    needs_more_info: list[str]
+    target_range_seconds: tuple[float, float]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
+    """Return one next espresso adjustment from timing and taste context."""
+    target_min, target_max = _target_range(shot_context)
+    total = _float_or_none(shot_context.get("total_shot_seconds"))
+    timing_confidence = _timing_confidence(shot_context)
+    taste_text = _normalize_text(shot_context.get("taste"))
+    keep_fixed = _keep_fixed(shot_context)
+    needs_more_info = _missing_context(shot_context)
+
+    if total is None:
+        return RecommendationResult(
+            recommendation="confirm_timing",
+            adjustment="enter the machine start and stop times manually",
+            reason="Shot time was not available, so grind advice would be guessing.",
+            confidence="low",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if _requires_timing_confirmation(shot_context, timing_confidence):
+        return RecommendationResult(
+            recommendation="confirm_timing",
+            adjustment="confirm or edit the detected shot timing before changing grind",
+            reason="Audio timing confidence is low, so the recommendation should wait for confirmed timing.",
+            confidence="low",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if total < target_min:
+        if _contains_any(taste_text, CHANNELING_WORDS):
+            return RecommendationResult(
+                recommendation="improve_puck_prep",
+                adjustment="keep grind the same for one shot and fix puck prep/channeling first",
+                reason="The shot ran fast, but channeling signs can make a shot fast even when grind is not the main problem.",
+                confidence="medium",
+                keep_fixed=keep_fixed,
+                needs_more_info=needs_more_info,
+                target_range_seconds=(target_min, target_max),
+            ).to_dict()
+
+        reason = "Shot ran faster than the target range."
+        if _contains_any(taste_text, UNDER_EXTRACTED_TASTE_WORDS):
+            reason += " Sour, watery, or thin taste also points toward under-extraction."
+        return RecommendationResult(
+            recommendation="grind_finer",
+            adjustment="move 1-2 grinder steps finer",
+            reason=reason,
+            confidence="high" if timing_confidence >= 0.6 else "medium",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if total > target_max:
+        reason = "Shot ran slower than the target range."
+        if _contains_any(taste_text, OVER_EXTRACTED_TASTE_WORDS):
+            reason += " Bitter, harsh, or dry taste also points toward over-extraction."
+        return RecommendationResult(
+            recommendation="grind_coarser",
+            adjustment="move 1-2 grinder steps coarser",
+            reason=reason,
+            confidence="high" if timing_confidence >= 0.6 else "medium",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if _contains_any(taste_text, UNDER_EXTRACTED_TASTE_WORDS):
+        return RecommendationResult(
+            recommendation="increase_extraction",
+            adjustment="keep grind close, then try a slightly longer yield or one small step finer",
+            reason="Shot time is in range, but sour or thin taste suggests the coffee may still be under-extracted.",
+            confidence="medium",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if _contains_any(taste_text, OVER_EXTRACTED_TASTE_WORDS):
+        return RecommendationResult(
+            recommendation="reduce_extraction",
+            adjustment="keep grind close, then try a slightly shorter yield or one small step coarser",
+            reason="Shot time is in range, but bitter or dry taste suggests the coffee may be over-extracted.",
+            confidence="medium",
+            keep_fixed=keep_fixed,
+            needs_more_info=needs_more_info,
+            target_range_seconds=(target_min, target_max),
+        ).to_dict()
+
+    if _contains_any(taste_text, GOOD_TASTE_WORDS):
+        reason = "Shot time is inside the target range and the taste note sounds positive."
+    else:
+        reason = "Shot time is inside the target range. Taste context can guide the next small adjustment."
+
+    return RecommendationResult(
+        recommendation="keep_settings",
+        adjustment="keep the grind setting and repeat once for consistency",
+        reason=reason,
+        confidence="medium" if needs_more_info else "high",
+        keep_fixed=keep_fixed,
+        needs_more_info=needs_more_info,
+        target_range_seconds=(target_min, target_max),
+    ).to_dict()
+
+
+def _target_range(shot_context: dict[str, Any]) -> tuple[float, float]:
+    profile = shot_context.get("machine_profile") or {}
+    target = shot_context.get("target_total_shot_seconds") or profile.get("target_total_shot_seconds")
+
+    if isinstance(target, (list, tuple)) and len(target) >= 2:
+        low = _float_or_none(target[0])
+        high = _float_or_none(target[1])
+        if low is not None and high is not None and low < high:
+            return low, high
+
+    if isinstance(target, dict):
+        low = _float_or_none(target.get("min") or target.get("low"))
+        high = _float_or_none(target.get("max") or target.get("high"))
+        if low is not None and high is not None and low < high:
+            return low, high
+
+    return DEFAULT_TARGET_MIN_SECONDS, DEFAULT_TARGET_MAX_SECONDS
+
+
+def _timing_confidence(shot_context: dict[str, Any]) -> float:
+    confidence = shot_context.get("timing_confidence")
+    if confidence is None:
+        confidence = shot_context.get("start_confidence")
+    if confidence is None:
+        confidence = shot_context.get("stop_confidence")
+    parsed = _float_or_none(confidence)
+    return 1.0 if parsed is None else max(0.0, min(parsed, 1.0))
+
+
+def _requires_timing_confirmation(shot_context: dict[str, Any], timing_confidence: float) -> bool:
+    return bool(shot_context.get("requires_manual_confirmation")) or timing_confidence < LOW_TIMING_CONFIDENCE_THRESHOLD
+
+
+def _keep_fixed(shot_context: dict[str, Any]) -> list[str]:
+    defaults = ["dose_g", "yield_g", "puck_prep"]
+    present = [field for field in defaults if shot_context.get(field) not in (None, "")]
+    return present or defaults
+
+
+def _missing_context(shot_context: dict[str, Any]) -> list[str]:
+    important = ["machine", "grinder", "dose_g", "yield_g", "grind_setting", "roast_level", "taste"]
+    return [field for field in important if shot_context.get(field) in (None, "")]
+
+
+def _normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        return " ".join(str(item).lower() for item in value)
+    return str(value).lower()
+
+
+def _contains_any(text: str, words: set[str]) -> bool:
+    return any(word in text for word in words)
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
