@@ -25,8 +25,13 @@ SUPPORTED_AUDIO_SUFFIXES = {".wav"}
 DEFAULT_SAMPLE_RATE = 16_000
 DEFAULT_WINDOW_SECONDS = 0.25
 DEFAULT_HOP_SECONDS = 0.10
-DEFAULT_THRESHOLD_RATIO = 0.25
-DEFAULT_MIN_DURATION_SECONDS = 1.0
+DEFAULT_THRESHOLD_RATIO = 0.12
+DEFAULT_MIN_DURATION_SECONDS = 8.0
+PUMP_BAND_LOW_HZ = 80.0
+PUMP_BAND_HIGH_HZ = 1000.0
+PREFERRED_MIN_SHOT_SECONDS = 15.0
+PREFERRED_MAX_SHOT_SECONDS = 45.0
+MANUAL_CONFIRMATION_CONFIDENCE_THRESHOLD = 0.35
 
 
 @dataclass(frozen=True)
@@ -38,6 +43,8 @@ class AudioTimingResult:
     start_confidence: float
     stop_confidence: float
     audio_method: str
+    requires_manual_confirmation: bool
+    confirmation_reason: str | None
     warnings: list[str]
 
 
@@ -160,24 +167,81 @@ def compute_rms_envelope(
     hop_seconds: float = DEFAULT_HOP_SECONDS,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return frame timestamps and RMS energy values."""
+    return compute_window_features(
+        samples,
+        sample_rate,
+        window_seconds=window_seconds,
+        hop_seconds=hop_seconds,
+    )[0:2]
+
+
+def compute_window_features(
+    samples: np.ndarray,
+    sample_rate: int,
+    window_seconds: float = DEFAULT_WINDOW_SECONDS,
+    hop_seconds: float = DEFAULT_HOP_SECONDS,
+    band_low_hz: float = PUMP_BAND_LOW_HZ,
+    band_high_hz: float = PUMP_BAND_HIGH_HZ,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return timestamps plus broadband, pump-band, and high-band energies."""
     if samples.size == 0:
-        return np.array([], dtype=np.float32), np.array([], dtype=np.float32)
+        empty = np.array([], dtype=np.float32)
+        return empty, empty, empty, empty
 
     window_size = max(1, int(round(window_seconds * sample_rate)))
     hop_size = max(1, int(round(hop_seconds * sample_rate)))
 
     timestamps = []
-    energies = []
+    rms_energies = []
+    pump_band_energies = []
+    high_band_energies = []
+
+    frequency_bins = np.fft.rfftfreq(window_size, d=1.0 / sample_rate)
+    pump_mask = (frequency_bins >= band_low_hz) & (frequency_bins <= band_high_hz)
+    high_mask = frequency_bins > band_high_hz
+
     for start in range(0, max(1, samples.size - window_size + 1), hop_size):
         window = samples[start : start + window_size]
         if window.size == 0:
             continue
-        rms = float(np.sqrt(np.mean(np.square(window))))
-        center_seconds = (start + window.size / 2) / sample_rate
-        timestamps.append(center_seconds)
-        energies.append(rms)
+        if window.size < window_size:
+            window = np.pad(window, (0, window_size - window.size))
 
-    return np.array(timestamps, dtype=np.float32), np.array(energies, dtype=np.float32)
+        tapered = window * np.hanning(window_size)
+        spectrum = np.abs(np.fft.rfft(tapered)) ** 2
+        rms = float(np.sqrt(np.mean(np.square(window))))
+        pump_energy = float(np.mean(spectrum[pump_mask])) if np.any(pump_mask) else 0.0
+        high_energy = float(np.mean(spectrum[high_mask])) if np.any(high_mask) else 0.0
+        center_seconds = (start + window.size / 2) / sample_rate
+
+        timestamps.append(center_seconds)
+        rms_energies.append(rms)
+        pump_band_energies.append(np.sqrt(pump_energy))
+        high_band_energies.append(np.sqrt(high_energy))
+
+    return (
+        np.array(timestamps, dtype=np.float32),
+        np.array(rms_energies, dtype=np.float32),
+        np.array(pump_band_energies, dtype=np.float32),
+        np.array(high_band_energies, dtype=np.float32),
+    )
+
+
+def build_pump_score(
+    rms_energies: np.ndarray,
+    pump_band_energies: np.ndarray,
+    high_band_energies: np.ndarray,
+) -> np.ndarray:
+    """Score pump-like sound using band energy while down-weighting sharp noise."""
+    if rms_energies.size == 0:
+        return rms_energies
+
+    rms_norm = rms_energies / max(float(np.percentile(rms_energies, 95)), 1e-6)
+    pump_norm = pump_band_energies / max(float(np.percentile(pump_band_energies, 95)), 1e-6)
+    high_norm = high_band_energies / max(float(np.percentile(high_band_energies, 95)), 1e-6)
+    sharp_noise_penalty = np.clip(high_norm - pump_norm, 0.0, 1.0) * 0.25
+    score = 0.35 * rms_norm + 0.65 * pump_norm - sharp_noise_penalty
+    return np.clip(score, 0.0, None).astype(np.float32)
 
 
 def smooth_energy(energies: np.ndarray, width: int = 5) -> np.ndarray:
@@ -188,21 +252,125 @@ def smooth_energy(energies: np.ndarray, width: int = 5) -> np.ndarray:
     return np.convolve(energies, kernel, mode="same")
 
 
-def _longest_true_run(mask: Sequence[bool], min_frames: int) -> tuple[int, int] | None:
-    best = None
-    best_len = 0
+def _true_runs(mask: Sequence[bool], min_frames: int) -> list[tuple[int, int]]:
+    runs = []
     start = None
     for index, active in enumerate(mask):
         if active and start is None:
             start = index
         if (not active or index == len(mask) - 1) and start is not None:
             end = index if active and index == len(mask) - 1 else index - 1
-            run_len = end - start + 1
-            if run_len >= min_frames and run_len > best_len:
-                best = (start, end)
-                best_len = run_len
+            if end - start + 1 >= min_frames:
+                runs.append((start, end))
             start = None
-    return best
+    return runs
+
+
+def _fill_short_false_gaps(mask: np.ndarray, max_gap_frames: int) -> np.ndarray:
+    if max_gap_frames <= 0 or mask.size == 0:
+        return mask
+
+    filled = mask.copy()
+    index = 0
+    while index < filled.size:
+        if filled[index]:
+            index += 1
+            continue
+
+        gap_start = index
+        while index < filled.size and not filled[index]:
+            index += 1
+        gap_end = index - 1
+        gap_len = gap_end - gap_start + 1
+        has_active_before = gap_start > 0 and filled[gap_start - 1]
+        has_active_after = index < filled.size and filled[index]
+        if has_active_before and has_active_after and gap_len <= max_gap_frames:
+            filled[gap_start : gap_end + 1] = True
+
+    return filled
+
+
+def _rolling_stability(values: np.ndarray, width: int = 15) -> np.ndarray:
+    if values.size == 0:
+        return values
+
+    stability = np.zeros(values.size, dtype=np.float32)
+    half_width = max(1, width // 2)
+    for index in range(values.size):
+        start = max(0, index - half_width)
+        stop = min(values.size, index + half_width + 1)
+        window = values[start:stop]
+        mean = float(np.mean(window))
+        std = float(np.std(window))
+        stability[index] = 1.0 - min(std / max(mean, 1e-6), 1.0)
+    return stability
+
+
+def _refine_pump_start(
+    start_index: int,
+    stop_index: int,
+    smoothed: np.ndarray,
+    stability: np.ndarray,
+    baseline: float,
+    dynamic_range: float,
+    hop_seconds: float,
+) -> tuple[int, bool]:
+    duration_seconds = (stop_index - start_index) * hop_seconds
+    if duration_seconds < 38.0:
+        return start_index, False
+
+    max_shift_frames = max(1, int(round(8.0 / hop_seconds)))
+    sustained_frames = max(1, int(round(2.5 / hop_seconds)))
+    search_stop = min(stop_index - sustained_frames + 1, start_index + max_shift_frames)
+    if search_stop <= start_index:
+        return start_index, False
+
+    strong_threshold = baseline + dynamic_range * 0.30
+    steady_threshold = 0.58
+    for candidate_start in range(start_index, search_stop + 1):
+        window = smoothed[candidate_start : candidate_start + sustained_frames]
+        steady_window = stability[candidate_start : candidate_start + sustained_frames]
+        strong_ratio = float(np.mean(window >= strong_threshold))
+        steady_ratio = float(np.mean(steady_window >= steady_threshold))
+        if strong_ratio >= 0.75 and steady_ratio >= 0.55:
+            shifted_seconds = (candidate_start - start_index) * hop_seconds
+            if shifted_seconds >= 1.5:
+                return candidate_start, True
+            return start_index, False
+
+    return start_index, False
+
+
+def _score_candidate_run(
+    start_index: int,
+    stop_index: int,
+    timestamps: np.ndarray,
+    energies: np.ndarray,
+    baseline: float,
+) -> float:
+    start_time = float(timestamps[start_index])
+    stop_time = float(timestamps[stop_index])
+    duration = max(0.0, stop_time - start_time)
+    mean_energy = float(np.mean(energies[start_index : stop_index + 1]))
+    contrast = max(0.0, mean_energy - baseline) / max(mean_energy, 1e-6)
+
+    ideal_duration = 32.0
+    if PREFERRED_MIN_SHOT_SECONDS <= duration <= PREFERRED_MAX_SHOT_SECONDS:
+        duration_score = 1.0 - min(abs(duration - ideal_duration), 15.0) / 30.0
+    else:
+        nearest = (
+            PREFERRED_MIN_SHOT_SECONDS
+            if duration < PREFERRED_MIN_SHOT_SECONDS
+            else PREFERRED_MAX_SHOT_SECONDS
+        )
+        duration_score = max(0.0, 0.5 - abs(duration - nearest) / nearest)
+
+    duration_ratio = min(duration / PREFERRED_MAX_SHOT_SECONDS, 1.0)
+    early_score = max(0.0, 1.0 - start_time / max(float(timestamps[-1]), 1.0))
+
+    # The MVP cares most about total machine run time. Prefer plausible full-shot
+    # windows over short loud fragments, with energy as a tie-breaker.
+    return duration_score * 4.0 + duration_ratio * 1.25 + contrast * 0.5 + early_score * 0.2
 
 
 def detect_machine_window(
@@ -211,44 +379,94 @@ def detect_machine_window(
     hop_seconds: float = DEFAULT_HOP_SECONDS,
     threshold_ratio: float = DEFAULT_THRESHOLD_RATIO,
     min_duration_seconds: float = DEFAULT_MIN_DURATION_SECONDS,
-) -> tuple[float | None, float | None, float, float, list[str]]:
+) -> tuple[float | None, float | None, float, float, bool, str | None, list[str]]:
     """Detect the sustained high-energy machine/pump window."""
     warnings: list[str] = []
     if timestamps.size == 0 or energies.size == 0:
-        return None, None, 0.0, 0.0, ["No audio samples were available."]
+        return None, None, 0.0, 0.0, True, "No audio samples were available.", ["No audio samples were available."]
 
     smoothed = smooth_energy(energies)
+    stability = _rolling_stability(smoothed)
     max_energy = float(np.max(smoothed))
     baseline_count = max(3, min(int(round(2.0 / hop_seconds)), smoothed.size // 5 or 1))
     baseline = float(np.median(smoothed[:baseline_count]))
     dynamic_range = max_energy - baseline
 
     if dynamic_range <= 1e-4:
-        return None, None, 0.0, 0.0, ["Audio energy did not change enough to detect machine timing."]
+        return None, None, 0.0, 0.0, True, "Audio energy did not change enough to detect machine timing.", ["Audio energy did not change enough to detect machine timing."]
 
-    threshold = baseline + dynamic_range * threshold_ratio
-    active_mask = smoothed >= threshold
     min_frames = max(1, int(round(min_duration_seconds / hop_seconds)))
-    run = _longest_true_run(active_mask.tolist(), min_frames)
-    if run is None:
-        return None, None, 0.0, 0.0, ["No sustained machine-sound window was detected."]
+    max_gap_frames = max(1, int(round(1.5 / hop_seconds)))
+    threshold_ratios = sorted({threshold_ratio, 0.05, 0.08, 0.12, 0.18, 0.25, 0.35})
 
-    start_index, stop_index = run
+    candidates: list[tuple[float, int, int, float]] = []
+    for candidate_ratio in threshold_ratios:
+        threshold = baseline + dynamic_range * candidate_ratio
+        active_mask = _fill_short_false_gaps(smoothed >= threshold, max_gap_frames)
+        for start_index, stop_index in _true_runs(active_mask.tolist(), min_frames):
+            score = _score_candidate_run(
+                start_index,
+                stop_index,
+                timestamps,
+                smoothed,
+                baseline,
+            )
+            candidates.append((score, start_index, stop_index, candidate_ratio))
+
+    if not candidates:
+        return None, None, 0.0, 0.0, True, "No sustained machine-sound window was detected.", ["No sustained machine-sound window was detected."]
+
+    _, start_index, stop_index, selected_ratio = max(candidates, key=lambda item: item[0])
+    refined_start_index, prep_noise_shifted = _refine_pump_start(
+        start_index,
+        stop_index,
+        smoothed,
+        stability,
+        baseline,
+        dynamic_range,
+        hop_seconds,
+    )
+    start_index = refined_start_index
     start_time = float(timestamps[start_index])
     stop_time = float(timestamps[stop_index])
-    confidence = min(1.0, dynamic_range / max(max_energy, 1e-6))
+    selected_mean = float(np.mean(smoothed[start_index : stop_index + 1]))
+    confidence = min(1.0, max(0.0, selected_mean - baseline) / max(selected_mean, 1e-6))
+    stability_mean = float(np.mean(stability[start_index : stop_index + 1]))
 
+    if prep_noise_shifted:
+        warnings.append("Ignored likely prep noise before sustained pump sound.")
+    if selected_ratio <= 0.1:
+        warnings.append("Audio threshold was low; ask the user to confirm timing.")
+    if stability_mean < 0.45:
+        warnings.append("Pump sound was not very stable; ask the user to confirm timing.")
     if confidence < 0.35:
         warnings.append("Audio confidence is low; ask the user to confirm timing.")
     if stop_time <= start_time:
         warnings.append("Detected stop time was not after start time.")
-        return None, None, confidence, confidence, warnings
+        return (
+            None,
+            None,
+            confidence,
+            confidence,
+            True,
+            "Detected stop time was not after start time.",
+            warnings,
+        )
+
+    requires_manual_confirmation = confidence < MANUAL_CONFIRMATION_CONFIDENCE_THRESHOLD
+    confirmation_reason = (
+        "Audio confidence is low; user should confirm or adjust timing."
+        if requires_manual_confirmation
+        else None
+    )
 
     return (
         round(start_time, 2),
         round(stop_time, 2),
         round(confidence, 2),
         round(confidence, 2),
+        requires_manual_confirmation,
+        confirmation_reason,
         warnings,
     )
 
@@ -256,10 +474,19 @@ def detect_machine_window(
 def analyze_wav(wav_path: Path) -> AudioTimingResult:
     """Analyze one WAV file and return machine timing."""
     samples, sample_rate = read_wav_mono(wav_path)
-    timestamps, energies = compute_rms_envelope(samples, sample_rate)
-    start, stop, start_conf, stop_conf, warnings = detect_machine_window(
+    timestamps, rms, pump_band, high_band = compute_window_features(samples, sample_rate)
+    pump_score = build_pump_score(rms, pump_band, high_band)
+    (
+        start,
+        stop,
+        start_conf,
+        stop_conf,
+        requires_manual_confirmation,
+        confirmation_reason,
+        warnings,
+    ) = detect_machine_window(
         timestamps,
-        energies,
+        pump_score,
     )
     total = round(stop - start, 2) if start is not None and stop is not None else None
     return AudioTimingResult(
@@ -270,6 +497,8 @@ def analyze_wav(wav_path: Path) -> AudioTimingResult:
         start_confidence=start_conf,
         stop_confidence=stop_conf,
         audio_method="heuristic_energy",
+        requires_manual_confirmation=requires_manual_confirmation,
+        confirmation_reason=confirmation_reason,
         warnings=warnings,
     )
 
@@ -291,6 +520,8 @@ def analyze_media(media_path: Path) -> AudioTimingResult:
             start_confidence=result.start_confidence,
             stop_confidence=result.stop_confidence,
             audio_method=result.audio_method,
+            requires_manual_confirmation=result.requires_manual_confirmation,
+            confirmation_reason=result.confirmation_reason,
             warnings=result.warnings,
         )
 
