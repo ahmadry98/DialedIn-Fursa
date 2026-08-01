@@ -50,6 +50,28 @@ export function ShotResult({
         ) : null}
         <p className="reason">{result.recommendation.reason}</p>
 
+        {result.recommendation.calculation_explanation?.length ? (
+          <div className="explanation-block" aria-label="Calculation explanation">
+            <h3>Why this setting</h3>
+            <ul>
+              {result.recommendation.calculation_explanation.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {result.recommendation.confidence_reasons?.length ? (
+          <div className="explanation-block muted-block" aria-label="Recommendation confidence details">
+            <h3>Confidence</h3>
+            <ul>
+              {result.recommendation.confidence_reasons.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="detail-row">
           <span>Target</span>
           <strong>

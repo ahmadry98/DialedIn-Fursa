@@ -218,6 +218,30 @@ h2 {
   accent-color: var(--accent);
 }
 
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f6f7f3;
+  padding: 4px;
+}
+
+.segmented-control button {
+  min-height: 36px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.segmented-control button.active {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 1px 4px rgba(32, 37, 31, 0.08);
+}
+
 input:disabled {
   background: var(--surface-muted);
   color: var(--muted);
@@ -371,6 +395,22 @@ input:disabled {
   font-weight: 650;
 }
 
+.timing-warning {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  border: 1px solid rgba(154, 101, 23, 0.25);
+  border-radius: 6px;
+  background: rgba(154, 101, 23, 0.1);
+  color: #74480f;
+  padding: 12px;
+  line-height: 1.35;
+}
+
+.timing-warning strong {
+  color: var(--amber);
+}
+
 .recommendation-action {
   font-size: clamp(1.55rem, 3vw, 2.2rem);
   line-height: 1.05;
@@ -410,6 +450,34 @@ input:disabled {
   margin-top: 10px;
   color: #3b4438;
   line-height: 1.5;
+}
+
+.explanation-block {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfcfa;
+  padding: 12px;
+}
+
+.explanation-block h3 {
+  margin: 0 0 8px;
+  color: #333b31;
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.explanation-block ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: #4d574a;
+  line-height: 1.4;
+}
+
+.muted-block {
+  background: #f6f7f3;
 }
 
 .detail-row {

@@ -49,7 +49,7 @@ The system calculates:
 - `machine_stop_time`: point where sustained pump/machine sound ends.
 - `total_shot_seconds`: `machine_stop_time - machine_start_time`.
 
-The response reports whether timing came from automatic audio detection or manual correction. If confidence is low, the frontend lets the user correct start and stop times and re-run recommendation from confirmed timing.
+The response reports whether timing came from automatic audio detection, manual total-time entry, or manual correction. If confidence is low, the frontend shows a clear warning, lets the user correct start and stop times, and re-runs recommendation from confirmed timing.
 
 The MVP does not calculate `first_flow_time`, `startup_delay_seconds`, or `visible_flow_seconds`. Those are future visual-analysis improvements.
 
@@ -157,9 +157,11 @@ Each grinder profile includes:
 - `espresso_range`
 - `data_confidence`
 - `notes`
+- `seconds_per_small_step_estimate`
+- `max_recommended_small_steps`
 - `source_urls`
 
-When the grinder is known, the app validates settings and calculates the next setting. When unknown, it uses `Generic Numeric Grinder` as a conservative fallback. Built-in grinders are represented by `uses_built_in_grinder=true`; they use generic numeric logic until a machine-specific built-in grinder profile is verified.
+When the grinder is known, the app validates settings and calculates the next setting. The exact-setting calculation uses the shot-time gap plus `seconds_per_small_step_estimate` when the grinder profile has one. For example, if a shot is 10 seconds fast and the grinder estimate is 2.5 seconds per small step, the app recommends about 4 small steps finer and converts that into the grinder's numeric setting. When unknown, it uses `Generic Numeric Grinder` as a conservative fallback. Built-in grinders are represented by `uses_built_in_grinder=true`; they use generic numeric logic until a machine-specific built-in grinder profile is verified.
 
 ## 10. Built-In Grinder Handling
 
@@ -211,7 +213,7 @@ The recommendation engine is deterministic and explainable:
 - Bitter, harsh, dry: usually over-extraction.
 - Channeling/spraying: fix puck prep before changing grind.
 
-The app recommends one primary next change and lists what to keep fixed. Yield is optional because many users do not weigh output, but recommendations improve when yield is available.
+The app recommends one primary next change and lists what to keep fixed. When it calculates an exact grinder setting, it also explains the timing gap, grinder sensitivity estimate, estimated number of small steps, and recommendation confidence reasons. Yield is optional because many users do not weigh output, but recommendations improve when yield is available.
 
 ## 13. Agent System Prompt
 

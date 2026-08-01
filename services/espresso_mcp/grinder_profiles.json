@@ -11,6 +11,8 @@
     "small_step": 0.1,
     "medium_step": 0.2,
     "large_step": 0.3,
+    "seconds_per_small_step_estimate": 2.8,
+    "max_recommended_small_steps": 6,
     "min_setting": 0.0,
     "max_setting": 6.0,
     "espresso_range": [
@@ -18,7 +20,7 @@
       2.5
     ],
     "data_confidence": "C",
-    "notes": "Use small decimal changes for espresso and keep dose/yield fixed. Range is a conservative working estimate until more user data is collected.",
+    "notes": "Use small decimal changes for espresso and keep dose/yield fixed. Range is a conservative working estimate until more user data is collected. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders",
       "https://www.variabrewing.com/products/varia-vs6-grinder"
@@ -43,10 +45,12 @@
       5.0
     ],
     "data_confidence": "B",
-    "notes": "Varia lists espresso around setting 4 and filter around setting 10, so lower numbers are finer. Use small changes.",
+    "notes": "Varia lists espresso around setting 4 and filter around setting 10, so lower numbers are finer. Use small changes. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://www.variabrewing.com/products/varia-vs3-grinder"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 6
   },
   {
     "grinder_name": "Baratza Encore ESP",
@@ -67,11 +71,13 @@
       18
     ],
     "data_confidence": "B",
-    "notes": "Settings 1-20 are the fine espresso range; purge after changes because retention can mix old and new grind sizes.",
+    "notes": "Settings 1-20 are the fine espresso range; purge after changes because retention can mix old and new grind sizes. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/baratza-encore-esp",
       "https://shell.baratza.com/product/encoretm-esp-zcg495"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 6
   },
   {
     "grinder_name": "Baratza Sette 270",
@@ -93,10 +99,12 @@
       86
     ],
     "data_confidence": "B",
-    "notes": "Profile uses a linearized macro+micro setting. Shim count can shift the real espresso range a lot.",
+    "notes": "Profile uses a linearized macro+micro setting. Shim count can shift the real espresso range a lot. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/baratza-sette-270"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.0,
+    "max_recommended_small_steps": 10
   },
   {
     "grinder_name": "Breville Barista Express Built-in Grinder",
@@ -119,10 +127,12 @@
       8
     ],
     "data_confidence": "B",
-    "notes": "Outer dial steps are large. If one setting is too fast and the next is too slow, adjust dose slightly or use the inner burr setting.",
+    "notes": "Outer dial steps are large. If one setting is too fast and the next is too slow, adjust dose slightly or use the inner burr setting. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/breville-barista-express-bes870"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 4.0,
+    "max_recommended_small_steps": 3
   },
   {
     "grinder_name": "Breville Smart Grinder Pro",
@@ -145,11 +155,13 @@
       15
     ],
     "data_confidence": "B",
-    "notes": "The internal upper burr ring shifts the whole range finer or coarser; record that calibration if users know it.",
+    "notes": "The internal upper burr ring shifts the whole range finer or coarser; record that calibration if users know it. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/breville-smart-grinder-pro",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 3.0,
+    "max_recommended_small_steps": 5
   },
   {
     "grinder_name": "Comandante C40 MK4 Nitro Blade",
@@ -172,11 +184,13 @@
       24
     ],
     "data_confidence": "B",
-    "notes": "Profile assumes Red Clix clicks from zero. Standard axle settings are roughly half the Red Clix count.",
+    "notes": "Profile assumes Red Clix clicks from zero. Standard axle settings are roughly half the Red Clix count. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/comandante-c40-mk4-nitro-blade",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 3.5,
+    "max_recommended_small_steps": 4
   },
   {
     "grinder_name": "Eureka Mignon Specialita",
@@ -198,11 +212,13 @@
       3.5
     ],
     "data_confidence": "C",
-    "notes": "Dial zero varies by unit. Count from your burr-touch point and make very small changes; clockwise is finer.",
+    "notes": "Dial zero varies by unit. Count from your burr-touch point and make very small changes; clockwise is finer. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/eureka-mignon-specialita",
       "https://www.seattlecoffeegear.com/pages/product-resources/eureka-mignon-specialita-espresso-grinder-product-guide"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 0.5,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Eureka Mignon Silenzio",
@@ -223,11 +239,14 @@
       3.5
     ],
     "data_confidence": "B",
-    "notes": "Same Mignon-style stepless dial behavior: count from your own zero point and make small changes.",
+    "notes": "Same Mignon-style stepless dial behavior: count from your own zero point and make small changes. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
+      "https://grinddial.com/grinders/eureka-mignon-silenzio",
       "https://grinddial.com/grinders",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 0.45,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Eureka Mignon Notte",
@@ -248,10 +267,13 @@
       3.5
     ],
     "data_confidence": "C",
-    "notes": "Use the same Mignon relative-dial model. Exact shared numbers are weak because each unit zero point differs.",
+    "notes": "Use the same Mignon relative-dial model. Exact shared numbers are weak because each unit zero point differs. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
+      "https://grinddial.com/grinders/eureka-mignon-notte",
       "https://grinddial.com/grinders"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 0.45,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Niche Zero",
@@ -271,11 +293,13 @@
       21
     ],
     "data_confidence": "A",
-    "notes": "The espresso range is sensitive; small fractions of a mark can matter. Calibrate zero after cleaning.",
+    "notes": "The espresso range is sensitive; small fractions of a mark can matter. Calibrate zero after cleaning. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/niche-zero",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 4
   },
   {
     "grinder_name": "Turin DF64",
@@ -298,11 +322,13 @@
       19
     ],
     "data_confidence": "C",
-    "notes": "Count marks from your own burr-touch point. Burr swaps and mods can shift the range substantially.",
+    "notes": "Count marks from your own burr-touch point. Burr swaps and mods can shift the range substantially. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/turin-df64-df64",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.25,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Turin DF64 Gen 2",
@@ -324,10 +350,12 @@
       17
     ],
     "data_confidence": "C",
-    "notes": "Gen 2 ranges are commonly a little finer on the dial than older DF64 references. Count from your burr-touch point.",
+    "notes": "Gen 2 ranges are commonly a little finer on the dial than older DF64 references. Count from your burr-touch point. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.25,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Turin DF54",
@@ -348,11 +376,13 @@
       20
     ],
     "data_confidence": "C",
-    "notes": "Uses a DF-style relative dial. Exact range should improve from user calibration data.",
+    "notes": "Uses a DF-style relative dial. Exact range should improve from user calibration data. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.25,
+    "max_recommended_small_steps": 8
   },
   {
     "grinder_name": "Timemore Sculptor 064S",
@@ -374,10 +404,12 @@
       3
     ],
     "data_confidence": "C",
-    "notes": "Coffee Chronicler lists espresso around 1-3 on the dial. Use small changes.",
+    "notes": "Coffee Chronicler lists espresso around 1-3 on the dial. Use small changes. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.2,
+    "max_recommended_small_steps": 6
   },
   {
     "grinder_name": "Timemore Chestnut C2",
@@ -398,10 +430,12 @@
       8
     ],
     "data_confidence": "C",
-    "notes": "Entry-level hand grinder with limited espresso resolution; one click can be a large change.",
+    "notes": "Entry-level hand grinder with limited espresso resolution; one click can be a large change. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 4.0,
+    "max_recommended_small_steps": 3
   },
   {
     "grinder_name": "Timemore Chestnut C3",
@@ -422,10 +456,12 @@
       9
     ],
     "data_confidence": "C",
-    "notes": "Use cautious one-click changes; espresso resolution is limited compared with espresso-focused grinders.",
+    "notes": "Use cautious one-click changes; espresso resolution is limited compared with espresso-focused grinders. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 3.5,
+    "max_recommended_small_steps": 3
   },
   {
     "grinder_name": "1Zpresso JX-Pro",
@@ -447,11 +483,13 @@
       83
     ],
     "data_confidence": "B",
-    "notes": "Profile uses total clicks from zero. If users enter rotation notation, convert it before calculating.",
+    "notes": "Profile uses total clicks from zero. If users enter rotation notation, convert it before calculating. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://grinddial.com/grinders/1zpresso-jx-pro",
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 1.0,
+    "max_recommended_small_steps": 10
   },
   {
     "grinder_name": "1Zpresso JX",
@@ -471,10 +509,12 @@
       24
     ],
     "data_confidence": "C",
-    "notes": "Coffee Chronicler gives an espresso starting point around 24 clicks for first-gen JX.",
+    "notes": "Coffee Chronicler gives an espresso starting point around 24 clicks for first-gen JX. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 4
   },
   {
     "grinder_name": "1Zpresso K-Ultra",
@@ -496,10 +536,12 @@
       2.5
     ],
     "data_confidence": "C",
-    "notes": "Profile uses the adjustment dial number from zero; Coffee Chronicler lists espresso around 2.2-2.5.",
+    "notes": "Profile uses the adjustment dial number from zero; Coffee Chronicler lists espresso around 2.2-2.5. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 4
   },
   {
     "grinder_name": "Rancilio Rocky",
@@ -520,10 +562,12 @@
       5
     ],
     "data_confidence": "C",
-    "notes": "Coffee Chronicler gives espresso around 5. Treat as a starting point, not a transferable exact setting.",
+    "notes": "Coffee Chronicler gives espresso around 5. Treat as a starting point, not a transferable exact setting. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 4.0,
+    "max_recommended_small_steps": 3
   },
   {
     "grinder_name": "Flair Royal",
@@ -543,10 +587,12 @@
       7
     ],
     "data_confidence": "C",
-    "notes": "Coffee Chronicler lists espresso around 5-7.",
+    "notes": "Coffee Chronicler lists espresso around 5-7. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 3.0,
+    "max_recommended_small_steps": 4
   },
   {
     "grinder_name": "Kinu M47",
@@ -568,10 +614,12 @@
       1.5
     ],
     "data_confidence": "C",
-    "notes": "Coffee Chronicler lists Kinu M47 espresso around 0.9 and Phoenix around 1.5 rotations.",
+    "notes": "Coffee Chronicler lists Kinu M47 espresso around 0.9 and Phoenix around 1.5 rotations. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": [
       "https://coffeechronicler.com/grind-size-chart/"
-    ]
+    ],
+    "seconds_per_small_step_estimate": 2.0,
+    "max_recommended_small_steps": 5
   },
   {
     "grinder_name": "Generic Numeric Grinder",
@@ -585,36 +633,40 @@
     "small_step": 1,
     "medium_step": 2,
     "large_step": 3,
+    "seconds_per_small_step_estimate": 2.5,
+    "max_recommended_small_steps": 6,
     "min_setting": null,
     "max_setting": null,
     "espresso_range": null,
     "data_confidence": "D",
-    "notes": "Fallback assumes lower numbers are finer. Confirm direction for the user's grinder.",
+    "notes": "Fallback assumes lower numbers are finer. Confirm direction for the user's grinder. Shot-time step estimate is conservative and should be refined with user calibration history.",
     "source_urls": []
   },
   {
-  "grinder_name": "KINGrinder K6",
-  "aliases": [
-    "kingrinder k6",
-    "king grinder k6",
-    "k6"
-  ],
-  "setting_type": "numeric_integer",
-  "lower_is_finer": true,
-  "small_step": 1,
-  "medium_step": 3,
-  "large_step": 6,
-  "min_setting": 0,
-  "max_setting": 240,
-  "espresso_range": [
-    25,
-    60
-  ],
-  "data_confidence": "B",
-  "notes": "Settings represent clicks counter-clockwise from the grinder's true zero point. The printed zero on the adjustment ring may not correspond to true burr zero. KINGrinder's official chart places the K6 extra-fine range at approximately 15 to 25 clicks and the fine range at approximately 25 to 60 clicks, so 25 to 60 is used as the conservative espresso dial-in range. Start near 35 to 40 clicks for a conventional medium-roast espresso and adjust by 1 to 3 clicks. Turn clockwise for finer and counter-clockwise for coarser. The grinder has 60 clicks per rotation and supports approximately four rotations.",
-  "source_urls": [
-    "https://www.kingrinder.com/",
-    "https://www.kingrinder.com/blog/gs-exterior"
-  ]
-}
+    "grinder_name": "KINGrinder K6",
+    "aliases": [
+      "kingrinder k6",
+      "king grinder k6",
+      "k6"
+    ],
+    "setting_type": "numeric_integer",
+    "lower_is_finer": true,
+    "small_step": 1,
+    "medium_step": 3,
+    "large_step": 6,
+    "seconds_per_small_step_estimate": 2.0,
+    "max_recommended_small_steps": 8,
+    "min_setting": 0,
+    "max_setting": 240,
+    "espresso_range": [
+      25,
+      60
+    ],
+    "data_confidence": "B",
+    "notes": "Settings represent clicks counter-clockwise from the grinder's true zero point. The printed zero on the adjustment ring may not correspond to true burr zero. KINGrinder's official chart places the K6 extra-fine range at approximately 15 to 25 clicks and the fine range at approximately 25 to 60 clicks, so 25 to 60 is used as the conservative espresso dial-in range. Start near 35 to 40 clicks for a conventional medium-roast espresso and adjust by 1 to 3 clicks. Turn clockwise for finer and counter-clockwise for coarser. The grinder has 60 clicks per rotation and supports approximately four rotations. Shot-time step estimate is conservative and should be refined with user calibration history.",
+    "source_urls": [
+      "https://www.kingrinder.com/",
+      "https://www.kingrinder.com/blog/gs-exterior"
+    ]
+  }
 ]

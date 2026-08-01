@@ -23,10 +23,32 @@ class RecommendationRulesTest(unittest.TestCase):
         )
 
         self.assertEqual(result["recommendation"], "grind_finer")
-        self.assertEqual(result["adjustment"], "try grind setting 1.6 next (finer)")
-        self.assertEqual(result["exact_grind_setting"]["suggested_setting"], 1.6)
+        self.assertEqual(result["adjustment"], "try grind setting 1.5 next (about 3 small steps finer)")
+        self.assertEqual(result["exact_grind_setting"]["suggested_setting"], 1.5)
         self.assertEqual(result["confidence"], "high")
         self.assertIn("dose_g", result["keep_fixed"])
+
+    def test_very_fast_shot_uses_large_exact_grinder_step(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 14,
+                "taste": "sour",
+                "timing_confidence": 0.9,
+                "dose_g": 18,
+                "yield_g": 36,
+                "grinder": "Varia VS6",
+                "grind_setting": "1.8",
+                "machine_profile": {"target_total_shot_seconds": [25, 32]},
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_finer")
+        self.assertEqual(result["exact_grind_setting"]["adjustment_size"], "large")
+        self.assertEqual(result["exact_grind_setting"]["suggested_setting"], 1.4)
+        self.assertEqual(result["adjustment"], "try grind setting 1.4 next (about 4 small steps finer)")
+        self.assertTrue(any("11s outside" in item for item in result["calculation_explanation"]))
+        self.assertTrue(any("about 2.8s per small grind step" in item for item in result["calculation_explanation"]))
+        self.assertTrue(any("Known grinder profile used: Varia VS6" in item for item in result["confidence_reasons"]))
 
     def test_fast_channeling_shot_recommends_puck_prep_first(self):
         result = recommend_grind_adjustment(
@@ -52,7 +74,7 @@ class RecommendationRulesTest(unittest.TestCase):
         )
 
         self.assertEqual(result["recommendation"], "grind_coarser")
-        self.assertEqual(result["adjustment"], "try grind setting 2.1 next (coarser)")
+        self.assertEqual(result["adjustment"], "try grind setting 2.2 next (about 4 small steps coarser)")
 
     def test_normal_sour_shot_recommends_more_extraction(self):
         result = recommend_grind_adjustment(
