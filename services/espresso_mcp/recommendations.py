@@ -6,7 +6,7 @@ shot timing plus optional taste/yield context and receive one next action.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 try:  # Support both package imports and direct test imports.
@@ -58,6 +58,8 @@ class RecommendationResult:
     needs_more_info: list[str]
     target_range_seconds: tuple[float, float]
     exact_grind_setting: dict[str, Any] | None = None
+    calculation_explanation: list[str] = field(default_factory=list)
+    confidence_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -109,9 +111,10 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
         reason = "Shot ran faster than the target range."
         if _contains_any(taste_text, UNDER_EXTRACTED_TASTE_WORDS):
             reason += " Sour, watery, or thin taste also points toward under-extraction."
+        adjustment = _timing_gap_adjustment_text("finer", total, target_min, target_max)
         return _with_exact_setting(RecommendationResult(
             recommendation="grind_finer",
-            adjustment="move 1-2 grinder steps finer",
+            adjustment=adjustment,
             reason=reason,
             confidence="high" if timing_confidence >= 0.6 else "medium",
             keep_fixed=keep_fixed,
@@ -123,9 +126,10 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
         reason = "Shot ran slower than the target range."
         if _contains_any(taste_text, OVER_EXTRACTED_TASTE_WORDS):
             reason += " Bitter, harsh, or dry taste also points toward over-extraction."
+        adjustment = _timing_gap_adjustment_text("coarser", total, target_min, target_max)
         return _with_exact_setting(RecommendationResult(
             recommendation="grind_coarser",
-            adjustment="move 1-2 grinder steps coarser",
+            adjustment=adjustment,
             reason=reason,
             confidence="high" if timing_confidence >= 0.6 else "medium",
             keep_fixed=keep_fixed,
@@ -206,12 +210,80 @@ def _with_exact_setting(result: RecommendationResult, shot_context: dict[str, An
         target_range_seconds=result.target_range_seconds,
     )
     suggested = exact_setting.get("setting_label")
+    confidence_reasons = _confidence_reasons(shot_context, exact_setting, result.needs_more_info)
     if suggested is None:
-        return RecommendationResult(**{**asdict(result), "exact_grind_setting": exact_setting})
+        return RecommendationResult(**{
+            **asdict(result),
+            "exact_grind_setting": exact_setting,
+            "confidence_reasons": confidence_reasons,
+        })
 
     direction = "finer" if result.recommendation == "grind_finer" else "coarser"
-    adjustment = f"try grind setting {suggested} next ({direction})"
-    return RecommendationResult(**{**asdict(result), "adjustment": adjustment, "exact_grind_setting": exact_setting})
+    estimated_steps = exact_setting.get("estimated_small_steps")
+    if estimated_steps:
+        step_word = "step" if estimated_steps == 1 else "steps"
+        adjustment_detail = f"about {estimated_steps} small {step_word} {direction}"
+    else:
+        size = exact_setting.get("adjustment_size")
+        size_text = f"{size} move " if size else ""
+        adjustment_detail = f"{size_text}{direction}"
+    adjustment = f"try grind setting {suggested} next ({adjustment_detail})"
+    return RecommendationResult(**{
+        **asdict(result),
+        "adjustment": adjustment,
+        "exact_grind_setting": exact_setting,
+        "calculation_explanation": _exact_setting_explanation(exact_setting, result.target_range_seconds),
+        "confidence_reasons": confidence_reasons,
+    })
+
+
+def _exact_setting_explanation(exact_setting: dict[str, Any], target_range_seconds: tuple[float, float]) -> list[str]:
+    explanation: list[str] = []
+    current = exact_setting.get("current_setting")
+    suggested = exact_setting.get("setting_label")
+    seconds_gap = exact_setting.get("seconds_gap")
+    estimated_steps = exact_setting.get("estimated_small_steps")
+    seconds_per_step = exact_setting.get("seconds_per_small_step_estimate")
+    grinder_profile = exact_setting.get("grinder_profile") or {}
+    grinder_name = grinder_profile.get("grinder_name") or "grinder profile"
+
+    if seconds_gap is not None:
+        explanation.append(
+            f"Shot was {seconds_gap:g}s outside the {target_range_seconds[0]:g}-{target_range_seconds[1]:g}s target range."
+        )
+    if seconds_per_step is not None and estimated_steps is not None:
+        explanation.append(
+            f"{grinder_name} is estimated at about {seconds_per_step:g}s per small grind step, so this uses about {estimated_steps} small steps."
+        )
+    if current not in (None, "") and suggested is not None:
+        explanation.append(f"Current setting {current} becomes suggested setting {suggested}.")
+    return explanation
+
+
+def _confidence_reasons(
+    shot_context: dict[str, Any],
+    exact_setting: dict[str, Any] | None,
+    needs_more_info: list[str],
+) -> list[str]:
+    reasons: list[str] = []
+    timing = _timing_confidence(shot_context)
+    reasons.append(f"Timing confidence is {timing * 100:.0f}%.")
+
+    if exact_setting:
+        profile = exact_setting.get("grinder_profile") or {}
+        grinder_name = profile.get("grinder_name")
+        if grinder_name == grinder_profiles.GENERIC_GRINDER_NAME:
+            reasons.append("Generic grinder profile used, so the exact setting is a conservative estimate.")
+        elif grinder_name:
+            reasons.append(f"Known grinder profile used: {grinder_name}.")
+        if exact_setting.get("seconds_per_small_step_estimate") is not None:
+            reasons.append("Adjustment size uses estimated grinder sensitivity, not personal shot history yet.")
+
+    if needs_more_info:
+        reasons.append("Missing context may reduce recommendation confidence: " + ", ".join(needs_more_info) + ".")
+    else:
+        reasons.append("Core shot context is complete.")
+    return reasons
 
 
 def _timing_confidence(shot_context: dict[str, Any]) -> float:
@@ -226,6 +298,17 @@ def _timing_confidence(shot_context: dict[str, Any]) -> float:
 
 def _requires_timing_confirmation(shot_context: dict[str, Any], timing_confidence: float) -> bool:
     return bool(shot_context.get("requires_manual_confirmation")) or timing_confidence < LOW_TIMING_CONFIDENCE_THRESHOLD
+
+
+def _timing_gap_adjustment_text(direction: str, total: float, target_min: float, target_max: float) -> str:
+    gap = target_min - total if total < target_min else total - target_max
+    if gap >= 10:
+        size = "large"
+    elif gap >= 5:
+        size = "medium"
+    else:
+        size = "small"
+    return f"make a {size} grind adjustment {direction}"
 
 
 def _keep_fixed(shot_context: dict[str, Any]) -> list[str]:

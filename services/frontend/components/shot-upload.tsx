@@ -26,6 +26,8 @@ type FormState = {
   grind_setting: string;
   roast_level: string;
   taste: string;
+  timing_mode: "video" | "manual";
+  total_shot_seconds: string;
 };
 
 const initialForm: FormState = {
@@ -39,6 +41,8 @@ const initialForm: FormState = {
   grind_setting: "",
   roast_level: "",
   taste: "",
+  timing_mode: "video",
+  total_shot_seconds: "",
 };
 
 export function ShotUpload() {
@@ -61,8 +65,13 @@ export function ShotUpload() {
     event.preventDefault();
     const payload = buildPayload({ ...form, uses_built_in_grinder: effectiveUsesBuiltInGrinder });
 
-    if (payload.video_s3_key?.endsWith("/")) {
+    if (form.timing_mode === "video" && payload.video_s3_key?.endsWith("/")) {
       setError("Choose a video file or enter the full video path, for example data/raw-videos/shot_007.mp4.");
+      return;
+    }
+
+    if (form.timing_mode === "manual" && payload.total_shot_seconds === undefined) {
+      setError("Enter the total shot time in seconds.");
       return;
     }
 
@@ -113,30 +122,68 @@ export function ShotUpload() {
     <div className="workspace">
       <form className="form-panel" onSubmit={handleSubmit}>
         <div className="form-grid">
-          <label className="field full file-control">
-            Video
-            <input
-              type="file"
-              accept="video/mp4,video/quicktime,video/*"
-              onChange={(event) => {
-                const fileName = event.target.files?.[0]?.name ?? "";
-                setSelectedFile(fileName);
-                if (fileName) {
-                  updateField("video_s3_key", "data/raw-videos/" + fileName);
-                }
-              }}
-            />
-            <span className="file-name">{selectedFile || "No local file selected"}</span>
-          </label>
+          <div className="field full">
+            <span>Timing source</span>
+            <div className="segmented-control" role="group" aria-label="Timing source">
+              <button
+                type="button"
+                className={form.timing_mode === "video" ? "active" : ""}
+                onClick={() => updateField("timing_mode", "video")}
+              >
+                Video audio
+              </button>
+              <button
+                type="button"
+                className={form.timing_mode === "manual" ? "active" : ""}
+                onClick={() => updateField("timing_mode", "manual")}
+              >
+                Manual time
+              </button>
+            </div>
+          </div>
 
-          <label className="field full">
-            Video key
-            <input
-              value={form.video_s3_key}
-              onChange={(event) => updateField("video_s3_key", event.target.value)}
-              placeholder="data/raw-videos/shot_014.mp4 or S3 key"
-            />
-          </label>
+          {form.timing_mode === "video" ? (
+            <>
+              <label className="field full file-control">
+                Video
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/*"
+                  onChange={(event) => {
+                    const fileName = event.target.files?.[0]?.name ?? "";
+                    setSelectedFile(fileName);
+                    if (fileName) {
+                      updateField("video_s3_key", "data/raw-videos/" + fileName);
+                    }
+                  }}
+                />
+                <span className="file-name">{selectedFile || "No local file selected"}</span>
+              </label>
+
+              <label className="field full">
+                Video key
+                <input
+                  value={form.video_s3_key}
+                  onChange={(event) => updateField("video_s3_key", event.target.value)}
+                  placeholder="data/raw-videos/shot_014.mp4 or S3 key"
+                />
+              </label>
+            </>
+          ) : (
+            <label className="field full">
+              Total shot time seconds
+              <input
+                type="number"
+                inputMode="decimal"
+                min="1"
+                step="0.01"
+                value={form.total_shot_seconds}
+                onChange={(event) => updateField("total_shot_seconds", event.target.value)}
+                placeholder="29.5"
+              />
+              <span className="field-hint">Use this when you timed the shot yourself or audio is unreliable.</span>
+            </label>
+          )}
 
           <label className="field">
             Machine
@@ -295,9 +342,12 @@ export function ShotUpload() {
 }
 
 function buildPayload(form: FormState): ShotFormValues {
+  const manualTotal = parseOptionalNumber(form.total_shot_seconds);
+  const isManualTiming = form.timing_mode === "manual";
+
   return {
     user_id: form.user_id,
-    video_s3_key: form.video_s3_key,
+    video_s3_key: isManualTiming ? undefined : form.video_s3_key,
     machine: form.machine,
     grinder: form.uses_built_in_grinder ? `${form.machine || "Machine"} built-in grinder` : form.grinder,
     uses_built_in_grinder: form.uses_built_in_grinder,
@@ -306,6 +356,9 @@ function buildPayload(form: FormState): ShotFormValues {
     grind_setting: form.grind_setting,
     roast_level: form.roast_level,
     taste: form.taste,
+    total_shot_seconds: isManualTiming ? manualTotal : undefined,
+    timing_confidence: isManualTiming && manualTotal !== undefined ? 1 : undefined,
+    requires_manual_confirmation: false,
   };
 }
 

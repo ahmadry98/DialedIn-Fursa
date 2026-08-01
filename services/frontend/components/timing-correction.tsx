@@ -17,29 +17,41 @@ export function TimingCorrection({
   onManualStopChange,
   onApply,
 }: TimingCorrectionProps) {
+  const isManual = timing.audio_method === "manual_total_time";
+  const startConfidence = timing.start_confidence ?? 1;
+  const stopConfidence = timing.stop_confidence ?? 1;
   const showWarning =
-    timing.requires_manual_confirmation ||
-    Boolean(timing.warnings?.length) ||
-    (timing.start_confidence ?? 1) < 0.35;
+    !isManual &&
+    (timing.requires_manual_confirmation ||
+      Boolean(timing.warnings?.length) ||
+      startConfidence < 0.35 ||
+      stopConfidence < 0.35);
 
   return (
     <section className="panel timing-panel" aria-label="Timing correction">
       <div className="panel-heading">
         <div>
           <h2>Timing</h2>
-          <p>{timing.audio_method ?? "audio"}</p>
+          <p>{isManual ? "user-entered" : timing.audio_method ?? "audio"}</p>
         </div>
         <span className={showWarning ? "status warning" : "status ok"}>
-          {showWarning ? "Confirm" : "Accepted"}
+          {isManual ? "Manual" : showWarning ? "Confirm" : "Accepted"}
         </span>
       </div>
 
       <div className="timing-grid">
-        <Metric label="Start" value={formatTime(timing.machine_start_time)} />
-        <Metric label="Stop" value={formatTime(timing.machine_stop_time)} />
+        <Metric label="Start" value={isManual ? "manual" : formatTime(timing.machine_start_time)} />
+        <Metric label="Stop" value={isManual ? "manual" : formatTime(timing.machine_stop_time)} />
         <Metric label="Total" value={formatTime(timing.total_shot_seconds)} />
-        <Metric label="Confidence" value={formatPercent(timing.start_confidence)} />
+        <Metric label="Confidence" value={isManual ? "100%" : formatPercent(Math.min(startConfidence, stopConfidence))} />
       </div>
+
+      {showWarning ? (
+        <div className="timing-warning" role="alert">
+          <strong>Confirm timing before changing grind.</strong>
+          <span>{timing.confirmation_reason || "Audio was noisy or unclear, so the detected start/stop may be wrong."}</span>
+        </div>
+      ) : null}
 
       {showWarning ? (
         <div className="correction-row">

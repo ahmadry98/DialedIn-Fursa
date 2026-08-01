@@ -74,7 +74,8 @@ def suggest_grind_setting(
     if recommendation not in {"grind_finer", "grind_coarser"} or current is None:
         return result
 
-    step = _step_for_shot_gap(profile, total_shot_seconds, target_range_seconds)
+    step_info = _step_for_shot_gap(profile, total_shot_seconds, target_range_seconds)
+    step = step_info["step"]
     direction_multiplier = -1 if profile.get("lower_is_finer", True) else 1
     if recommendation == "grind_coarser":
         direction_multiplier *= -1
@@ -87,7 +88,10 @@ def suggest_grind_setting(
         {
             "suggested_setting": suggested,
             "setting_label": str(suggested),
-            "adjustment_size": _size_name(step, profile),
+            "adjustment_size": step_info["adjustment_size"],
+            "seconds_gap": step_info.get("seconds_gap"),
+            "estimated_small_steps": step_info.get("estimated_small_steps"),
+            "seconds_per_small_step_estimate": step_info.get("seconds_per_small_step_estimate"),
         }
     )
     return result
@@ -111,26 +115,52 @@ def _generic_profile(profiles: list[dict[str, Any]]) -> dict[str, Any]:
     raise ValueError("Generic grinder profile is required")
 
 
-def _step_for_shot_gap(profile: dict[str, Any], total_shot_seconds: Any, target_range_seconds: tuple[float, float] | list[float]) -> float:
+def _step_for_shot_gap(profile: dict[str, Any], total_shot_seconds: Any, target_range_seconds: tuple[float, float] | list[float]) -> dict[str, Any]:
     total = _float_or_none(total_shot_seconds)
     target_min = _float_or_none(target_range_seconds[0]) if len(target_range_seconds) >= 2 else None
     target_max = _float_or_none(target_range_seconds[1]) if len(target_range_seconds) >= 2 else None
+    small_step = float(profile.get("small_step") or 1)
+    medium_step = float(profile.get("medium_step") or small_step)
 
     if total is None or target_min is None or target_max is None:
-        return float(profile.get("medium_step") or profile.get("small_step") or 1)
+        return {"step": medium_step, "adjustment_size": _size_name(medium_step, profile)}
 
     gap = target_min - total if total < target_min else total - target_max
+    estimate = _float_or_none(profile.get("seconds_per_small_step_estimate"))
+    if estimate is not None and estimate > 0:
+        step_count = max(1, int((gap / estimate) + 0.5))
+        max_steps = int(_float_or_none(profile.get("max_recommended_small_steps")) or 6)
+        step_count = min(step_count, max_steps)
+        step = small_step * step_count
+        return {
+            "step": step,
+            "adjustment_size": _size_name_from_small_steps(step_count),
+            "seconds_gap": round(gap, 2),
+            "estimated_small_steps": step_count,
+            "seconds_per_small_step_estimate": estimate,
+        }
+
     if gap >= 10:
-        return float(profile.get("large_step") or profile.get("medium_step") or 1)
-    if gap >= 5:
-        return float(profile.get("medium_step") or profile.get("small_step") or 1)
-    return float(profile.get("small_step") or 1)
+        step = float(profile.get("large_step") or medium_step)
+    elif gap >= 5:
+        step = medium_step
+    else:
+        step = small_step
+    return {"step": step, "adjustment_size": _size_name(step, profile), "seconds_gap": round(gap, 2)}
 
 
 def _size_name(step: float, profile: dict[str, Any]) -> str:
     if step == float(profile.get("large_step") or -1):
         return "large"
     if step == float(profile.get("medium_step") or -1):
+        return "medium"
+    return "small"
+
+
+def _size_name_from_small_steps(step_count: int) -> str:
+    if step_count >= 4:
+        return "large"
+    if step_count >= 2:
         return "medium"
     return "small"
 

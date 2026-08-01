@@ -38,12 +38,17 @@ export type AnalyzeShotResponse = {
     keep_fixed: string[];
     needs_more_info: string[];
     target_range_seconds: [number, number];
+    calculation_explanation?: string[];
+    confidence_reasons?: string[];
     exact_grind_setting?: {
       grinder_profile?: { grinder_name?: string };
       current_setting?: string | number | null;
       suggested_setting?: string | number | null;
       setting_label?: string | null;
       adjustment_size?: string | null;
+      seconds_gap?: number | null;
+      estimated_small_steps?: number | null;
+      seconds_per_small_step_estimate?: number | null;
       notes?: string | null;
     } | null;
   };
