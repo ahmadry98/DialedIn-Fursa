@@ -167,7 +167,14 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
 
 def _target_range(shot_context: dict[str, Any]) -> tuple[float, float]:
     profile = shot_context.get("machine_profile") or {}
-    target = shot_context.get("target_total_shot_seconds") or profile.get("target_total_shot_seconds")
+    brew_defaults = profile.get("brew_defaults") if isinstance(profile, dict) else {}
+    if not isinstance(brew_defaults, dict):
+        brew_defaults = {}
+    target = (
+        shot_context.get("target_total_shot_seconds")
+        or brew_defaults.get("target_total_shot_seconds")
+        or profile.get("target_total_shot_seconds")
+    )
 
     if isinstance(target, (list, tuple)) and len(target) >= 2:
         low = _float_or_none(target[0])
