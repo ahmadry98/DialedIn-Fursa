@@ -47,17 +47,16 @@ def collect_web_evidence(
 
     found: list[dict[str, str]] = []
     seen_urls: set[str] = set()
+    for result in build_direct_url_candidates(gear_type, name):
+        _append_result(found, seen_urls, result, "direct official URL fallback")
+
     for query in build_queries(gear_type, name):
         for result in search_web(query, timeout=timeout):
             _append_result(found, seen_urls, result, query)
-            if len(found) >= max_results * 3:
+            if len(found) >= max_results * 4:
                 break
-        if len(found) >= max_results * 3:
+        if len(found) >= max_results * 4:
             break
-
-    if len(found) < max_results:
-        for result in build_direct_url_candidates(gear_type, name):
-            _append_result(found, seen_urls, result, "direct official URL fallback")
 
     ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 8]
     sources: list[dict[str, str]] = []
@@ -99,20 +98,29 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
         return []
     brand = tokens[0]
     slug_base = "-".join(tokens)
+    slug_variants = slug_candidates(tokens)
     if gear_type == "machine":
-        slugs = [f"{slug_base}-espresso-machine", "espresso-machine", slug_base]
+        slugs = unique([*slug_variants, *(f"{slug}-espresso-machine" for slug in slug_variants), "espresso-machine"])
     else:
-        slugs = [f"{slug_base}-grinder", "espresso-grinder", "coffee-grinder", slug_base]
+        slugs = unique([*slug_variants, *(f"{slug}-grinder" for slug in slug_variants), "espresso-grinder", "coffee-grinder"])
 
     domains = [
-        f"https://www.{brand}tech.com",
-        f"https://{brand}tech.com",
-        f"https://eu.{brand}tech.com",
         f"https://www.{brand}.com",
         f"https://{brand}.com",
         f"https://{brand}ae.com",
+        f"https://www.{brand}tech.com",
+        f"https://{brand}tech.com",
+        f"https://eu.{brand}tech.com",
     ]
-    paths = ["/en-ca/products/{slug}", "/en-eu/products/{slug}", "/products/{slug}", "/product/{slug}", "/manuals/{slug}"]
+    paths = [
+        "/en-ca/products/{slug}",
+        "/en-eu/products/{slug}",
+        "/products/{slug}",
+        "/products/{slug}/",
+        "/product/{slug}",
+        "/product/{slug}/",
+        "/manuals/{slug}",
+    ]
     results: list[dict[str, str]] = []
     for domain in domains:
         for slug in slugs:
@@ -126,6 +134,30 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
                     }
                 )
     return results
+
+
+def slug_candidates(tokens: list[str]) -> list[str]:
+    candidates = ["-".join(tokens)]
+    without_brand = tokens[1:]
+    if without_brand:
+        candidates.append("-".join(without_brand))
+    model_tokens = [token for token in tokens if re.search(r"\d", token)]
+    word_tokens = [token for token in tokens if not re.search(r"\d", token)]
+    if model_tokens:
+        candidates.extend(model_tokens)
+        if word_tokens:
+            candidates.append("-".join([word_tokens[-1], model_tokens[-1]]))
+    return unique(candidates)
+
+
+def unique(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
 
 
 def build_queries(gear_type: str, name: str) -> list[str]:
@@ -196,7 +228,12 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
         score += 3
     if gear_type == "grinder" and any(term in haystack for term in ["grinder", "espresso range", "click", "burr"]):
         score += 3
-    if result.get("url", "").lower().endswith(".pdf"):
+    url = result.get("url", "").lower()
+    if result.get("source") == "direct_fallback":
+        score += 1
+        if "-espresso-machine" not in url and "-grinder" not in url and "espresso-machine" not in url:
+            score += 5
+    if url.endswith(".pdf"):
         score += 4
     return score
 

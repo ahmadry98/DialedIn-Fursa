@@ -12,7 +12,8 @@
       "portafilter_mm": 54,
       "pump_type": "vibration",
       "pressure_type": "15 bar vibration pump with low-pressure pre-infusion and 9 bar extraction behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": true
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1073,7 +1074,8 @@
       "portafilter_mm": 58,
       "pump_type": "rotary",
       "pressure_type": "9 bar rotary pump with dual boiler system",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": true
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1102,6 +1104,41 @@
       ],
       "has_preinfusion": [
         "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "LELIT Anita PL042TEMD",
+    "aliases": [],
+    "specs": {
+      "portafilter_mm": null,
+      "pump_type": "unknown",
+      "pressure_type": "unknown",
+      "has_preinfusion": null,
+      "has_built_in_grinder": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "Micrometric stepless grinding adjustment via side knob on built\u2011in grinder.",
+    "sources": {
+      "aliases": [],
+      "portafilter_mm": [],
+      "pump_type": [],
+      "pressure_type": [
+        "https://www.lelit.com/en-ca/products/anita-pl042temd"
+      ],
+      "has_preinfusion": [],
+      "has_built_in_grinder": [
+        "https://www.lelit.com/en-ca/products/anita-pl042temd"
       ]
     }
   },

@@ -74,6 +74,15 @@ def load_profile_candidates() -> list[dict[str, Any]]:
     return data
 
 
+def add_profile_candidate_note(candidate_key: str, note: str) -> None:
+    candidates = load_profile_candidates()
+    for candidate in candidates:
+        if candidate.get("candidate_key") == candidate_key:
+            candidate.setdefault("review_notes", []).append(note)
+            _write_candidates(candidates)
+            return
+
+
 def build_research_prompt(gear_type: str, name_entered: str) -> str:
     if gear_type == "machine":
         return (

@@ -57,7 +57,8 @@ class ProfilePromoterTest(unittest.TestCase):
         profiles = json.loads(machine_profiles.PROFILE_PATH.read_text())
         self.assertEqual(profiles[0]["machine_name"], "Meraki")
         self.assertEqual(profiles[1]["machine_name"], "Generic Espresso Machine")
-        self.assertEqual(profile_candidates.load_profile_candidates()[0]["status"], "promoted")
+        self.assertEqual(profile_candidates.load_profile_candidates(), [])
+        self.assertTrue(result["candidate_removed"])
 
 
 if __name__ == "__main__":
