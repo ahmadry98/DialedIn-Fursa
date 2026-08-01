@@ -13,7 +13,7 @@ from services.agent.prompts import SYSTEM_PROMPT
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse
 from services.espresso_mcp import app as espresso_tools
 
-REQUIRED_CONTEXT_FIELDS = ["machine", "grinder", "dose_g", "yield_g", "grind_setting", "roast_level", "taste"]
+REQUIRED_CONTEXT_FIELDS = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste"]
 METRICS = {
     "shot_analysis_requests_total": 0,
     "chat_requests_total": 0,
@@ -30,6 +30,12 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
     shot_context = _recommendation_context(request, timing, machine_profile)
     recommendation = espresso_tools.recommend_grind_adjustment(shot_context)
     missing_fields = _missing_fields(request)
+    profile_candidates = espresso_tools.capture_unknown_gear(
+        request.user_id,
+        request.machine,
+        None if request.uses_built_in_grinder else request.grinder,
+        shot_context,
+    )
     METRICS["last_missing_fields_count"] = len(missing_fields)
 
     result = {
@@ -37,6 +43,7 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
         "machine_profile": machine_profile,
         "recommendation": recommendation,
         "missing_fields": missing_fields,
+        "profile_candidates": profile_candidates,
     }
     saved = espresso_tools.save_shot_result(request.user_id, result)
     comparison = espresso_tools.compare_previous_shots(request.user_id, timing)
@@ -46,6 +53,7 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
         machine_profile=machine_profile,
         recommendation=recommendation,
         missing_fields=missing_fields,
+        profile_candidates=profile_candidates,
         saved_result=saved,
         previous_comparison=comparison,
         message=_build_message(timing, recommendation, missing_fields),
@@ -71,7 +79,7 @@ def chat(request: ChatRequest) -> ChatResponse:
 
     response = latest_user_message or "Send me an espresso shot video path and shot details when you are ready."
     return ChatResponse(
-        response="Send a shot video plus machine, grinder, dose, yield, grind setting, roast, and taste so I can analyze it.",
+        response="Send a shot video plus machine, grinder, dose, grind setting, roast, taste, and yield if available so I can analyze it.",
         needs_shot_analysis=False,
         system_prompt=SYSTEM_PROMPT,
     )
@@ -111,7 +119,8 @@ def _recommendation_context(
     return {
         "machine": request.machine,
         "machine_profile": machine_profile,
-        "grinder": request.grinder,
+        "grinder": _effective_grinder_name(request),
+        "uses_built_in_grinder": request.uses_built_in_grinder,
         "dose_g": request.dose_g,
         "yield_g": request.yield_g,
         "grind_setting": request.grind_setting,
@@ -127,7 +136,17 @@ def _recommendation_context(
 
 
 def _missing_fields(context: AnalyzeShotRequest) -> list[str]:
-    return [field for field in REQUIRED_CONTEXT_FIELDS if getattr(context, field) in (None, "")]
+    missing = [field for field in REQUIRED_CONTEXT_FIELDS if getattr(context, field) in (None, "")]
+    if context.uses_built_in_grinder and context.machine not in (None, ""):
+        missing = [field for field in missing if field != "grinder"]
+    return missing
+
+
+def _effective_grinder_name(request: AnalyzeShotRequest) -> str | None:
+    if request.uses_built_in_grinder:
+        machine = request.machine or "machine"
+        return request.grinder or f"{machine} built-in grinder"
+    return request.grinder
 
 
 def _build_message(timing: dict[str, Any], recommendation: dict[str, Any], missing_fields: list[str]) -> str:

@@ -49,6 +49,10 @@ class EspressoMcpToolsTest(unittest.TestCase):
                 "get_machine_profile",
                 "save_shot_result",
                 "compare_previous_shots",
+                "capture_unknown_gear",
+                "list_profile_candidates",
+                "prepare_profile_research",
+                "attach_draft_profile",
             ],
         )
 
@@ -100,7 +104,7 @@ class EspressoMcpToolsTest(unittest.TestCase):
         )
 
         self.assertEqual(result["recommendation"], "grind_finer")
-        self.assertEqual(result["target_range_seconds"], (25.0, 35.0))
+        self.assertEqual(result["target_range_seconds"], (25.0, 32.0))
 
     def test_save_and_compare_previous_shots(self):
         saved = app.save_shot_result("user-1", {"total_shot_seconds": 22})

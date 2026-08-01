@@ -16,11 +16,15 @@ class RecommendationRulesTest(unittest.TestCase):
                 "timing_confidence": 0.9,
                 "dose_g": 18,
                 "yield_g": 36,
+                "grinder": "Varia VS6",
+                "grind_setting": "1.8",
+                "machine_profile": {"target_total_shot_seconds": [25, 32]},
             }
         )
 
         self.assertEqual(result["recommendation"], "grind_finer")
-        self.assertIn("finer", result["adjustment"])
+        self.assertEqual(result["adjustment"], "try grind setting 1.6 next (finer)")
+        self.assertEqual(result["exact_grind_setting"]["suggested_setting"], 1.6)
         self.assertEqual(result["confidence"], "high")
         self.assertIn("dose_g", result["keep_fixed"])
 
@@ -42,11 +46,13 @@ class RecommendationRulesTest(unittest.TestCase):
                 "total_shot_seconds": 42,
                 "taste": "bitter and dry",
                 "timing_confidence": 0.8,
+                "grinder": "Varia VS6",
+                "grind_setting": "1.8",
             }
         )
 
         self.assertEqual(result["recommendation"], "grind_coarser")
-        self.assertIn("coarser", result["adjustment"])
+        self.assertEqual(result["adjustment"], "try grind setting 2.1 next (coarser)")
 
     def test_normal_sour_shot_recommends_more_extraction(self):
         result = recommend_grind_adjustment(
@@ -79,6 +85,23 @@ class RecommendationRulesTest(unittest.TestCase):
         self.assertEqual(result["confidence"], "high")
         self.assertEqual(result["needs_more_info"], [])
 
+    def test_yield_is_optional_context(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 29,
+                "taste": "balanced and sweet",
+                "timing_confidence": 0.7,
+                "machine": "Gaggia Classic Pro",
+                "grinder": "DF54",
+                "dose_g": 18,
+                "grind_setting": "15",
+                "roast_level": "medium",
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "keep_settings")
+        self.assertNotIn("yield_g", result["needs_more_info"])
+
     def test_low_confidence_timing_requires_confirmation(self):
         result = recommend_grind_adjustment(
             {
@@ -97,12 +120,12 @@ class RecommendationRulesTest(unittest.TestCase):
                 "total_shot_seconds": 23,
                 "taste": "balanced",
                 "timing_confidence": 0.8,
-                "machine_profile": {"target_total_shot_seconds": [25, 35]},
+                "machine_profile": {"target_total_shot_seconds": [25, 32]},
             }
         )
 
         self.assertEqual(result["recommendation"], "grind_finer")
-        self.assertEqual(result["target_range_seconds"], (25.0, 35.0))
+        self.assertEqual(result["target_range_seconds"], (25.0, 32.0))
 
 
 if __name__ == "__main__":

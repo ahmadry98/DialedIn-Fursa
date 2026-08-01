@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.agent import agent_runner
 from services.agent.config import get_settings
@@ -15,9 +16,24 @@ from services.agent.schemas import (
     MetricsResponse,
 )
 from services.espresso_mcp import app as espresso_tools
+from services.espresso_mcp import profile_research_worker
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def _run_profile_research_background(*, limit: int) -> None:
+    try:
+        profile_research_worker.run_worker(limit=limit)
+    except Exception as error:  # pragma: no cover - background failure should not break shot analysis.
+        print(f"Profile research autorun failed: {error}")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -31,11 +47,19 @@ def metrics() -> MetricsResponse:
 
 
 @app.post("/analyze-shot", response_model=AnalyzeShotResponse)
-def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
+def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks) -> AnalyzeShotResponse:
     try:
-        return agent_runner.analyze_shot(request)
+        response = agent_runner.analyze_shot(request)
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+    if settings.profile_research_autorun and response.profile_candidates:
+        background_tasks.add_task(
+            _run_profile_research_background,
+            limit=settings.profile_research_autorun_limit,
+        )
+
+    return response
 
 
 @app.post("/chat", response_model=ChatResponse)
