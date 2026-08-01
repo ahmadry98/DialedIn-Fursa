@@ -12,6 +12,7 @@ class ShotContext(BaseModel):
     video_s3_key: str | None = None
     machine: str | None = None
     grinder: str | None = None
+    uses_built_in_grinder: bool = False
     dose_g: float | None = None
     yield_g: float | None = None
     grind_setting: str | None = None
@@ -31,6 +32,7 @@ class AnalyzeShotResponse(BaseModel):
     machine_profile: dict[str, Any]
     recommendation: dict[str, Any]
     missing_fields: list[str]
+    profile_candidates: list[dict[str, Any]] = []
     saved_result: dict[str, Any]
     previous_comparison: dict[str, Any]
     message: str

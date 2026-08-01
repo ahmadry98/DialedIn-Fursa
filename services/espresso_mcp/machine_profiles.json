@@ -16,12 +16,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         4,
@@ -72,12 +72,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         4,
@@ -125,12 +125,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         2,
@@ -177,12 +177,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         2,
@@ -232,12 +232,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         2,
@@ -305,12 +305,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": null
     },
@@ -368,11 +368,11 @@
     "brew_defaults": {
       "target_total_shot_seconds": [
         25,
-        35
+        32
       ],
       "target_visible_flow_seconds": [
-        25,
-        35
+        20,
+        28
       ],
       "typical_startup_delay_seconds": null,
       "startup_flush_seconds": 10
@@ -429,12 +429,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": null
     },
@@ -462,6 +462,650 @@
     }
   },
   {
+    "machine_name": "Breville Dual Boiler",
+    "aliases": [
+      "breville dual boiler",
+      "dual boiler",
+      "bes920",
+      "bes920xl",
+      "sage dual boiler"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar Italian pump with low-pressure pre-infusion followed by 9 bar extraction behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        4,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Use normal espresso grind changes. The machine has strong temperature and pressure control, so keep dose and yield fixed while changing grind.",
+    "sources": {
+      "aliases": [
+        "https://www.breville.com/en-us/product/bes920"
+      ],
+      "portafilter_mm": [
+        "https://www.breville.com/en-us/product/bes920"
+      ],
+      "pump_type": [
+        "https://www.breville.com/en-us/product/bes920"
+      ],
+      "pressure_type": [
+        "https://www.breville.com/en-us/product/bes920"
+      ],
+      "has_preinfusion": [
+        "https://www.breville.com/en-us/product/bes920"
+      ]
+    }
+  },
+  {
+    "machine_name": "Profitec GO",
+    "aliases": [
+      "profitec go",
+      "go espresso machine",
+      "profitec go pid"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "single-boiler ring brew group with vibration pump, adjustable expansion valve, and programmable preinfusion",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Single-boiler PID machine. Keep the warmup and flush routine consistent when judging grind changes.",
+    "sources": {
+      "aliases": [
+        "https://www.profitec-espresso.com/produkte/go"
+      ],
+      "portafilter_mm": [
+        "https://www.profitec-espresso.com/produkte/go"
+      ],
+      "pump_type": [
+        "https://www.profitec-espresso.com/produkte/go"
+      ],
+      "pressure_type": [
+        "https://www.profitec-espresso.com/produkte/go"
+      ],
+      "has_preinfusion": [
+        "https://www.profitec-espresso.com/produkte/go"
+      ]
+    }
+  },
+  {
+    "machine_name": "Profitec Pro 400",
+    "aliases": [
+      "profitec pro 400",
+      "pro 400"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "heat exchanger E61-style machine with vibration pump, adjustable expansion valve, and switchable preinfusion",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        7
+      ]
+    },
+    "grind_adjustment_notes": "Heat exchanger machine with switchable preinfusion. Keep preinfusion mode fixed when comparing shots.",
+    "sources": {
+      "aliases": [
+        "https://www.profitec-espresso.com/en/products/pro-400"
+      ],
+      "portafilter_mm": [
+        "https://www.profitec-espresso.com/en/products/pro-400"
+      ],
+      "pump_type": [
+        "https://www.profitec-espresso.com/en/products/pro-400"
+      ],
+      "pressure_type": [
+        "https://www.profitec-espresso.com/en/products/pro-400"
+      ],
+      "has_preinfusion": [
+        "https://www.profitec-espresso.com/en/products/pro-400"
+      ]
+    }
+  },
+  {
+    "machine_name": "Profitec Pro 300",
+    "aliases": [
+      "profitec pro 300",
+      "pro 300"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "dual-boiler saturated/ring brew group home machine with vibration pump",
+      "has_preinfusion": false
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Compact dual boiler. It is usually stable shot-to-shot, so grind changes can be smaller and easier to evaluate.",
+    "sources": {
+      "aliases": [
+        "https://www.profitec-espresso.com/en/products/pro-300",
+        "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.profitec-espresso.com/en/products/pro-300",
+        "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.profitec-espresso.com/en/products/pro-300",
+        "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.profitec-espresso.com/en/products/pro-300",
+        "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.profitec-espresso.com/en/products/pro-300",
+        "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "Profitec Pro 500 PID",
+    "aliases": [
+      "profitec pro 500",
+      "profitec pro 500 pid",
+      "pro 500",
+      "pro 500 pid"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "PID heat exchanger E61 machine with vibration pump and passive/mechanical preinfusion behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        7
+      ]
+    },
+    "grind_adjustment_notes": "E61 heat exchanger behavior can include preinfusion from the group. Keep flush and lever routine consistent.",
+    "sources": {
+      "aliases": [
+        "https://www.profitec-espresso.com/en/products/pro-500",
+        "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.profitec-espresso.com/en/products/pro-500",
+        "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.profitec-espresso.com/en/products/pro-500",
+        "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.profitec-espresso.com/en/products/pro-500",
+        "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.profitec-espresso.com/en/products/pro-500",
+        "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "Lelit Mara X",
+    "aliases": [
+      "lelit mara x",
+      "mara x",
+      "marax",
+      "lelit marax",
+      "pesmx02"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "heat exchanger L58E/E61-style group with silent vibration pump and mechanical pre-infusion compatibility",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        7
+      ]
+    },
+    "grind_adjustment_notes": "Mara X has coffee/steam priority modes. Keep mode and temperature setting fixed while changing grind.",
+    "sources": {
+      "aliases": [
+        "https://www.lelit.com/en-us/product/pesmx02",
+        "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.lelit.com/en-us/product/pesmx02",
+        "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.lelit.com/en-us/product/pesmx02",
+        "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.lelit.com/en-us/product/pesmx02",
+        "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.lelit.com/en-us/product/pesmx02",
+        "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "Lelit Bianca V3",
+    "aliases": [
+      "lelit bianca",
+      "lelit bianca v3",
+      "bianca v3",
+      "bianca",
+      "pesbn03"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "dual-boiler L58E paddle machine with rotary pump, adjustable low flow and pre-infusion time",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Flow paddle and low-flow settings can change shot time independent of grind. Keep the paddle profile fixed when dialing grind.",
+    "sources": {
+      "aliases": [
+        "https://www.lelit.com/en-us/product/bianca-pesbn03"
+      ],
+      "portafilter_mm": [
+        "https://www.lelit.com/en-us/product/bianca-pesbn03"
+      ],
+      "pump_type": [
+        "https://www.lelit.com/en-us/product/bianca-pesbn03"
+      ],
+      "pressure_type": [
+        "https://www.lelit.com/en-us/product/bianca-pesbn03"
+      ],
+      "has_preinfusion": [
+        "https://www.lelit.com/en-us/product/bianca-pesbn03"
+      ]
+    }
+  },
+  {
+    "machine_name": "Rocket Appartamento",
+    "aliases": [
+      "rocket appartamento",
+      "appartamento",
+      "rocket appartamento tca",
+      "appartamento tca"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "heat exchanger E61 machine with vibration pump and manual/E61 pre-brew behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        7
+      ]
+    },
+    "grind_adjustment_notes": "E61 heat exchanger machine. Keep cooling flush and lever routine consistent so grind is the variable being tested.",
+    "sources": {
+      "aliases": [
+        "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
+        "https://faema.ca/products/rocket-apartamento-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
+        "https://faema.ca/products/rocket-apartamento-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
+        "https://faema.ca/products/rocket-apartamento-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
+        "https://faema.ca/products/rocket-apartamento-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
+        "https://faema.ca/products/rocket-apartamento-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "Rocket R58 Cinquantotto",
+    "aliases": [
+      "rocket r58",
+      "r58",
+      "rocket cinquantotto",
+      "rocket r58 cinquantotto"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "dual-boiler E61 machine with rotary pump and E61/manual preinfusion behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Dual boiler with rotary pump. Keep any pressure or preinfusion routine fixed when evaluating grind.",
+    "sources": {
+      "aliases": [
+        "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
+        "https://www.rocket-espresso.com/"
+      ],
+      "portafilter_mm": [
+        "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
+        "https://www.rocket-espresso.com/"
+      ],
+      "pump_type": [
+        "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
+        "https://www.rocket-espresso.com/"
+      ],
+      "pressure_type": [
+        "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
+        "https://www.rocket-espresso.com/"
+      ],
+      "has_preinfusion": [
+        "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
+        "https://www.rocket-espresso.com/"
+      ]
+    }
+  },
+  {
+    "machine_name": "ECM Synchronika",
+    "aliases": [
+      "ecm synchronika",
+      "synchronika"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "dual-boiler E61 machine with rotary pump and active/passive preinfusion support",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Premium E61 dual boiler. Keep flow-control or preinfusion behavior consistent if the machine has those options installed.",
+    "sources": {
+      "aliases": [
+        "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
+      ],
+      "portafilter_mm": [
+        "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
+      ],
+      "pump_type": [
+        "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
+      ],
+      "pressure_type": [
+        "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
+      ],
+      "has_preinfusion": [
+        "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
+      ]
+    }
+  },
+  {
+    "machine_name": "Ascaso Steel UNO PID / DUO PID",
+    "aliases": [
+      "ascaso steel uno pid",
+      "ascaso steel duo pid",
+      "ascaso steel uno",
+      "ascaso steel duo",
+      "steel uno pid",
+      "steel duo pid"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "thermoblock machine with vibration pump, OPV, volumetric control, and programmable pre-infusion on PID models",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Thermoblock PID machine. Keep preinfusion and volumetric settings fixed while making grind changes.",
+    "sources": {
+      "aliases": [
+        "https://ascaso.com/en/steel/",
+        "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
+        "https://ascaso.com/en/design/portafilters-filters-and-handles/"
+      ],
+      "portafilter_mm": [
+        "https://ascaso.com/en/steel/",
+        "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
+        "https://ascaso.com/en/design/portafilters-filters-and-handles/"
+      ],
+      "pump_type": [
+        "https://ascaso.com/en/steel/",
+        "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
+        "https://ascaso.com/en/design/portafilters-filters-and-handles/"
+      ],
+      "pressure_type": [
+        "https://ascaso.com/en/steel/",
+        "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
+        "https://ascaso.com/en/design/portafilters-filters-and-handles/"
+      ],
+      "has_preinfusion": [
+        "https://ascaso.com/en/steel/",
+        "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
+        "https://ascaso.com/en/design/portafilters-filters-and-handles/"
+      ]
+    }
+  },
+  {
+    "machine_name": "La Marzocco Linea Mini",
+    "aliases": [
+      "la marzocco linea mini",
+      "linea mini",
+      "linea mini r"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "dual-boiler saturated/integrated group home machine with internal pump and electronic or two-valve pre-infusion depending on version",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        3,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Commercial-style home machine. Keep paddle/preinfusion settings fixed; grind changes can be small because the machine is very stable.",
+    "sources": {
+      "aliases": [
+        "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
+        "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
+      ],
+      "portafilter_mm": [
+        "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
+        "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
+      ],
+      "pump_type": [
+        "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
+        "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
+      ],
+      "pressure_type": [
+        "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
+        "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
+      ],
+      "has_preinfusion": [
+        "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
+        "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
+      ]
+    }
+  },
+  {
+    "machine_name": "Meraki",
+    "aliases": [
+      "Meraki Dual Boiler Espresso Machine",
+      "meraki",
+      "meraki espresso machine"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "9 bar rotary pump with dual boiler system",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "Meraki has a built-in espresso-focused grinder. Keep dose and yield fixed when adjusting grind, and change one setting step at a time until a machine-specific grinder profile is verified.",
+    "sources": {
+      "aliases": [
+        "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
+      ]
+    }
+  },
+  {
     "machine_name": "Generic Espresso Machine",
     "aliases": [
       "generic",
@@ -477,12 +1121,12 @@
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
-        20,
-        35
+        25,
+        32
       ],
       "target_visible_flow_seconds": [
-        18,
-        30
+        20,
+        28
       ],
       "typical_startup_delay_seconds": [
         2,
@@ -496,6 +1140,53 @@
       "pump_type": [],
       "pressure_type": [],
       "has_preinfusion": []
+    }
+  },
+  {
+    "machine_name": "Lelit Victoria PL91T",
+    "aliases": [
+      "lelit victoria",
+      "lelit victoria pl91t",
+      "victoria pl91t",
+      "pl91t"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "Vibration pump with a nominal 15 bar pump rating, brew-pressure manometer, and approximately 9 bar espresso extraction target",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "Use small grind changes while keeping dose and beverage yield fixed. The optional pre-infusion can delay visible flow, so evaluate the recipe primarily using total time from pump activation, beverage yield, and taste. A typical starting recipe is an approximately 1:2 brew ratio, then grind finer if the target yield is reached too quickly or coarser if it is reached too slowly.",
+    "sources": {
+      "aliases": [
+        "https://www.lelit.com/en-us/product/victoria-pesvi01",
+        "https://www.lelit.com/l3t1l/uploads/pdf/LELIT-victoria-pl91t-en.pdf"
+      ],
+      "portafilter_mm": [
+        "https://www.lelit.com/en-us/product/victoria-pesvi01",
+        "https://www.wholelattelove.com/products/lelit-victoria-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.wholelattelove.com/products/refurbished-lelit-victoria-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.lelit.com/l3t1l/uploads/pdf/LELIT-victoria-pl91t-en.pdf"
+      ],
+      "has_preinfusion": [
+        "https://www.lelit.com/l3t1l/uploads/pdf/LELIT-victoria-pl91t-en.pdf",
+        "https://www.wholelattelove.com/products/lelit-victoria-espresso-machine"
+      ]
     }
   }
 ]
