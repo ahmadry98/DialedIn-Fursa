@@ -1,25 +1,27 @@
-# DialedIN Audio Shot Timing Agent Specification
+# DialedIN Espresso Shot Review Specification
 
 ## 1. Problem Statement
 
-Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN solves this by letting a user upload a video of an espresso shot and using the machine sound to estimate when the pump or machine starts and stops.
+Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN lets a user upload or reference a video of an espresso shot, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment.
 
-The first version focuses on the most important timing value for dial-in decisions: total shot time. It combines this timing with user-provided machine, grinder, dose, yield, beans, and grind setting to recommend the next adjustment.
+The product also learns from unknown equipment. When the user enters a machine or grinder that is not in the curated profiles, DialedIN captures it as a research candidate, gathers source evidence, asks Bedrock to draft a profile, and keeps that draft pending human review before it becomes trusted data.
 
 ## 2. MVP Goal
 
 The MVP proves this core flow:
 
-1. User uploads an espresso shot video.
-2. The system extracts the audio track from the video.
-3. Audio analysis detects the machine/pump start time.
-4. Audio analysis detects the machine/pump stop time.
-5. Timing logic calculates total shot time.
-6. The agent asks for missing espresso context.
-7. The agent calls MCP tools to analyze timing and recommend a grind adjustment.
-8. The frontend shows total shot time, confidence, recommendation, and explanation.
+1. User selects an espresso shot video or enters manual shot timing.
+2. The system extracts/analyzes audio to detect machine start and stop.
+3. Timing logic calculates total shot time and confidence.
+4. User provides machine, grinder or built-in grinder choice, dose, optional yield, grind setting, roast level, and taste notes.
+5. The backend uses curated machine and grinder profiles when available.
+6. Recommendation rules return one next action, including exact next grinder setting when the grinder profile supports it.
+7. Unknown gear is captured into a candidate queue.
+8. Bedrock can research unknown gear using web evidence and create a draft profile.
+9. Human review promotes approved drafts into trusted profile JSON.
+10. The frontend shows timing, confidence, recommendation, missing fields, and unknown gear candidate state.
 
-The MVP does not train a visual model and does not promise a perfect grind setting. It recommends the next likely adjustment and explains what to keep fixed for the next test shot.
+The MVP does not train a visual model. It is audio-first, rule-based for recommendation decisions, and LLM-assisted only for equipment profile research/drafting.
 
 ## 3. Audio Timing Model
 
@@ -32,8 +34,10 @@ Audio analysis returns:
 - `total_shot_seconds`
 - `start_confidence`
 - `stop_confidence`
-- `audio_method`: `heuristic` for the MVP
-- `warnings`: human-readable notes when the signal is noisy or uncertain
+- `audio_method`
+- `requires_manual_confirmation`
+- `confirmation_reason`
+- `warnings`
 
 A trained audio classifier can be added later using short audio windows labeled `pump_off` and `pump_on`, but it is not required for the MVP.
 
@@ -42,237 +46,255 @@ A trained audio classifier can be added later using short audio windows labeled 
 The system calculates:
 
 - `machine_start_time`: first sustained pump/machine sound detected in the audio track.
-- `machine_stop_time`: point where the sustained pump/machine sound ends.
+- `machine_stop_time`: point where sustained pump/machine sound ends.
 - `total_shot_seconds`: `machine_stop_time - machine_start_time`.
 
-The response reports whether timing came from automatic audio detection or manual correction. If confidence is low, the frontend lets the user correct `machine_start_time` and `machine_stop_time`.
+The response reports whether timing came from automatic audio detection or manual correction. If confidence is low, the frontend lets the user correct start and stop times and re-run recommendation from confirmed timing.
 
 The MVP does not calculate `first_flow_time`, `startup_delay_seconds`, or `visible_flow_seconds`. Those are future visual-analysis improvements.
 
-## 5. Architecture
+## 5. Current Architecture
 
-The system is split into small services:
+The system is split into small services/modules:
 
-- `frontend`: Next.js web UI for video upload, shot context form, timing correction, and results.
-- `agent`: FastAPI service with LangGraph. It owns the user conversation, follows a system prompt, and calls MCP tools.
-- `espresso-mcp`: custom MCP server exposing audio analysis, timing, machine profile, and grind recommendation tools.
-- `modeling`: local scripts for audio extraction experiments, audio analysis tests, and future model research.
-- `storage`: S3 for uploaded videos, extracted audio, analysis reports, and future model artifacts.
-- `database`: DynamoDB for shot history, user sessions, and analysis results.
-- `observability`: Prometheus, Grafana, and logs for metrics, dashboards, and debugging.
+- `services/frontend`: Next.js web UI for video selection/path, shot context, built-in grinder selection, timing correction, and results.
+- `services/agent`: FastAPI service exposing `/analyze-shot`, `/chat`, `/health`, and `/metrics`.
+- `services/espresso_mcp`: MCP-compatible tool layer for audio timing, recommendations, machine profiles, grinder profiles, unknown gear capture, profile research, and profile promotion helpers.
+- `modeling`: local scripts/tests for audio experiments and evaluation.
+- `docs`: project specification, implementation plan, and test plan.
 
-The MVP processes videos synchronously inside `espresso-mcp`. A separate async `video-worker` with SQS is a future improvement if processing becomes slow or concurrent uploads become a bottleneck.
+Planned deployment components remain:
+
+- S3 for uploaded videos, extracted audio, and analysis artifacts.
+- DynamoDB for persistent shot history and user analysis results.
+- Docker/Kubernetes on AWS EC2 for course deployment.
+- Prometheus/Grafana for metrics and debugging.
+
+The current MVP processes videos synchronously. A separate async worker/SQS flow is future work if jobs become slow or concurrent.
 
 ## 6. Data Flow
 
 1. User opens the frontend.
-2. User uploads a shot video and enters known shot details.
-3. Frontend sends the video and metadata to the agent API.
-4. Agent stores the video in S3 or local development storage.
-5. Agent calls `espresso-mcp.analyze_audio_timing`.
-6. `espresso-mcp` extracts the audio track.
-7. `espresso-mcp` computes short-window audio energy or spectrogram-like features.
-8. `espresso-mcp` detects machine/pump start and stop.
-9. `espresso-mcp` calculates total shot time and confidence.
-10. Agent asks the user for missing machine, grinder, dose, yield, grind setting, roast, or taste details.
-11. Agent calls `espresso-mcp.recommend_grind_adjustment`.
-12. Agent returns a final explanation with total shot time, confidence, recommendation, and next test instructions.
-13. Result is saved to the database and shown in the frontend.
+2. User selects a video/path and enters shot context.
+3. User chooses either an external grinder or checks `Built-in` next to the grinder field.
+4. Frontend sends the shot context to the FastAPI agent.
+5. Agent calls audio timing if a video path is provided, or uses manual total time.
+6. Agent looks up the machine profile.
+7. Agent builds recommendation context, including `uses_built_in_grinder` when relevant.
+8. Agent calls recommendation logic.
+9. Recommendation logic validates known grinder settings and calculates exact next settings when possible.
+10. Unknown external machines/grinders are captured as profile candidates.
+11. Built-in grinder machines do not create fake separate grinder candidates.
+12. If profile research autorun is enabled, the agent starts a background Bedrock profile research worker.
+13. Worker collects web evidence, calls Bedrock, and attaches a draft profile to the candidate.
+14. Human reviewer edits/approves the draft.
+15. Profile promoter copies the approved draft into trusted machine/grinder profiles.
 
-If audio confidence is low, the frontend lets the user correct the detected `machine_start_time` and `machine_stop_time` before the recommendation is finalized.
+## 7. MCP / Tool Layer
 
-## 7. MCP Tools
+The custom `espresso_mcp` layer exposes:
 
-The custom `espresso-mcp` server exposes:
+- `extract_audio_track(video_s3_key)`
+- `detect_machine_audio_window(audio_s3_key)`
+- `calculate_total_shot_time(machine_start_time, machine_stop_time)`
+- `analyze_audio_timing(video_s3_key)`
+- `recommend_grind_adjustment(shot_context)`
+- `get_machine_profile(machine_name)`
+- `save_shot_result(user_id, result)`
+- `compare_previous_shots(user_id, current_result)`
+- `capture_unknown_gear(user_id, machine, grinder, shot_context)`
+- `list_profile_candidates()`
+- `prepare_profile_research(candidate_key)`
+- `attach_draft_profile(candidate_key, draft_profile)`
 
-- `extract_audio_track(video_s3_key)`: extracts the audio track from the uploaded video.
-- `detect_machine_audio_window(audio_s3_key)`: detects machine/pump start and stop from audio.
-- `calculate_total_shot_time(machine_start_time, machine_stop_time)`: returns total shot time.
-- `analyze_audio_timing(video_s3_key)`: combines audio extraction, detection, confidence, and timing.
-- `recommend_grind_adjustment(shot_context)`: returns a structured recommendation.
-- `get_machine_profile(machine_name)`: returns machine-specific notes and target timing range.
-- `save_shot_result(user_id, result)`: saves the analysis.
-- `compare_previous_shots(user_id, current_result)`: compares current shot with previous attempts.
-
-An optional `observability-mcp` can expose Prometheus and log-query tools for demo and debugging.
+The FastAPI agent currently calls these Python functions directly for the MVP. Future work can switch to real MCP transport without changing response shape.
 
 ## 8. Machine Profiles
 
-The recommendation engine uses machine profiles so it does not apply one generic rule to every espresso machine. The MVP supports 3-5 popular machines plus a generic fallback.
+Machine profiles prevent the app from treating all machines the same. They include sourced technical facts and conservative brew defaults.
 
-Initial profiles:
+Profile shape:
 
-- Breville Barista Express
-- Breville Bambino or Bambino Plus
-- Gaggia Classic Pro
-- Rancilio Silvia
-- DeLonghi Dedica
-- Generic Espresso Machine
+```json
+{
+  "machine_name": "Meraki",
+  "aliases": ["meraki", "meraki espresso machine"],
+  "specs": {
+    "portafilter_mm": 58,
+    "pump_type": "rotary",
+    "pressure_type": "9 bar rotary pump with dual boiler system",
+    "has_preinfusion": true
+  },
+  "brew_defaults": {
+    "target_total_shot_seconds": [25, 32],
+    "target_visible_flow_seconds": [20, 28],
+    "typical_startup_delay_seconds": null
+  },
+  "grind_adjustment_notes": "...",
+  "sources": {
+    "portafilter_mm": ["https://..."],
+    "pump_type": ["https://..."],
+    "pressure_type": ["https://..."],
+    "has_preinfusion": ["https://..."]
+  }
+}
+```
 
-Each profile includes:
+Current profiles include common home machines plus a generic fallback. Newly promoted example: Meraki, with built-in grinder notes.
 
-- `machine_name`
+## 9. Grinder Profiles And Exact Settings
+
+Grinder profiles allow the app to return exact next settings instead of vague advice like “1-2 steps finer.”
+
+Each grinder profile includes:
+
+- `grinder_name`
 - `aliases`
-- `target_total_shot_seconds`
-- `has_preinfusion`
-- `pump_type`
-- `portafilter_mm`
-- `grind_adjustment_notes`
+- `setting_type`: `numeric_integer` or `numeric_decimal`
+- `lower_is_finer`
+- `small_step`, `medium_step`, `large_step`
+- `min_setting`, `max_setting`
+- `espresso_range`
+- `data_confidence`
+- `notes`
 - `source_urls`
 
-Machine profiles are manually curated from official manufacturer documentation first, then retailer specifications or community notes when official information is missing. User shot history can improve these profiles later.
+When the grinder is known, the app validates settings and calculates the next setting. When unknown, it uses `Generic Numeric Grinder` as a conservative fallback. Built-in grinders are represented by `uses_built_in_grinder=true`; they use generic numeric logic until a machine-specific built-in grinder profile is verified.
 
-## 9. Recommendation Rules
+## 10. Built-In Grinder Handling
 
-The recommendation engine starts as rule-based:
+Some machines, such as Meraki or Breville Barista Express, have built-in grinders. The frontend has a `Built-in` checkbox next to the grinder field.
 
-- Total shot under 20 seconds: likely too fast; grind finer unless there are channeling signs from the user.
-- Total shot between 20 and 35 seconds: timing is plausible; use taste, yield, machine profile, and user context.
-- Total shot over 35 seconds: likely too slow; grind coarser.
-- Fast shot plus sour or watery taste: grind finer.
-- Slow shot plus bitter or harsh taste: grind coarser.
-- Normal timing plus bad taste: suggest one controlled change, such as adjusting yield, temperature, or puck prep depending on user context.
+When checked:
 
-The agent should recommend one next change and tell the user what to keep fixed.
+- The grinder input is disabled and displayed as `Built-in grinder`.
+- The request sends `uses_built_in_grinder: true`.
+- The backend removes `grinder` from missing fields if machine is provided.
+- Unknown gear capture researches only the machine, not a fake separate grinder.
+- Recommendation still uses the entered grind setting.
 
-## 10. Agent System Prompt
+This prevents incorrect candidates like `grinder:meraki`.
 
-The agent system prompt defines DialedIN as an espresso coach, not a generic chatbot. It must:
+## 11. Unknown Gear Research Workflow
 
-- Explain that recommendations are next-step guidance, not guaranteed perfect grind settings.
-- Use MCP tool results for timestamps and recommendation data.
-- Ask for missing machine, grinder, dose, yield, roast, grind setting, or taste details.
-- Avoid inventing timing values or machine specifications.
+Unknown equipment is handled through a reviewable learning loop:
+
+1. `capture_unknown_gear` saves unknown machines/grinders to `profile_candidates.json`.
+2. `profile_research_worker` selects candidates with `needs_research`.
+3. `profile_web_evidence` searches/fetches official or likely official pages and extracts compact evidence.
+4. Bedrock receives the expected schema, observed context for disambiguation only, and source evidence.
+5. Bedrock returns JSON only.
+6. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, and `research_evidence`.
+7. Human reviewer edits or approves the draft.
+8. `profile_promoter` promotes the reviewed draft into trusted profile JSON.
+
+Important rule: observed app context, such as a user-entered grind setting, must not be treated as manufacturer data or a typical setting.
+
+Local env controls:
+
+```env
+PROFILE_RESEARCH_AUTORUN=true
+PROFILE_RESEARCH_AUTORUN_LIMIT=1
+PROFILE_RESEARCH_WEB_EVIDENCE=true
+MODEL=bedrock/openai.gpt-oss-20b-1:0
+AWS_REGION=us-east-1
+```
+
+## 12. Recommendation Rules
+
+The recommendation engine is deterministic and explainable:
+
+- Shot faster than target: grind finer unless channeling/puck prep signs dominate.
+- Shot slower than target: grind coarser.
+- Shot inside target: use taste/context to decide whether to keep settings, increase extraction, or reduce extraction.
+- Sour, watery, thin: usually under-extraction.
+- Bitter, harsh, dry: usually over-extraction.
+- Channeling/spraying: fix puck prep before changing grind.
+
+The app recommends one primary next change and lists what to keep fixed. Yield is optional because many users do not weigh output, but recommendations improve when yield is available.
+
+## 13. Agent System Prompt
+
+The agent system prompt defines DialedIN as an espresso coach. It must:
+
+- Use tool results or user-confirmed timing, not invented timestamps.
+- Explain recommendations as next-step guidance.
+- Ask for missing context when needed.
+- Avoid inventing machine or grinder specifications.
 - Recommend one main adjustment at a time.
-- Tell the user what to keep fixed on the next shot.
+- Tell the user what to keep fixed.
 - Mention low confidence and ask the user to confirm timing when needed.
 
-## 11. Dataset Label Schema
+## 14. Dataset Label Schema
 
 The first dataset uses a CSV file with these columns:
 
 ```text
-video_id,machine_start_time,machine_stop_time,machine,grinder,dose_g,yield_g,grind_setting,roast_level,taste
+video_id,machine_start_time,machine_stop_time,machine,grinder,dose_g,yield_g,grind_setting,roast_level,taste,notes
 ```
 
-The timestamp values are seconds from the start of the video. The existing `first_flow_time` labels can remain in older files for future visual work, but the audio-only MVP only requires machine start and machine stop.
+The required fields for audio evaluation are `video_id`, `machine_start_time`, and `machine_stop_time`. Other fields can be empty if the video does not provide them.
 
-## 12. Future Visual Analysis
+## 15. Future Visual Analysis
 
-Visual analysis is explicitly out of MVP scope. Future versions can add:
+Visual analysis is out of current MVP scope. Future versions can add:
 
-- frame extraction
-- first coffee flow detection
-- flow end visual confirmation
-- startup delay calculation
-- channeling or spraying detection
-- crema/blonding analysis
-- Ultralytics image classification or object detection
+- Frame extraction.
+- First coffee flow detection.
+- Flow end visual confirmation.
+- Startup delay calculation.
+- Channeling/spraying detection.
+- Crema/blonding analysis.
+- Ultralytics image classification or object detection.
 
-These future features can improve explanation quality but are not required for the first working agent.
-
-## 13. Error Handling
+## 16. Error Handling
 
 The system handles:
 
-- Unsupported file type: return a clear upload error.
-- Video too long or too large: reject with size/duration guidance.
-- Missing audio track: ask the user to manually enter start and stop times.
-- Noisy audio or low confidence: ask the user to confirm or manually adjust detected times.
-- Missing machine/grinder/dose/yield: ask follow-up questions.
-- MCP timeout: retry once, then return a graceful error.
-- LLM failure: return the structured timing result with a basic rule-based recommendation.
-- S3/database failure: report that analysis completed but saving failed, when possible.
+- Unsupported or missing file path.
+- Video path pointing to a directory.
+- Missing audio track.
+- Noisy audio or low confidence.
+- Missing machine/grinder/dose/grind setting/roast/taste.
+- Invalid known grinder setting.
+- Bedrock or AWS failure during background research.
+- Web evidence failure.
+- Save/compare failure in future persistent storage.
 
-## 14. Testing Strategy
+Background profile research failures should not break shot analysis.
+
+## 17. Testing Strategy
 
 Unit tests cover:
 
-- Audio extraction interface.
-- Audio start/stop detection heuristic.
-- Total shot time calculation.
-- Grind recommendation rules.
+- Audio extraction/timing logic.
+- Recommendation rules.
 - Machine profile lookup.
-- MCP tool request/response schemas.
-- Agent behavior when user metadata is missing.
+- Grinder profile lookup and exact setting calculation.
+- Unknown profile candidate capture.
+- Web evidence collection with mocked search/fetch.
+- Bedrock research worker with mocked Bedrock.
+- Profile promotion.
+- Agent API behavior.
 
-Integration tests cover:
+Integration/manual checks cover:
 
-- Agent calling the MCP server through real MCP transport.
-- A sample audio fixture producing a timing result.
-- End-to-end API request returning a recommendation.
+- Frontend to agent request.
+- Video/audio timing result.
+- Manual timing correction.
+- Unknown gear candidate creation.
+- Bedrock draft generation.
+- Reviewed profile promotion.
 
-Audio evaluation measures:
+Current verified local checks include backend pytest suite and Next.js production build.
 
-- Machine start timestamp error.
-- Machine stop timestamp error.
-- Total shot time error.
-- Start/stop confidence.
+## 18. Deployment And Observability
 
-Initial success criteria:
+Final course deployment target:
 
-- Machine start detected within 2 seconds on videos where pump sound is clear.
-- Machine stop detected within 2 seconds on videos where pump stop is clear.
-- Total shot time within 3 seconds of manual labels for at least 10 of the first 13 videos.
-- Agent returns a useful recommendation for at least three demo shot scenarios: fast, normal, and slow.
-
-The repository also contains `docs/test-plan.md`, which describes test types, commands, success criteria, and manual demo checks.
-
-## 15. Deployment
-
-The final course deployment uses:
-
-- Docker images for each service.
+- Docker images for frontend, agent, and espresso MCP.
 - Kubernetes on AWS EC2.
-- `dev` and `prod` namespaces.
-- ClusterIP services for internal communication.
-- Port-forward or ingress for demo access.
-- Liveness and readiness probes.
-- Resource requests and limits.
-- HPA for frontend, agent, and espresso MCP service.
-- Terraform for AWS resources: EC2, S3, database, IAM, and optional SQS.
-
-## 16. Observability
-
-Metrics include:
-
-- `shot_analysis_requests_total`
-- `audio_processing_duration_seconds`
-- `audio_start_confidence`
-- `audio_stop_confidence`
-- `total_shot_time_seconds`
-- `mcp_tool_errors_total`
-- `agent_request_latency_seconds`
-- `failed_audio_analysis_total`
-
-Grafana dashboard shows:
-
-- analyzed shots over time
-- average audio processing duration
-- failed analysis count
-- average start/stop confidence
-- total shot time distribution
-- agent latency
-- MCP error count
-
-Alerts include:
-
-- high analysis failure rate
-- low average audio confidence
-- high MCP tool error rate
-- high agent request latency
-- audio processing duration above threshold
-
-Healthy means the API is reachable, MCP tools respond, audio timing completes within the expected time, error rate stays low, and audio confidence is high enough for recommendations.
-
-## 17. Demo Scenario
-
-The live demo uses a controlled espresso shot video. The user uploads the video, enters machine/grinder/shot details, and the system returns:
-
-- machine start time
-- machine stop time
-- total shot time
-- grind recommendation
-- confidence and explanation
-
-The presentation also shows the MCP tool call, Kubernetes services, CI pipeline, and Grafana dashboard.
+- `dev` and `prod` namespaces if required by the course workflow.
+- S3 and DynamoDB via Terraform.
+- Prometheus/Grafana for request, audio, MCP, and failure metrics.
+- GitHub Actions for tests, build, and deployment.

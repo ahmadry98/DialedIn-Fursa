@@ -10,9 +10,10 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from services.agent.app import app
+from services.agent import app as agent_app
 from services.agent import agent_runner
 from services.espresso_mcp import app as espresso_tools
+from services.espresso_mcp import profile_candidates
 
 
 def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
@@ -36,6 +37,17 @@ def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
 class AgentApiTest(unittest.TestCase):
     def setUp(self):
         espresso_tools.SHOT_HISTORY.clear()
+        agent_app.settings = agent_app.settings.__class__(
+            app_name=agent_app.settings.app_name,
+            local_upload_dir=agent_app.settings.local_upload_dir,
+            require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
+            profile_research_autorun=False,
+            profile_research_autorun_limit=1,
+        )
+        self.candidate_tmp = TemporaryDirectory()
+        self.original_candidates_path = profile_candidates.CANDIDATES_PATH
+        profile_candidates.CANDIDATES_PATH = Path(self.candidate_tmp.name) / "profile_candidates.json"
+        profile_candidates.CANDIDATES_PATH.write_text("[]\n", encoding="utf-8")
         agent_runner.METRICS.update(
             {
                 "shot_analysis_requests_total": 0,
@@ -43,7 +55,11 @@ class AgentApiTest(unittest.TestCase):
                 "last_missing_fields_count": 0,
             }
         )
-        self.client = TestClient(app)
+        self.client = TestClient(agent_app.app)
+
+    def tearDown(self):
+        profile_candidates.CANDIDATES_PATH = self.original_candidates_path
+        self.candidate_tmp.cleanup()
 
     def test_health(self):
         response = self.client.get("/health")
@@ -51,7 +67,7 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["tool_count"], 8)
+        self.assertEqual(payload["tool_count"], 12)
 
     def test_metrics_initial_and_after_chat(self):
         self.assertEqual(self.client.get("/metrics").json()["chat_requests_total"], 0)
@@ -96,6 +112,27 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(payload["missing_fields"], [])
         self.assertEqual(payload["saved_result"]["status"], "saved")
 
+    def test_analyze_shot_without_yield_is_allowed(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "user_id": "user-no-yield",
+                "total_shot_seconds": 29,
+                "timing_confidence": 0.9,
+                "machine": "BES870",
+                "grinder": "Baratza Encore ESP",
+                "dose_g": 18,
+                "grind_setting": "12",
+                "roast_level": "medium",
+                "taste": "balanced",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertNotIn("yield_g", payload["missing_fields"])
+        self.assertEqual(payload["recommendation"]["recommendation"], "keep_settings")
+
     def test_analyze_shot_with_wav_path(self):
         with TemporaryDirectory() as tmp:
             wav_path = Path(tmp) / "shot.wav"
@@ -119,6 +156,144 @@ class AgentApiTest(unittest.TestCase):
         payload = response.json()
         self.assertAlmostEqual(payload["timing"]["total_shot_seconds"], 8.0, delta=0.75)
         self.assertEqual(payload["recommendation"]["recommendation"], "grind_finer")
+
+    def test_autorun_profile_research_runs_when_enabled(self):
+        agent_app.settings = agent_app.settings.__class__(
+            app_name=agent_app.settings.app_name,
+            local_upload_dir=agent_app.settings.local_upload_dir,
+            require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
+            profile_research_autorun=True,
+            profile_research_autorun_limit=1,
+        )
+        calls = []
+
+        def fake_worker(**kwargs):
+            calls.append(kwargs)
+
+        original_worker = agent_app.profile_research_worker.run_worker
+        agent_app.profile_research_worker.run_worker = fake_worker
+        try:
+            response = self.client.post(
+                "/analyze-shot",
+                json={
+                    "user_id": "user-autorun",
+                    "total_shot_seconds": 29,
+                    "timing_confidence": 0.9,
+                    "machine": "Autorun Unknown Machine",
+                    "grinder": "Autorun Unknown Grinder",
+                    "dose_g": 18,
+                    "grind_setting": "12",
+                    "roast_level": "medium",
+                    "taste": "balanced",
+                },
+            )
+        finally:
+            agent_app.profile_research_worker.run_worker = original_worker
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [{"limit": 1}])
+
+    def test_autorun_profile_research_does_not_run_when_disabled(self):
+        agent_app.settings = agent_app.settings.__class__(
+            app_name=agent_app.settings.app_name,
+            local_upload_dir=agent_app.settings.local_upload_dir,
+            require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
+            profile_research_autorun=False,
+            profile_research_autorun_limit=1,
+        )
+        calls = []
+
+        def fake_worker(**kwargs):
+            calls.append(kwargs)
+
+        original_worker = agent_app.profile_research_worker.run_worker
+        agent_app.profile_research_worker.run_worker = fake_worker
+        try:
+            response = self.client.post(
+                "/analyze-shot",
+                json={
+                    "user_id": "user-no-autorun",
+                    "total_shot_seconds": 29,
+                    "timing_confidence": 0.9,
+                    "machine": "No Autorun Unknown Machine",
+                    "grinder": "No Autorun Unknown Grinder",
+                    "dose_g": 18,
+                    "grind_setting": "12",
+                    "roast_level": "medium",
+                    "taste": "balanced",
+                },
+            )
+        finally:
+            agent_app.profile_research_worker.run_worker = original_worker
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [])
+
+    def test_analyze_shot_captures_unknown_gear_candidates(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "user_id": "user-unknown",
+                "total_shot_seconds": 29,
+                "timing_confidence": 0.9,
+                "machine": "Mystery Machine X",
+                "grinder": "Mystery Grinder Y",
+                "dose_g": 18,
+                "grind_setting": "12",
+                "roast_level": "medium",
+                "taste": "balanced",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["machine_profile"]["machine_name"], "Generic Espresso Machine")
+        self.assertEqual(len(payload["profile_candidates"]), 2)
+        self.assertEqual({candidate["type"] for candidate in payload["profile_candidates"]}, {"machine", "grinder"})
+
+    def test_built_in_grinder_does_not_capture_separate_grinder_candidate(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "user_id": "user-built-in",
+                "total_shot_seconds": 17,
+                "timing_confidence": 0.9,
+                "machine": "Mystery Built In Machine",
+                "uses_built_in_grinder": True,
+                "dose_g": 18,
+                "grind_setting": "14",
+                "roast_level": "medium",
+                "taste": "sour",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertNotIn("grinder", payload["missing_fields"])
+        self.assertEqual(len(payload["profile_candidates"]), 1)
+        self.assertEqual(payload["profile_candidates"][0]["type"], "machine")
+        exact = payload["recommendation"]["exact_grind_setting"]
+        self.assertEqual(exact["grinder_profile"]["grinder_name"], "Generic Numeric Grinder")
+        self.assertIsNotNone(exact["suggested_setting"])
+
+    def test_analyze_shot_rejects_invalid_known_grinder_setting(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "user_id": "user-bad-grind",
+                "total_shot_seconds": 29,
+                "timing_confidence": 0.9,
+                "machine": "BES870",
+                "grinder": "Baratza Encore ESP",
+                "dose_g": 18,
+                "grind_setting": "12.5",
+                "roast_level": "medium",
+                "taste": "balanced",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("whole-number", response.json()["detail"])
 
     def test_analyze_shot_requires_timing_or_video(self):
         response = self.client.post("/analyze-shot", json={"user_id": "user-3"})

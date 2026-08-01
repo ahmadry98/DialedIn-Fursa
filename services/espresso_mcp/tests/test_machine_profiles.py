@@ -28,6 +28,22 @@ class MachineProfilesTest(unittest.TestCase):
         self.assertEqual(profile["machine_name"], "DeLonghi Dedica")
         self.assertEqual(profile["specs"]["portafilter_mm"], 51)
 
+    def test_new_aliases_resolve_popular_machines(self):
+        cases = {
+            "BES920": "Breville Dual Boiler",
+            "MaraX": "Lelit Mara X",
+            "Bianca V3": "Lelit Bianca V3",
+            "Rocket Appartamento TCA": "Rocket Appartamento",
+            "Steel Uno PID": "Ascaso Steel UNO PID / DUO PID",
+            "Linea Mini R": "La Marzocco Linea Mini",
+            "Synchronika": "ECM Synchronika",
+            "Profitec GO": "Profitec GO",
+        }
+
+        for alias, expected_name in cases.items():
+            with self.subTest(alias=alias):
+                self.assertEqual(get_machine_profile(alias)["machine_name"], expected_name)
+
     def test_unknown_machine_returns_generic_profile(self):
         profile = get_machine_profile("Mystery Steam Box 3000")
 

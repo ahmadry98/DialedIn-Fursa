@@ -20,7 +20,10 @@ except ImportError:  # pragma: no cover - direct unit tests can still run withou
     Server = None  # type: ignore[assignment]
 
 from services.espresso_mcp import audio_analysis
+from services.espresso_mcp import grinder_profiles
 from services.espresso_mcp import machine_profiles
+from services.espresso_mcp import profile_candidates
+from services.espresso_mcp import profile_research
 from services.espresso_mcp import recommendations
 
 TOOL_NAMES = [
@@ -32,6 +35,10 @@ TOOL_NAMES = [
     "get_machine_profile",
     "save_shot_result",
     "compare_previous_shots",
+    "capture_unknown_gear",
+    "list_profile_candidates",
+    "prepare_profile_research",
+    "attach_draft_profile",
 ]
 
 TOOL_INPUT_SCHEMAS: dict[str, dict[str, Any]] = {
@@ -78,6 +85,35 @@ TOOL_INPUT_SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {"user_id": {"type": "string"}, "current_result": {"type": "object"}},
         "required": ["user_id", "current_result"],
     },
+    "capture_unknown_gear": {
+        "type": "object",
+        "properties": {
+            "user_id": {"type": "string"},
+            "machine": {"type": ["string", "null"]},
+            "grinder": {"type": ["string", "null"]},
+            "shot_context": {"type": "object"},
+        },
+        "required": ["user_id", "shot_context"],
+    },
+    "list_profile_candidates": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+    "prepare_profile_research": {
+        "type": "object",
+        "properties": {"candidate_key": {"type": "string"}},
+        "required": ["candidate_key"],
+    },
+    "attach_draft_profile": {
+        "type": "object",
+        "properties": {
+            "candidate_key": {"type": "string"},
+            "draft_profile": {"type": "object"},
+            "source_summary": {"type": ["string", "null"]},
+        },
+        "required": ["candidate_key", "draft_profile"],
+    },
 }
 
 TOOL_DESCRIPTIONS = {
@@ -89,6 +125,10 @@ TOOL_DESCRIPTIONS = {
     "get_machine_profile": "Look up a curated machine profile by exact name or alias.",
     "save_shot_result": "Save a shot result in local in-memory history for the MVP.",
     "compare_previous_shots": "Compare current shot timing with the user's previous saved shot.",
+    "capture_unknown_gear": "Save unknown machine/grinder names as profile candidates for later research.",
+    "list_profile_candidates": "List captured unknown machine/grinder profile candidates.",
+    "prepare_profile_research": "Prepare an LLM/search prompt packet for one profile candidate.",
+    "attach_draft_profile": "Attach a sourced draft profile to a candidate for human review.",
 }
 
 SHOT_HISTORY: dict[str, list[dict[str, Any]]] = {}
@@ -121,6 +161,9 @@ def analyze_audio_timing(video_s3_key: str, fps: float | None = None) -> dict[st
 def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
     """Return the next grind or extraction adjustment for a shot."""
     context = dict(shot_context)
+    grind_setting_error = grinder_profiles.validate_grind_setting(context.get("grinder"), context.get("grind_setting"))
+    if grind_setting_error:
+        raise ValueError(grind_setting_error)
     if context.get("machine") and not context.get("machine_profile"):
         context["machine_profile"] = machine_profiles.get_machine_profile(context["machine"])
     return recommendations.recommend_grind_adjustment(context)
@@ -129,6 +172,26 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
 def get_machine_profile(machine_name: str | None) -> dict[str, Any]:
     """Look up a curated machine profile by exact name or alias."""
     return machine_profiles.get_machine_profile(machine_name)
+
+
+def capture_unknown_gear(user_id: str, machine: str | None = None, grinder: str | None = None, shot_context: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Save unknown machine/grinder names as profile candidates for later research."""
+    return profile_candidates.capture_unknown_gear(user_id, machine, grinder, shot_context or {})
+
+
+def list_profile_candidates() -> list[dict[str, Any]]:
+    """List captured unknown machine/grinder profile candidates."""
+    return profile_candidates.load_profile_candidates()
+
+
+def prepare_profile_research(candidate_key: str) -> dict[str, Any]:
+    """Prepare an LLM/search prompt packet for one profile candidate."""
+    return profile_research.prepare_research_packet(candidate_key)
+
+
+def attach_draft_profile(candidate_key: str, draft_profile: dict[str, Any], source_summary: str | None = None) -> dict[str, Any]:
+    """Attach a sourced draft profile to a candidate for human review."""
+    return profile_research.attach_draft_profile(candidate_key, draft_profile, source_summary)
 
 
 def save_shot_result(user_id: str, result: dict[str, Any]) -> dict[str, Any]:
@@ -193,6 +256,10 @@ TOOL_FUNCTIONS = {
     "get_machine_profile": get_machine_profile,
     "save_shot_result": save_shot_result,
     "compare_previous_shots": compare_previous_shots,
+    "capture_unknown_gear": capture_unknown_gear,
+    "list_profile_candidates": list_profile_candidates,
+    "prepare_profile_research": prepare_profile_research,
+    "attach_draft_profile": attach_draft_profile,
 }
 
 

@@ -9,8 +9,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-DEFAULT_TARGET_MIN_SECONDS = 20.0
-DEFAULT_TARGET_MAX_SECONDS = 35.0
+try:  # Support both package imports and direct test imports.
+    from services.espresso_mcp import grinder_profiles
+except ModuleNotFoundError:  # pragma: no cover - exercised by direct unittest imports.
+    import grinder_profiles  # type: ignore
+
+DEFAULT_TARGET_MIN_SECONDS = 25.0
+DEFAULT_TARGET_MAX_SECONDS = 32.0
 LOW_TIMING_CONFIDENCE_THRESHOLD = 0.35
 
 UNDER_EXTRACTED_TASTE_WORDS = {
@@ -52,6 +57,7 @@ class RecommendationResult:
     keep_fixed: list[str]
     needs_more_info: list[str]
     target_range_seconds: tuple[float, float]
+    exact_grind_setting: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -103,7 +109,7 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
         reason = "Shot ran faster than the target range."
         if _contains_any(taste_text, UNDER_EXTRACTED_TASTE_WORDS):
             reason += " Sour, watery, or thin taste also points toward under-extraction."
-        return RecommendationResult(
+        return _with_exact_setting(RecommendationResult(
             recommendation="grind_finer",
             adjustment="move 1-2 grinder steps finer",
             reason=reason,
@@ -111,13 +117,13 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
             keep_fixed=keep_fixed,
             needs_more_info=needs_more_info,
             target_range_seconds=(target_min, target_max),
-        ).to_dict()
+        ), shot_context).to_dict()
 
     if total > target_max:
         reason = "Shot ran slower than the target range."
         if _contains_any(taste_text, OVER_EXTRACTED_TASTE_WORDS):
             reason += " Bitter, harsh, or dry taste also points toward over-extraction."
-        return RecommendationResult(
+        return _with_exact_setting(RecommendationResult(
             recommendation="grind_coarser",
             adjustment="move 1-2 grinder steps coarser",
             reason=reason,
@@ -125,7 +131,7 @@ def recommend_grind_adjustment(shot_context: dict[str, Any]) -> dict[str, Any]:
             keep_fixed=keep_fixed,
             needs_more_info=needs_more_info,
             target_range_seconds=(target_min, target_max),
-        ).to_dict()
+        ), shot_context).to_dict()
 
     if _contains_any(taste_text, UNDER_EXTRACTED_TASTE_WORDS):
         return RecommendationResult(
@@ -191,6 +197,23 @@ def _target_range(shot_context: dict[str, Any]) -> tuple[float, float]:
     return DEFAULT_TARGET_MIN_SECONDS, DEFAULT_TARGET_MAX_SECONDS
 
 
+def _with_exact_setting(result: RecommendationResult, shot_context: dict[str, Any]) -> RecommendationResult:
+    exact_setting = grinder_profiles.suggest_grind_setting(
+        grinder_name=shot_context.get("grinder"),
+        current_setting=shot_context.get("grind_setting"),
+        recommendation=result.recommendation,
+        total_shot_seconds=shot_context.get("total_shot_seconds"),
+        target_range_seconds=result.target_range_seconds,
+    )
+    suggested = exact_setting.get("setting_label")
+    if suggested is None:
+        return RecommendationResult(**{**asdict(result), "exact_grind_setting": exact_setting})
+
+    direction = "finer" if result.recommendation == "grind_finer" else "coarser"
+    adjustment = f"try grind setting {suggested} next ({direction})"
+    return RecommendationResult(**{**asdict(result), "adjustment": adjustment, "exact_grind_setting": exact_setting})
+
+
 def _timing_confidence(shot_context: dict[str, Any]) -> float:
     confidence = shot_context.get("timing_confidence")
     if confidence is None:
@@ -206,13 +229,13 @@ def _requires_timing_confirmation(shot_context: dict[str, Any], timing_confidenc
 
 
 def _keep_fixed(shot_context: dict[str, Any]) -> list[str]:
-    defaults = ["dose_g", "yield_g", "puck_prep"]
-    present = [field for field in defaults if shot_context.get(field) not in (None, "")]
-    return present or defaults
+    tracked = ["dose_g", "yield_g", "puck_prep"]
+    present = [field for field in tracked if shot_context.get(field) not in (None, "")]
+    return present or ["dose_g", "puck_prep"]
 
 
 def _missing_context(shot_context: dict[str, Any]) -> list[str]:
-    important = ["machine", "grinder", "dose_g", "yield_g", "grind_setting", "roast_level", "taste"]
+    important = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste"]
     return [field for field in important if shot_context.get(field) in (None, "")]
 
 
