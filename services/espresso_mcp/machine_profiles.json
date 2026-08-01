@@ -1,0 +1,501 @@
+[
+  {
+    "machine_name": "Breville Barista Express",
+    "aliases": [
+      "breville barista express",
+      "barista express",
+      "bes870",
+      "bes870xl",
+      "sage barista express"
+    ],
+    "specs": {
+      "portafilter_mm": 54,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar vibration pump with low-pressure pre-infusion and 9 bar extraction behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        4,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Use small internal/external grind changes. Built-in grinder steps can be large, so keep dose and yield fixed when changing grind.",
+    "sources": {
+      "aliases": [
+        "https://www.breville.com/en-us/product/bes870",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "portafilter_mm": [
+        "https://www.breville.com/en-us/product/bes870",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "pump_type": [
+        "https://www.breville.com/en-us/product/bes870",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "pressure_type": [
+        "https://www.breville.com/en-us/product/bes870",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "has_preinfusion": [
+        "https://www.breville.com/en-us/product/bes870",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ]
+    }
+  },
+  {
+    "machine_name": "Breville Bambino / Bambino Plus",
+    "aliases": [
+      "breville bambino",
+      "bambino",
+      "bambino plus",
+      "breville bambino plus",
+      "bes450",
+      "bes500",
+      "sage bambino",
+      "sage bambino plus"
+    ],
+    "specs": {
+      "portafilter_mm": 54,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar pump with low-pressure pre-infusion followed by 9 bar extraction behavior",
+      "has_preinfusion": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        4,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Small thermocoil machines can react strongly to grind changes. Adjust 1 step at a time and keep dose/yield fixed.",
+    "sources": {
+      "aliases": [
+        "https://www.breville.com/en-us/product/BES500",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "portafilter_mm": [
+        "https://www.breville.com/en-us/product/BES500",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "pump_type": [
+        "https://www.breville.com/en-us/product/BES500",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "pressure_type": [
+        "https://www.breville.com/en-us/product/BES500",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ],
+      "has_preinfusion": [
+        "https://www.breville.com/en-us/product/BES500",
+        "https://www.breville.com/en-us/product/sp0024799"
+      ]
+    }
+  },
+  {
+    "machine_name": "Gaggia Classic Pro",
+    "aliases": [
+      "gaggia classic pro",
+      "gaggia classic",
+      "classic pro",
+      "classic e24",
+      "gaggia classic e24"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar vibration pump with 9 bar OPV calibration on newer E24 references",
+      "has_preinfusion": false
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Use normal espresso grind adjustments. Temperature surfing and puck prep can affect results on single-boiler models.",
+    "sources": {
+      "aliases": [
+        "https://www.gaggia-na.com/products/gaggia-classic-pro",
+        "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
+      ],
+      "portafilter_mm": [
+        "https://www.gaggia-na.com/products/gaggia-classic-pro",
+        "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
+      ],
+      "pump_type": [
+        "https://www.gaggia-na.com/products/gaggia-classic-pro",
+        "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
+      ],
+      "pressure_type": [
+        "https://www.gaggia-na.com/products/gaggia-classic-pro",
+        "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
+      ],
+      "has_preinfusion": [
+        "https://www.gaggia-na.com/products/gaggia-classic-pro",
+        "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
+      ]
+    }
+  },
+  {
+    "machine_name": "Rancilio Silvia",
+    "aliases": [
+      "rancilio silvia",
+      "silvia",
+      "rancilio silvia classic",
+      "silvia classic"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "single-boiler vibration pump home machine",
+      "has_preinfusion": false
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Use small grind changes and keep temperature routine consistent. The Silvia is sensitive to temperature and puck prep.",
+    "sources": {
+      "aliases": [
+        "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
+        "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
+      ],
+      "portafilter_mm": [
+        "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
+        "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
+      ],
+      "pump_type": [
+        "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
+        "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
+      ],
+      "pressure_type": [
+        "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
+        "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
+      ],
+      "has_preinfusion": [
+        "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
+        "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
+      ]
+    }
+  },
+  {
+    "machine_name": "DeLonghi Dedica",
+    "aliases": [
+      "delonghi dedica",
+      "de'longhi dedica",
+      "dedica",
+      "ec680",
+      "ec685",
+      "dedica ec685",
+      "dedica style"
+    ],
+    "specs": {
+      "portafilter_mm": 51,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar thermoblock compact espresso machine, commonly used with pressurized baskets stock",
+      "has_preinfusion": false
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        6
+      ]
+    },
+    "grind_adjustment_notes": "Stock pressurized baskets hide some grind problems. If using non-pressurized baskets, change grind slowly and watch for channeling.",
+    "sources": {
+      "aliases": [
+        "https://support.delonghi.com/en/dedica",
+        "https://id.delonghi.com/product/dedica-style-ec-685-m/",
+        "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
+      ],
+      "portafilter_mm": [
+        "https://support.delonghi.com/en/dedica",
+        "https://id.delonghi.com/product/dedica-style-ec-685-m/",
+        "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
+      ],
+      "pump_type": [
+        "https://support.delonghi.com/en/dedica",
+        "https://id.delonghi.com/product/dedica-style-ec-685-m/",
+        "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
+      ],
+      "pressure_type": [
+        "https://support.delonghi.com/en/dedica",
+        "https://id.delonghi.com/product/dedica-style-ec-685-m/",
+        "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
+      ],
+      "has_preinfusion": [
+        "https://support.delonghi.com/en/dedica",
+        "https://id.delonghi.com/product/dedica-style-ec-685-m/",
+        "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
+      ]
+    }
+  },
+  {
+    "machine_name": "Lelit Anna",
+    "aliases": [
+      "anna",
+      "anna pl41em",
+      "anna pl41tem",
+      "lelit anna",
+      "lelit anna pl41em",
+      "lelit anna pl41tem",
+      "pl41em",
+      "pl41em-120",
+      "pl41em-2g80",
+      "pl41em-as",
+      "pl41tem",
+      "pl41tem-as",
+      "pl41temd-2g80",
+      "pl41temdaus"
+    ],
+    "specs": {
+      "portafilter_mm": 57,
+      "pump_type": "unknown",
+      "pressure_type": "coffee-pressure manometer; pump pressure not verified from current source",
+      "has_preinfusion": false,
+      "group_system": "LELIT57",
+      "three_way_solenoid_valve": true,
+      "pressure_gauge": true,
+      "boiler_material": "brass",
+      "boiler_ml": 250,
+      "water_tank_l": 2.7
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "Use small espresso-grind adjustments while keeping dose and yield fixed. The machine uses the less-common LELIT57 group, so confirm that baskets, tampers and distribution tools are compatible with the LELIT57 system.",
+    "sources": {
+      "aliases": [
+        "https://www.lelit.com/product/anna-pl41tem/",
+        "https://www.lelit.com/wp-content/uploads/2024/09/EN-Anna-TEM.pdf",
+        "LELIT Anna technical features page provided by user"
+      ],
+      "portafilter_mm": [
+        "https://www.lelit.com/product/anna-pl41tem/",
+        "https://www.lelit.com/wp-content/uploads/2024/09/EN-Anna-TEM.pdf",
+        "LELIT Anna technical features page provided by user"
+      ],
+      "pump_type": [],
+      "pressure_type": [
+        "LELIT Anna technical features page provided by user"
+      ],
+      "has_preinfusion": [
+        "LELIT Anna technical features page provided by user"
+      ],
+      "technical_features": [
+        "LELIT Anna technical features page provided by user"
+      ]
+    }
+  },
+  {
+    "machine_name": "La Marzocco Linea Micra",
+    "aliases": [
+      "la marzocco linea micra",
+      "linea micra",
+      "lamarzocco linea micra",
+      "micra"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "internal rotary pump factory-set to 9 bar; manufacturer specifies approximately 8 to 10 bar during extraction",
+      "has_preinfusion": true,
+      "brew_control": "manual brew paddle",
+      "included_tamper_mm": 58,
+      "included_portafilter": "bottomless portafilter with connectable single and double spouts",
+      "included_baskets_g": {
+        "eu": [
+          8,
+          14
+        ],
+        "non_eu": [
+          14,
+          17
+        ]
+      }
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        25,
+        35
+      ],
+      "typical_startup_delay_seconds": null,
+      "startup_flush_seconds": 10
+    },
+    "grind_adjustment_notes": "La Marzocco recommends running a shot for 25-35 seconds and aiming for about double the input dose as beverage weight. If flow is too fast, grind finer; if flow is too slow, grind coarser. Keep dose, yield, and paddle workflow fixed while dialing in.",
+    "sources": {
+      "aliases": [
+        "https://www.lamarzocco.com/de/en/handbucher-anleitungen/",
+        "https://nz.lamarzocco.com/support/technical-information/",
+        "La Marzocco Linea Micra startup guide provided by user"
+      ],
+      "portafilter_mm": [
+        "https://www.lamarzocco.com/fr/fr/starting-up-the-linea-micra/",
+        "https://www.lamarzocco.com/tw/zh-hans/linea-micra-%E4%BD%BF%E7%94%A8%E8%AA%AA%E6%98%8E/",
+        "La Marzocco Linea Micra startup guide provided by user"
+      ],
+      "pump_type": [
+        "https://bellabarista.co.uk/pages/machine-comparison",
+        "https://www.seriouseats.com/la-marzocco-linea-micra-espresso-machine-review-7377775"
+      ],
+      "pressure_type": [
+        "https://www.lamarzocco.com/fr/wp-content/uploads/2025/09/MANUEL_MICRA.pdf",
+        "https://www.lamarzocco.com/de/de/bruehverhaeltnisse-beim-espresso/"
+      ],
+      "has_preinfusion": [
+        "https://www.lamarzocco.com/it/en/app/support/brewing-features/",
+        "https://www.lamarzocco.com/at/de/pre-brew-espresso-erklaert/",
+        "https://www.lamarzocco.com/uk/en/pre-brew-pre-infusion-and-pressure-manipulation-explained/"
+      ],
+      "brew_defaults": [
+        "La Marzocco Linea Micra startup guide provided by user"
+      ],
+      "included_accessories": [
+        "La Marzocco Linea Micra startup guide provided by user"
+      ]
+    }
+  },
+  {
+    "machine_name": "La Spaziale S1 Mini Vivaldi II",
+    "aliases": [
+      "la spaziale s1 mini vivaldi ii",
+      "la spaziale mini vivaldi ii",
+      "s1 mini vivaldi ii",
+      "mini vivaldi ii",
+      "mini vivaldi 2",
+      "mini vii",
+      "s1 mini vii"
+    ],
+    "specs": {
+      "portafilter_mm": 53,
+      "pump_type": "vibration",
+      "pressure_type": "vibratory-pump, reservoir-fed dual-boiler machine; exact rated pump pressure is unknown from the cited sources",
+      "has_preinfusion": null
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "Use small grind changes and keep the programmed volumetric dose fixed while dialing in. Because the mechanical preinfusion chamber is optional, do not interpret a longer delay before visible flow as proof that every Mini Vivaldi II has preinfusion installed.",
+    "sources": {
+      "aliases": [
+        "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf",
+        "https://www.chriscoffee.com/pages/product-manuals"
+      ],
+      "portafilter_mm": [
+        "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf"
+      ],
+      "pump_type": [
+        "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf",
+        "https://www.coffeeitalia.co.uk/la-spaziale-s1-mini-vivaldi-ii/"
+      ],
+      "pressure_type": [
+        "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf",
+        "https://www.coffeeitalia.co.uk/la-spaziale-s1-mini-vivaldi-ii/"
+      ],
+      "has_preinfusion": [
+        "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf",
+        "https://www.baritaliaclub.com/catalog/product/view/_ignore_category/1/id/186/s/la-spaziale-s1-mini-vivaldi-ii-black/"
+      ]
+    }
+  },
+  {
+    "machine_name": "Generic Espresso Machine",
+    "aliases": [
+      "generic",
+      "unknown",
+      "espresso machine",
+      "manual espresso machine"
+    ],
+    "specs": {
+      "portafilter_mm": null,
+      "pump_type": "unknown",
+      "pressure_type": "unknown",
+      "has_preinfusion": null
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        20,
+        35
+      ],
+      "target_visible_flow_seconds": [
+        18,
+        30
+      ],
+      "typical_startup_delay_seconds": [
+        2,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Use conservative 1-step changes. Ask for exact machine model before applying machine-specific assumptions.",
+    "sources": {
+      "aliases": [],
+      "portafilter_mm": [],
+      "pump_type": [],
+      "pressure_type": [],
+      "has_preinfusion": []
+    }
+  }
+]
