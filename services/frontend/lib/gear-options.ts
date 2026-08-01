@@ -6,6 +6,15 @@ type NamedProfile = {
   grinder_name?: string;
 };
 
+type MachineProfile = {
+  machine_name: string;
+  aliases?: string[];
+  specs?: {
+    has_built_in_grinder?: boolean;
+  };
+  grind_adjustment_notes?: string;
+};
+
 export type GrinderProfile = {
   grinder_name: string;
   aliases?: string[];
@@ -17,10 +26,52 @@ export type GrinderProfile = {
   notes?: string;
 };
 
+export const machineProfileOptions = (machineProfiles as MachineProfile[])
+  .filter((profile) => profile.machine_name !== "Generic Espresso Machine")
+  .sort((left, right) => left.machine_name.localeCompare(right.machine_name, undefined, { sensitivity: "base" }));
+
 export const machineOptions = sortedNames(
   (machineProfiles as NamedProfile[]).map((profile) => profile.machine_name),
   "Generic Espresso Machine"
 );
+
+export function getMachineProfile(machineName: string): MachineProfile | null {
+  const query = normalize(machineName);
+  if (!query) {
+    return null;
+  }
+
+  return (
+    machineProfileOptions.find((profile) => {
+      const names = [profile.machine_name, ...(profile.aliases ?? [])];
+      return names.some((name) => normalize(name) === query);
+    }) ?? null
+  );
+}
+
+export function machineSupportsBuiltInGrinder(machineName: string) {
+  const query = normalize(machineName);
+  if (!query) {
+    return false;
+  }
+
+  const profile = getMachineProfile(machineName);
+  if (!profile) {
+    return true;
+  }
+
+  return machineHasKnownBuiltInGrinder(machineName);
+}
+
+export function machineHasKnownBuiltInGrinder(machineName: string) {
+  const profile = getMachineProfile(machineName);
+  if (!profile) {
+    return false;
+  }
+
+  const notes = profile.grind_adjustment_notes?.toLowerCase() ?? "";
+  return Boolean(profile.specs?.has_built_in_grinder) || ((notes.includes("built-in") || notes.includes("built in")) && notes.includes("grinder"));
+}
 
 export const grinderProfileOptions = (grinderProfiles as GrinderProfile[])
   .filter((profile) => profile.grinder_name !== "Generic Numeric Grinder")

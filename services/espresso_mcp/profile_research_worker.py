@@ -64,23 +64,28 @@ def run_worker(
             )
             continue
 
-        draft = call_bedrock_for_draft(
-            prompt,
-            model_id=model_id or os.getenv("MODEL") or os.getenv("BEDROCK_MODEL_ID") or DEFAULT_MODEL_ID,
-            region=region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or DEFAULT_REGION,
-        )
-        updated = profile_research.attach_draft_profile(
-            candidate["candidate_key"],
-            draft,
-            _source_summary(web_packet),
-        )
-        results.append(
-            {
-                "candidate_key": candidate["candidate_key"],
-                "status": updated["status"],
-                "validation": updated.get("draft_validation"),
-            }
-        )
+        try:
+            draft = call_bedrock_for_draft(
+                prompt,
+                model_id=model_id or os.getenv("MODEL") or os.getenv("BEDROCK_MODEL_ID") or DEFAULT_MODEL_ID,
+                region=region or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or DEFAULT_REGION,
+            )
+            updated = profile_research.attach_draft_profile(
+                candidate["candidate_key"],
+                draft,
+                _source_summary(web_packet),
+            )
+            results.append(
+                {
+                    "candidate_key": candidate["candidate_key"],
+                    "status": updated["status"],
+                    "validation": updated.get("draft_validation"),
+                }
+            )
+        except Exception as error:
+            note = f"Profile research failed during Bedrock draft step: {type(error).__name__}: {error}"
+            profile_candidates.add_profile_candidate_note(candidate["candidate_key"], note)
+            raise RuntimeError(f"{candidate['candidate_key']}: {note}") from error
 
     return results
 
@@ -122,7 +127,25 @@ def call_bedrock_for_draft(prompt: str, *, model_id: str, region: str) -> dict[s
         converse_args["additionalModelRequestFields"] = extra_fields
     response = client.converse(**converse_args)
     text = _bedrock_response_text(response)
-    return parse_json_response(text)
+    if not text.strip():
+        stop_reason = response.get("stopReason", "unknown")
+        usage = response.get("usage", {})
+        content = response.get("output", {}).get("message", {}).get("content", [])
+        raise ValueError(
+            "Bedrock returned empty text; "
+            f"stopReason={stop_reason}; usage={usage}; content_keys={_content_keys(content)}"
+        )
+    try:
+        return parse_json_response(text)
+    except Exception as error:
+        preview = text[:500].replace("\n", " ")
+        raise ValueError(f"Bedrock returned non-JSON text: {preview!r}") from error
+
+
+def _content_keys(content: Any) -> list[list[str]]:
+    if not isinstance(content, list):
+        return []
+    return [sorted(block.keys()) for block in content if isinstance(block, dict)]
 
 
 def normalize_bedrock_model_id(model_id: str) -> str:

@@ -138,6 +138,8 @@ def _research_instructions(gear_type: str, name: str) -> str:
             "Retailer spec tables are allowed only when official sources do not provide a field. "
             "Do not guess unverifiable fields; use null or 'unknown'. "
             "Do not treat observed app context values, such as the current grind setting, as typical manufacturer data. "
+            "If official evidence says a machine has LELIT57/LELIT58 group or filterholder, treat that as 57/58 mm portafilter evidence and cite the source. "
+            "Only mark has_preinfusion true when the evidence explicitly says preinfusion/pre-infusion; do not infer it from a solenoid valve. "
             "For grind_adjustment_notes, avoid exact setting claims unless the evidence supports the setting range/direction. "
             "Return JSON only, matching expected_schema exactly. "
             f"Research espresso machine: {name}."
@@ -159,6 +161,7 @@ def _machine_schema() -> dict[str, Any]:
             "pump_type": "vibration|rotary|manual|unknown",
             "pressure_type": "string",
             "has_preinfusion": "boolean|null",
+            "has_built_in_grinder": "boolean|null",
         },
         "brew_defaults": {
             "target_total_shot_seconds": [25, 32],
@@ -172,6 +175,7 @@ def _machine_schema() -> dict[str, Any]:
             "pump_type": ["url"],
             "pressure_type": ["url"],
             "has_preinfusion": ["url"],
+            "has_built_in_grinder": ["url"],
         },
     }
 

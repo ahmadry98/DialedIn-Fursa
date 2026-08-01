@@ -6,6 +6,8 @@ import { ShotResult } from "./shot-result";
 import {
   getGrinderProfile,
   grinderOptions,
+  machineHasKnownBuiltInGrinder,
+  machineSupportsBuiltInGrinder,
   grindSettingHint,
   grindSettingOptions,
   grindSettingStep,
@@ -48,14 +50,16 @@ export function ShotUpload() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const effectiveGrinderName = form.uses_built_in_grinder ? "" : form.grinder;
+  const builtInGrinderAllowed = machineSupportsBuiltInGrinder(form.machine);
+  const effectiveUsesBuiltInGrinder = form.uses_built_in_grinder && builtInGrinderAllowed;
+  const effectiveGrinderName = effectiveUsesBuiltInGrinder ? "" : form.grinder;
   const selectedGrinderProfile = getGrinderProfile(effectiveGrinderName);
   const selectedGrindSettingOptions = grindSettingOptions(selectedGrinderProfile);
   const selectedGrindSettingStep = grindSettingStep(selectedGrinderProfile);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = buildPayload(form);
+    const payload = buildPayload({ ...form, uses_built_in_grinder: effectiveUsesBuiltInGrinder });
 
     if (payload.video_s3_key?.endsWith("/")) {
       setError("Choose a video file or enter the full video path, for example data/raw-videos/shot_007.mp4.");
@@ -81,7 +85,7 @@ export function ShotUpload() {
     }
 
     await runAnalysis({
-      ...buildPayload(form),
+      ...buildPayload({ ...form, uses_built_in_grinder: effectiveUsesBuiltInGrinder }),
       video_s3_key: undefined,
       total_shot_seconds: round(stop - start),
       timing_confidence: 1,
@@ -150,7 +154,9 @@ export function ShotUpload() {
               <label className="inline-check">
                 <input
                   type="checkbox"
-                  checked={form.uses_built_in_grinder}
+                  checked={effectiveUsesBuiltInGrinder}
+                  disabled={!builtInGrinderAllowed}
+                  title={builtInGrinderAllowed ? "Use the machine built-in grinder" : "This machine profile does not have a built-in grinder"}
                   onChange={(event) => toggleBuiltInGrinder(event.target.checked)}
                 />
                 Built-in
@@ -158,10 +164,10 @@ export function ShotUpload() {
             </div>
             <input
               list="grinder-options"
-              value={form.uses_built_in_grinder ? "Built-in grinder" : form.grinder}
+              value={effectiveUsesBuiltInGrinder ? "Built-in grinder" : form.grinder}
               onChange={(event) => updateField("grinder", event.target.value)}
               placeholder="Choose or type grinder"
-              disabled={form.uses_built_in_grinder}
+              disabled={effectiveUsesBuiltInGrinder}
             />
           </div>
 
@@ -185,30 +191,32 @@ export function ShotUpload() {
             />
           </label>
 
-          <label className="field">
-            Grind setting
-            <input
-              type="number"
-              list="grind-setting-options"
-              min={selectedGrinderProfile?.min_setting ?? undefined}
-              max={selectedGrinderProfile?.max_setting ?? undefined}
-              step={selectedGrindSettingStep ?? "any"}
-              value={form.grind_setting}
-              onChange={(event) => updateField("grind_setting", event.target.value)}
-              placeholder={selectedGrinderProfile?.espresso_range?.[0]?.toString() ?? "12"}
-            />
-            <span className="field-hint">{grindSettingHint(selectedGrinderProfile)}</span>
-          </label>
+          <div className="field-pair full">
+            <label className="field">
+              Grind setting
+              <input
+                type="number"
+                list="grind-setting-options"
+                min={selectedGrinderProfile?.min_setting ?? undefined}
+                max={selectedGrinderProfile?.max_setting ?? undefined}
+                step={selectedGrindSettingStep ?? "any"}
+                value={form.grind_setting}
+                onChange={(event) => updateField("grind_setting", event.target.value)}
+                placeholder={selectedGrinderProfile?.espresso_range?.[0]?.toString() ?? "12"}
+              />
+              <span className="field-hint">{grindSettingHint(selectedGrinderProfile)}</span>
+            </label>
 
-          <label className="field">
-            Roast level
-            <select value={form.roast_level} onChange={(event) => updateField("roast_level", event.target.value)}>
-              <option value="">Unknown</option>
-              <option value="light">Light</option>
-              <option value="medium">Medium</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
+            <label className="field align-input-top">
+              Roast level
+              <select value={form.roast_level} onChange={(event) => updateField("roast_level", event.target.value)}>
+                <option value="">Unknown</option>
+                <option value="light">Light</option>
+                <option value="medium">Medium</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
 
           <label className="field full">
             Taste
@@ -264,7 +272,17 @@ export function ShotUpload() {
   );
 
   function updateField(field: keyof FormState, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "machine") {
+        if (machineHasKnownBuiltInGrinder(value)) {
+          next.uses_built_in_grinder = true;
+        } else if (!machineSupportsBuiltInGrinder(value)) {
+          next.uses_built_in_grinder = false;
+        }
+      }
+      return next;
+    });
   }
 
   function toggleBuiltInGrinder(checked: boolean) {

@@ -28,10 +28,9 @@ def promote_candidate(candidate_key: str) -> dict[str, Any]:
     else:
         raise ValueError("candidate type must be machine or grinder")
 
-    candidate["status"] = "promoted"
-    candidate.setdefault("review_notes", []).append(f"Promoted into {result['path']}.")
-    profile_candidates._write_candidates(candidates)  # type: ignore[attr-defined]
-    return {"candidate_key": candidate_key, **result}
+    remaining_candidates = [item for item in candidates if item.get("candidate_key") != candidate_key]
+    profile_candidates._write_candidates(remaining_candidates)  # type: ignore[attr-defined]
+    return {"candidate_key": candidate_key, "candidate_removed": True, **result}
 
 
 def main() -> None:
