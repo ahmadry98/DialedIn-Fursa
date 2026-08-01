@@ -146,6 +146,8 @@ def _research_instructions(gear_type: str, name: str) -> str:
         )
     return (
         "Use official manufacturer pages/manuals first, then reputable grinder databases such as GrindDial or Coffee Chronicler. "
+        "Extract sensitivity data when available, especially seconds per adjustment step. "
+        "If exact sensitivity is unavailable, set seconds_per_small_step_estimate to a conservative estimate and keep data_confidence low. "
         "Do not guess direction/range if it cannot be supported; use conservative defaults with data_confidence 'D'. "
         "Return JSON only, matching expected_schema exactly. "
         f"Research espresso grinder: {name}."
@@ -189,6 +191,8 @@ def _grinder_schema() -> dict[str, Any]:
         "small_step": "number",
         "medium_step": "number",
         "large_step": "number",
+        "seconds_per_small_step_estimate": "number|null",
+        "max_recommended_small_steps": "number",
         "min_setting": "number|null",
         "max_setting": "number|null",
         "espresso_range": "[number, number]|null",

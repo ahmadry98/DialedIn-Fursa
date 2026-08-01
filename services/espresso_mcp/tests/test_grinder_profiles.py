@@ -31,6 +31,16 @@ class GrinderProfilesTest(unittest.TestCase):
             with self.subTest(alias=alias):
                 self.assertEqual(get_grinder_profile(alias)["grinder_name"], expected_name)
 
+    def test_profiles_include_step_estimates(self):
+        from grinder_profiles import _load_profiles
+
+        for profile in _load_profiles():
+            with self.subTest(grinder=profile["grinder_name"]):
+                self.assertIn("seconds_per_small_step_estimate", profile)
+                self.assertGreater(profile["seconds_per_small_step_estimate"], 0)
+                self.assertIn("max_recommended_small_steps", profile)
+                self.assertGreaterEqual(profile["max_recommended_small_steps"], 1)
+
     def test_validate_known_grinder_range(self):
         self.assertIsNone(validate_grind_setting("Varia VS6", "1.8"))
         self.assertIn("accepts settings", validate_grind_setting("Varia VS6", "7"))
@@ -42,16 +52,19 @@ class GrinderProfilesTest(unittest.TestCase):
         self.assertIsNone(validate_grind_setting("My Custom Grinder", "12.5"))
         self.assertEqual(validate_grind_setting("My Custom Grinder", "fine-ish"), "Use a numeric grind setting.")
 
-    def test_varia_vs6_finer_setting_lowers_number(self):
+    def test_varia_vs6_finer_setting_uses_seconds_per_step_estimate(self):
         result = suggest_grind_setting("Varia VS6", "1.8", "grind_finer", 17, (25, 35))
 
-        self.assertEqual(result["suggested_setting"], 1.6)
+        self.assertEqual(result["suggested_setting"], 1.5)
         self.assertEqual(result["adjustment_size"], "medium")
+        self.assertEqual(result["estimated_small_steps"], 3)
+        self.assertEqual(result["seconds_gap"], 8)
 
     def test_varia_vs6_coarser_setting_raises_number(self):
         result = suggest_grind_setting("Varia VS6", "1.8", "grind_coarser", 42, (25, 35))
 
-        self.assertEqual(result["suggested_setting"], 2.0)
+        self.assertEqual(result["suggested_setting"], 2.1)
+        self.assertEqual(result["estimated_small_steps"], 3)
 
     def test_non_numeric_setting_does_not_guess(self):
         result = suggest_grind_setting("Varia VS6", "between 1 and 2", "grind_finer", 17, (25, 35))

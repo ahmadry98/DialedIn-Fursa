@@ -120,6 +120,7 @@
 - [x] Add generic numeric grinder fallback.
 - [x] Validate known grinder settings.
 - [x] Calculate exact next setting based on direction and step size.
+- [x] Use conservative seconds-per-small-step estimates to scale adjustment size from shot-time gap.
 - [x] Support integer and decimal grinders.
 
 ## Checkpoint 8: MCP Tool Layer
@@ -218,6 +219,22 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Add local `.env.example` for Bedrock and autorun flags.
 - [x] Add promotion helper for reviewed drafts.
 - [x] Prove the loop with Meraki.
+
+## Checkpoint 11.5: Recommendation UX And Safety
+
+**Files:**
+- `services/espresso_mcp/recommendations.py`
+- `services/frontend/components/shot-result.tsx`
+- `services/frontend/components/shot-upload.tsx`
+- related tests and API types
+
+**Deliverable:** Safer, clearer user-facing recommendation flow before profile admin work.
+
+- [x] Explain why an exact grinder setting was chosen.
+- [x] Add recommendation confidence details.
+- [x] Add clearer manual timing mode for users who do not want video/audio.
+- [x] Improve timing result UI.
+- [x] Add stronger low-confidence audio warning.
 
 ## Checkpoint 12: Review/Admin UI
 
