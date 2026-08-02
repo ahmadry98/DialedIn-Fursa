@@ -50,15 +50,19 @@ def collect_web_evidence(
     for result in build_direct_url_candidates(gear_type, name):
         _append_result(found, seen_urls, result, "direct official URL fallback")
 
+    search_result_count = 0
     for query in build_queries(gear_type, name):
         for result in search_web(query, timeout=timeout):
+            before_count = len(found)
             _append_result(found, seen_urls, result, query)
-            if len(found) >= max_results * 4:
+            if len(found) > before_count:
+                search_result_count += 1
+            if search_result_count >= max_results * 4:
                 break
-        if len(found) >= max_results * 4:
+        if search_result_count >= max_results * 4:
             break
 
-    ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 8]
+    ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 24]
     sources: list[dict[str, str]] = []
     evidence_chunks: list[str] = []
     for result in ranked:
@@ -96,23 +100,29 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
     tokens = normalized_tokens(name)
     if not tokens:
         return []
-    brand = tokens[0]
-    slug_base = "-".join(tokens)
+    brand_domains = brand_domain_candidates(name, tokens)
     slug_variants = slug_candidates(tokens)
     if gear_type == "machine":
-        slugs = unique([*slug_variants, *(f"{slug}-espresso-machine" for slug in slug_variants), "espresso-machine"])
+        slugs = unique([*slug_variants, *machine_specific_slug_candidates(tokens), *(f"{slug}-espresso-machine" for slug in slug_variants), "espresso-machine"])
     else:
         slugs = unique([*slug_variants, *(f"{slug}-grinder" for slug in slug_variants), "espresso-grinder", "coffee-grinder"])
 
-    domains = [
-        f"https://www.{brand}.com",
-        f"https://{brand}.com",
-        f"https://{brand}ae.com",
-        f"https://www.{brand}tech.com",
-        f"https://{brand}tech.com",
-        f"https://eu.{brand}tech.com",
-    ]
+    domains = []
+    for brand in brand_domains:
+        domains.extend(
+            [
+                f"https://www.{brand}.com",
+                f"https://{brand}.com",
+                f"https://{brand}ae.com",
+                f"https://www.{brand}tech.com",
+                f"https://{brand}tech.com",
+                f"https://eu.{brand}tech.com",
+            ]
+        )
+    domains = unique(domains)
     paths = [
+        "/en/products/domestic-machines/{slug}",
+        "/en/products/coffee-grinders/{slug}",
         "/en-ca/products/{slug}",
         "/en-eu/products/{slug}",
         "/products/{slug}",
@@ -120,6 +130,8 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
         "/product/{slug}",
         "/product/{slug}/",
         "/manuals/{slug}",
+        "/en/technical-documentation",
+        "/it/documentazione-tecnica",
     ]
     results: list[dict[str, str]] = []
     for domain in domains:
@@ -136,11 +148,43 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
     return results
 
 
+def machine_specific_slug_candidates(tokens: list[str]) -> list[str]:
+    candidates: list[str] = []
+    token_set = set(tokens)
+    if {"new", "casa", "bar"}.issubset(token_set) or "casabar" in token_set:
+        candidates.extend(
+            [
+                "new-casabar",
+                "new-casabar-black",
+                "new-casabar-steel",
+                "new-casabar-pid-black",
+                "new-casabar-pid-steel",
+            ]
+        )
+    return unique(candidates)
+
+
+def brand_domain_candidates(name: str, tokens: list[str]) -> list[str]:
+    raw_tokens = [token for token in re.split(r"[^a-z0-9]+", name.lower()) if token]
+    candidates: list[str] = []
+    if raw_tokens:
+        if len(raw_tokens) >= 2 and raw_tokens[0] in {"la", "le", "de", "del", "deLonghi".lower()}:
+            candidates.append(raw_tokens[0] + raw_tokens[1])
+        candidates.append(raw_tokens[0])
+    if tokens:
+        candidates.append(tokens[0])
+    return unique(candidates)
+
+
 def slug_candidates(tokens: list[str]) -> list[str]:
     candidates = ["-".join(tokens)]
     without_brand = tokens[1:]
     if without_brand:
         candidates.append("-".join(without_brand))
+    if len(tokens) >= 3:
+        candidates.append("-".join([*tokens[:-2], "".join(tokens[-2:])]))
+    if len(without_brand) >= 3:
+        candidates.append("-".join([*without_brand[:-2], "".join(without_brand[-2:])]))
     model_tokens = [token for token in tokens if re.search(r"\d", token)]
     word_tokens = [token for token in tokens if not re.search(r"\d", token)]
     if model_tokens:
@@ -231,7 +275,8 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
     url = result.get("url", "").lower()
     if result.get("source") == "direct_fallback":
         score += 1
-        if "-espresso-machine" not in url and "-grinder" not in url and "espresso-machine" not in url:
+        has_name_token = any(token in url for token in normalized_tokens(name))
+        if has_name_token and "-espresso-machine" not in url and "-grinder" not in url and "espresso-machine" not in url:
             score += 5
     if url.endswith(".pdf"):
         score += 4

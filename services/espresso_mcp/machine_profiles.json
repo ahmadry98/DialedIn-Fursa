@@ -1143,6 +1143,102 @@
     }
   },
   {
+    "machine_name": "Breville Barista Touch Impress Espresso Machine",
+    "aliases": [
+      "Barista Touch Impress"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "rotary",
+      "pressure_type": "15 bar",
+      "has_preinfusion": true,
+      "has_built_in_grinder": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "The machine allows manual adjustment of grind size via the built\u2011in grinder dial; finer settings increase resistance and extend extraction time, while coarser settings reduce resistance and shorten extraction.",
+    "sources": {
+      "aliases": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ],
+      "portafilter_mm": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ],
+      "pump_type": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ],
+      "pressure_type": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ],
+      "has_preinfusion": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ],
+      "has_built_in_grinder": [
+        "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
+      ]
+    }
+  },
+  {
+    "machine_name": "La Pavoni New Casa Bar",
+    "aliases": [
+      "New Casa Bar Black",
+      "New Casa Bar Steel",
+      "New Casa Bar PID Black",
+      "New Casa Bar PID Steel"
+    ],
+    "specs": {
+      "portafilter_mm": null,
+      "pump_type": "vibration",
+      "pressure_type": "15 bar",
+      "has_preinfusion": null,
+      "has_built_in_grinder": null
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "unknown",
+    "sources": {
+      "aliases": [
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-steel",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-steel"
+      ],
+      "portafilter_mm": [],
+      "pump_type": [
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-steel",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-steel"
+      ],
+      "pressure_type": [
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-steel",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black",
+        "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-steel"
+      ],
+      "has_preinfusion": [],
+      "has_built_in_grinder": []
+    }
+  },
+  {
     "machine_name": "Generic Espresso Machine",
     "aliases": [
       "generic",
