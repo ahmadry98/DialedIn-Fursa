@@ -43,6 +43,9 @@ class AgentApiTest(unittest.TestCase):
             require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
             profile_research_autorun=False,
             profile_research_autorun_limit=1,
+            chat_llm_extraction_enabled=False,
+            chat_llm_model_id="anthropic.claude-haiku-4-5-20251001-v1:0",
+            aws_region="us-east-1",
         )
         self.candidate_tmp = TemporaryDirectory()
         self.original_candidates_path = profile_candidates.CANDIDATES_PATH
@@ -85,7 +88,7 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertFalse(payload["needs_shot_analysis"])
-        self.assertIn("shot video", payload["response"])
+        self.assertIn("machine", payload["response"].lower())
         self.assertIn("Never invent timestamps", payload["system_prompt"])
 
     def test_analyze_shot_with_manual_total_time(self):
@@ -164,6 +167,9 @@ class AgentApiTest(unittest.TestCase):
             require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
             profile_research_autorun=True,
             profile_research_autorun_limit=1,
+            chat_llm_extraction_enabled=False,
+            chat_llm_model_id="anthropic.claude-haiku-4-5-20251001-v1:0",
+            aws_region="us-east-1",
         )
         calls = []
 
@@ -200,6 +206,9 @@ class AgentApiTest(unittest.TestCase):
             require_confirm_below_confidence=agent_app.settings.require_confirm_below_confidence,
             profile_research_autorun=False,
             profile_research_autorun_limit=1,
+            chat_llm_extraction_enabled=False,
+            chat_llm_model_id="anthropic.claude-haiku-4-5-20251001-v1:0",
+            aws_region="us-east-1",
         )
         calls = []
 
