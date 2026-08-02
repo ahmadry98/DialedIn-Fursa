@@ -1,4 +1,6 @@
 import sys
+from io import BytesIO
+import json
 import types
 import unittest
 from pathlib import Path
@@ -84,6 +86,48 @@ class ProfileResearchWorkerTest(unittest.TestCase):
         parsed = profile_research_worker.parse_json_response('```json\n{"grinder_name":"Kingrinder K6"}\n```')
 
         self.assertEqual(parsed["grinder_name"], "Kingrinder K6")
+
+    def test_openai_reasoning_only_converse_falls_back_to_invoke_model(self):
+        converse_response = {
+            "stopReason": "end_turn",
+            "usage": {"outputTokens": 50},
+            "output": {
+                "message": {
+                    "content": [
+                        {"reasoningContent": {"reasoningText": {"text": "thinking"}}}
+                    ]
+                }
+            },
+        }
+        invoke_body = json.dumps({
+            "choices": [
+                {"message": {"content": '{"machine_name":"La Pavoni New Casa Bar"}'}}
+            ]
+        }).encode("utf-8")
+        invoke_response = {"body": BytesIO(invoke_body)}
+
+        class FakeClient:
+            def __init__(self):
+                self.invoked = False
+
+            def converse(self, **_kwargs):
+                return converse_response
+
+            def invoke_model(self, **_kwargs):
+                self.invoked = True
+                return invoke_response
+
+        fake_client = FakeClient()
+        fake_boto3 = types.SimpleNamespace(client=lambda *_args, **_kwargs: fake_client)
+        with patch.dict(sys.modules, {"boto3": fake_boto3}):
+            draft = profile_research_worker.call_bedrock_for_draft(
+                "Return JSON",
+                model_id="bedrock/openai.gpt-oss-20b-1:0",
+                region="us-east-1",
+            )
+
+        self.assertTrue(fake_client.invoked)
+        self.assertEqual(draft["machine_name"], "La Pavoni New Casa Bar")
 
     def test_bedrock_response_attaches_draft(self):
         candidate = profile_candidates.save_profile_candidate("grinder", "Kingrinder K6", "user-1", {})

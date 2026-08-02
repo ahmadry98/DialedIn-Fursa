@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r modeling/requirements.txt -r services/agent/requirements.txt -r services/espresso_mcp/requirements.txt
+
+      - name: Run Python tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          PROFILE_RESEARCH_AUTORUN: "false"
+        run: python -m pytest modeling/tests services/espresso_mcp/tests services/agent/tests -q
+
+  frontend-build:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: services/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

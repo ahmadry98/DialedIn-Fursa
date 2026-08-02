@@ -26,6 +26,16 @@ class ProfileWebEvidenceTest(unittest.TestCase):
 
         self.assertIn("https://www.lelit.com/product/anita-pl042temd/", urls)
 
+    def test_direct_url_candidates_include_two_word_brand_domain(self):
+        urls = [
+            result["url"]
+            for result in profile_web_evidence.build_direct_url_candidates("machine", "la pavoni new casa bar")
+        ]
+
+        self.assertIn("https://www.lapavoni.com/en/products/domestic-machines/new-casa-bar", urls)
+        self.assertIn("https://www.lapavoni.com/en/products/domestic-machines/new-casabar", urls)
+        self.assertIn("https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black", urls)
+
     def test_duckduckgo_parser_extracts_results(self):
         body = """
         <a rel=\"nofollow\" class=\"result__a\" href=\"/l/?uddg=https%3A%2F%2Fexample.com%2Fmanual.pdf\">Official Manual</a>
@@ -53,6 +63,39 @@ class ProfileWebEvidenceTest(unittest.TestCase):
             profile_web_evidence.score_result(exact, "machine", "Lelit Anita PL042TEMD"),
             profile_web_evidence.score_result(generated, "machine", "Lelit Anita PL042TEMD"),
         )
+
+    def test_collect_web_evidence_searches_even_with_many_direct_candidates(self):
+        direct_results = [
+            {
+                "url": f"https://example{i}.com/product/no-match",
+                "title": "Possible official page",
+                "snippet": "Direct fallback",
+                "source": "direct_fallback",
+            }
+            for i in range(20)
+        ]
+        search_results = [
+            {
+                "url": "https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black",
+                "title": "La Pavoni New Casabar PID Black",
+                "snippet": "Filter holder internal diameter 58 mm",
+            }
+        ]
+
+        def fake_fetch(url, **_kwargs):
+            if "lapavoni" in url:
+                return "Official La Pavoni page says filter holder internal diameter 58 mm."
+            return ""
+
+        with patch.object(profile_web_evidence, "build_direct_url_candidates", return_value=direct_results), patch.object(
+            profile_web_evidence, "search_web", return_value=search_results
+        ), patch.object(profile_web_evidence, "fetch_page_text", side_effect=fake_fetch):
+            evidence = profile_web_evidence.collect_web_evidence(
+                {"type": "machine", "name_entered": "la pavoni new casa bar"}, max_results=1
+            )
+
+        self.assertEqual(evidence["sources"][0]["url"], search_results[0]["url"])
+        self.assertIn("58 mm", evidence["text"])
 
     def test_collect_web_evidence_ranks_and_fetches(self):
         search_results = [

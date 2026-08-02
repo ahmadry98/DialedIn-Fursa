@@ -6,13 +6,14 @@
 
 **Current architecture:** Next.js frontend -> FastAPI agent -> `espresso_mcp` tool layer. Audio timing and recommendations run synchronously for the MVP. Unknown gear research uses web evidence plus Bedrock, then a human promotion step.
 
-**Tech stack:** Python, FastAPI, MCP-compatible tool layer, ffmpeg/audio heuristics, Next.js, Bedrock, optional S3/DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus/Grafana, GitHub Actions.
+**Tech stack:** Python, FastAPI, MCP-compatible tool layer, ffmpeg/audio heuristics, Next.js, Bedrock, optional LangGraph orchestration, optional S3/DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus/Grafana, GitHub Actions.
 
 ## Global Constraints
 
 - Audio timing is the MVP source of truth; visual detection is future work.
 - The LLM must not invent timestamps or machine facts.
 - Recommendation decisions are deterministic/rule-based, not LLM-based.
+- LangGraph is future orchestration work; current MVP uses direct FastAPI orchestration.
 - Bedrock is used for profile research drafts only.
 - Profile drafts require human review before promotion to trusted JSON.
 - Built-in grinders must not create fake separate grinder candidates.
@@ -236,6 +237,20 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Improve timing result UI.
 - [x] Add stronger low-confidence audio warning.
 
+
+## Checkpoint 11.75: CI/CD Safety Net
+
+**Files:**
+- `.github/workflows/ci.yml`
+
+**Deliverable:** GitHub Actions checks for every branch/PR.
+
+- [x] Run Python tests for `modeling`, `espresso_mcp`, and agent services.
+- [x] Run frontend TypeScript check.
+- [x] Run frontend production build from `services/frontend`.
+- [x] Disable profile research autorun during CI tests so Bedrock/network work does not run accidentally.
+- [ ] Add deployment workflow after the deployment target is finalized.
+
 ## Checkpoint 12: Review/Admin UI
 
 **Files:**
@@ -251,7 +266,24 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Show source URLs/evidence snippets.
 - [ ] Allow editing draft notes before promotion.
 
-## Checkpoint 13: Storage
+## Checkpoint 13: LangGraph Orchestration Upgrade
+
+**Files:**
+- Create: `services/agent/graph.py`
+- Modify: `services/agent/agent_runner.py`
+- Modify: `services/agent/requirements.txt`
+- Create/modify: `services/agent/tests/test_graph.py`
+
+**Deliverable:** Optional LangGraph wrapper around the existing shot-analysis workflow.
+
+- [ ] Add graph state schema for shot request, timing, profiles, recommendation, candidates, save result, and response.
+- [ ] Create nodes for timing, profile lookup, recommendation, unknown gear capture, save/compare, and response assembly.
+- [ ] Keep recommendation logic deterministic by calling existing `espresso_mcp` functions.
+- [ ] Preserve the existing `/analyze-shot` response shape.
+- [ ] Add tests proving LangGraph and current runner produce equivalent core results.
+- [ ] Keep direct runner fallback for simple MVP/deployment debugging.
+
+## Checkpoint 14: Storage
 
 **Files:**
 - `services/agent/storage.py`
@@ -266,7 +298,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Keep local development fallback.
 - [ ] Add mocked storage tests.
 
-## Checkpoint 14: Docker Compose
+## Checkpoint 15: Docker Compose
 
 **Files:**
 - `compose.yaml`
@@ -280,7 +312,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add Prometheus/Grafana.
 - [ ] Verify frontend can call agent in compose.
 
-## Checkpoint 15: Kubernetes On AWS EC2
+## Checkpoint 16: Kubernetes On AWS EC2
 
 **Files:**
 - `infra/k8s/*.yaml`
@@ -294,7 +326,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add HPA if required.
 - [ ] Test with `kubectl port-forward` or ingress.
 
-## Checkpoint 16: Terraform
+## Checkpoint 17: Terraform
 
 **Files:**
 - `infra/terraform/*.tf`
@@ -307,7 +339,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Provision IAM permissions for Bedrock/S3/DynamoDB.
 - [ ] Document apply/destroy commands.
 
-## Checkpoint 17: Observability
+## Checkpoint 18: Observability
 
 **Files:**
 - `monitoring/prometheus.yml`
@@ -322,23 +354,23 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add MCP/tool error metrics.
 - [ ] Build Grafana dashboard.
 
-## Checkpoint 18: CI/CD
+## Checkpoint 19: Deployment Automation
 
 **Files:**
-- `.github/workflows/test.yaml`
+- `.github/workflows/ci.yml`
 - `.github/workflows/build-images.yaml`
 - `.github/workflows/deploy-dev.yaml`
 - `.github/workflows/deploy-prod.yaml`
 
-**Deliverable:** Automated test/build/deploy workflow.
+**Deliverable:** Extend the current CI safety net into Docker image build and deployment automation.
 
-- [ ] Run unit tests on PRs.
-- [ ] Run frontend build/type checks on PRs.
+- [x] Run unit tests on PRs.
+- [x] Run frontend build/type checks on PRs.
 - [ ] Build Docker images after merge.
 - [ ] Deploy to dev.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 19: Final Demo
+## Checkpoint 20: Final Demo
 
 **Files:**
 - `docs/demo-script.md`
