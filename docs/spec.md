@@ -70,7 +70,7 @@ Planned deployment components remain:
 - Docker/Kubernetes on AWS EC2 for course deployment.
 - Prometheus/Grafana for metrics and debugging.
 
-The current MVP processes videos synchronously. A separate async worker/SQS flow is future work if jobs become slow or concurrent.
+The current MVP processes videos synchronously. A separate async worker/SQS flow is future work if jobs become slow or concurrent. The current agent orchestration is direct FastAPI Python flow, not LangGraph. A future LangGraph upgrade can wrap the existing tool functions as graph nodes for timing, profile lookup, recommendation, unknown gear capture, profile research, save, and response assembly without rewriting the core espresso logic.
 
 ## 6. Data Flow
 
@@ -107,7 +107,7 @@ The custom `espresso_mcp` layer exposes:
 - `prepare_profile_research(candidate_key)`
 - `attach_draft_profile(candidate_key, draft_profile)`
 
-The FastAPI agent currently calls these Python functions directly for the MVP. Future work can switch to real MCP transport without changing response shape.
+The FastAPI agent currently calls these Python functions directly for the MVP. Future work can switch to real MCP transport without changing response shape. LangGraph can also be added later as an orchestration layer that calls the same tool functions through graph nodes instead of direct sequential code.
 
 ## 8. Machine Profiles
 
@@ -237,7 +237,38 @@ video_id,machine_start_time,machine_stop_time,machine,grinder,dose_g,yield_g,gri
 
 The required fields for audio evaluation are `video_id`, `machine_start_time`, and `machine_stop_time`. Other fields can be empty if the video does not provide them.
 
-## 15. Future Visual Analysis
+
+## 15. CI/CD Workflow
+
+GitHub Actions protects the branch workflow before review and merge. The current CI runs on pull requests to `main`/`dev`, pushes to `main`/`dev`, and manual workflow dispatch.
+
+The CI workflow includes:
+
+- Python dependency install for `modeling`, `services/agent`, and `services/espresso_mcp`.
+- Python tests for audio timing, profiles, recommendations, profile research, and agent behavior.
+- Frontend `npm ci`, TypeScript checking, and production build from `services/frontend`.
+- `PROFILE_RESEARCH_AUTORUN=false` during tests so CI does not call Bedrock or mutate candidate research state.
+
+Deployment/CD is future work and should be added after the deployment target is finalized. The profile research worker can later get a separate manual workflow using GitHub secrets for AWS credentials, but normal PR CI should remain deterministic and cheap.
+
+## 16. Future LangGraph Orchestration
+
+LangGraph is not part of the current MVP implementation. It is a future orchestration upgrade for making the agent workflow more explicit, inspectable, and extensible.
+
+A future graph can use nodes such as:
+
+1. Receive shot request.
+2. Detect or accept timing.
+3. Look up machine and grinder profiles.
+4. Run deterministic recommendation logic.
+5. Capture unknown gear candidates.
+6. Optionally trigger Bedrock profile research.
+7. Save result and compare previous shots.
+8. Assemble final response.
+
+This should reuse the existing `espresso_mcp` functions rather than replacing them. Recommendation decisions should remain deterministic unless the project intentionally changes that requirement.
+
+## 17. Future Visual Analysis
 
 Visual analysis is out of current MVP scope. Future versions can add:
 
@@ -249,7 +280,7 @@ Visual analysis is out of current MVP scope. Future versions can add:
 - Crema/blonding analysis.
 - Ultralytics image classification or object detection.
 
-## 16. Error Handling
+## 18. Error Handling
 
 The system handles:
 
@@ -265,7 +296,7 @@ The system handles:
 
 Background profile research failures should not break shot analysis.
 
-## 17. Testing Strategy
+## 19. Testing Strategy
 
 Unit tests cover:
 

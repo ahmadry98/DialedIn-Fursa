@@ -97,7 +97,14 @@ def build_bedrock_prompt(packet: dict[str, Any], evidence: str = "") -> str:
         [
             "You are creating a draft espresso equipment profile for human review.",
             packet["instructions"],
-            "Return ONLY valid JSON. Do not wrap it in markdown. Do not include commentary.",
+            (
+                "The search/fetch step has already been done by the app. "
+                "Do not return search queries, tool calls, plans, or instructions. "
+                "Return ONLY one valid JSON object that matches the expected schema. "
+                "Do not wrap it in markdown. Do not include commentary. "
+                "If a field cannot be verified from the evidence, keep the field in the JSON and use null, "
+                "'unknown', or an empty source list as appropriate."
+            ),
             "Expected schema:",
             json.dumps(packet["expected_schema"], indent=2),
             "Observed app context for disambiguation only. Do not convert user-entered values into manufacturer facts:",
@@ -127,6 +134,8 @@ def call_bedrock_for_draft(prompt: str, *, model_id: str, region: str) -> dict[s
         converse_args["additionalModelRequestFields"] = extra_fields
     response = client.converse(**converse_args)
     text = _bedrock_response_text(response)
+    if not text.strip() and bedrock_model_id.startswith("openai."):
+        text = _invoke_openai_chat_completion(client, bedrock_model_id, prompt)
     if not text.strip():
         stop_reason = response.get("stopReason", "unknown")
         usage = response.get("usage", {})
@@ -140,6 +149,42 @@ def call_bedrock_for_draft(prompt: str, *, model_id: str, region: str) -> dict[s
     except Exception as error:
         preview = text[:500].replace("\n", " ")
         raise ValueError(f"Bedrock returned non-JSON text: {preview!r}") from error
+
+
+def _invoke_openai_chat_completion(client: Any, model_id: str, prompt: str) -> str:
+    """Fallback for OpenAI OSS models when Converse returns reasoning-only blocks."""
+    native_request = {
+        "model": model_id,
+        "messages": [
+            {
+                "role": "system",
+                "content": "Return only one valid JSON object. No markdown, no commentary.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        "max_completion_tokens": 2500,
+        "temperature": 0.0,
+        "stream": False,
+    }
+    response = client.invoke_model(modelId=model_id, body=json.dumps(native_request))
+    body = response.get("body")
+    if hasattr(body, "read"):
+        payload = body.read().decode("utf-8")
+    else:
+        payload = body if isinstance(body, str) else ""
+    if not payload:
+        return ""
+    parsed = json.loads(payload)
+    choices = parsed.get("choices", [])
+    chunks: list[str] = []
+    for choice in choices:
+        message = choice.get("message", {}) if isinstance(choice, dict) else {}
+        content = message.get("content", "")
+        if isinstance(content, str):
+            chunks.append(content)
+        elif isinstance(content, list):
+            chunks.extend(block.get("text", "") for block in content if isinstance(block, dict))
+    return "".join(chunks)
 
 
 def _content_keys(content: Any) -> list[list[str]]:
