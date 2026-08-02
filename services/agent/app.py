@@ -81,5 +81,17 @@ def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks)
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
-    return agent_runner.chat(request)
+def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatResponse:
+    response = agent_runner.chat(request)
+    analysis = response.analysis_result
+    if settings.profile_research_autorun and analysis and analysis.profile_candidates:
+        print(
+            "Profile research autorun scheduled from chat: "
+            f"limit={settings.profile_research_autorun_limit}, "
+            f"candidates={[candidate.get('candidate_key') for candidate in analysis.profile_candidates]}"
+        )
+        background_tasks.add_task(
+            _run_profile_research_background,
+            limit=settings.profile_research_autorun_limit,
+        )
+    return response

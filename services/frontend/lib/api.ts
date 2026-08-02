@@ -1,16 +1,16 @@
 export type ShotFormValues = {
   user_id: string;
-  video_s3_key?: string;
-  machine?: string;
-  grinder?: string;
+  video_s3_key?: string | null;
+  machine?: string | null;
+  grinder?: string | null;
   uses_built_in_grinder?: boolean;
-  dose_g?: number;
-  yield_g?: number;
-  grind_setting?: string;
-  roast_level?: string;
-  taste?: string;
-  total_shot_seconds?: number;
-  timing_confidence?: number;
+  dose_g?: number | null;
+  yield_g?: number | null;
+  grind_setting?: string | null;
+  roast_level?: string | null;
+  taste?: string | null;
+  total_shot_seconds?: number | null;
+  timing_confidence?: number | null;
   requires_manual_confirmation?: boolean;
 };
 
@@ -64,6 +64,42 @@ export type AnalyzeShotResponse = {
   message: string;
 };
 
+export type ChatMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+export type ChatResponse = {
+  response: string;
+  needs_shot_analysis: boolean;
+  system_prompt: string;
+  shot_context?: ShotFormValues | null;
+  analysis_result?: AnalyzeShotResponse | null;
+  next_field?: string | null;
+  missing_fields: string[];
+};
+
+export async function chatWithCoach(payload: {
+  messages: ChatMessage[];
+  shot_context?: ShotFormValues | null;
+}): Promise<ChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: payload.messages,
+      shot_context: payload.shot_context ? cleanPayload(payload.shot_context) : undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Coach request failed" }));
+    throw new Error(error.detail ?? "Coach request failed");
+  }
+
+  return response.json();
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_AGENT_API_URL ?? "http://127.0.0.1:8000";
 
 export async function analyzeShot(payload: ShotFormValues): Promise<AnalyzeShotResponse> {
@@ -83,6 +119,6 @@ export async function analyzeShot(payload: ShotFormValues): Promise<AnalyzeShotR
 
 function cleanPayload(payload: ShotFormValues): ShotFormValues {
   return Object.fromEntries(
-    Object.entries(payload).filter(([, value]) => value !== undefined && value !== "")
+    Object.entries(payload).filter(([, value]) => value !== undefined && value !== null && value !== "")
   ) as ShotFormValues;
 }

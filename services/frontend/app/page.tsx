@@ -1,4 +1,4 @@
-import { ShotUpload } from "../components/shot-upload";
+import { ChatCoach } from "../components/chat-coach";
 
 export default function Home() {
   return (
@@ -7,16 +7,16 @@ export default function Home() {
         <div className="brand">
           <span className="brand-mark">DialedIN</span>
           <h1>Espresso Shot Review</h1>
-          <p>Audio timing, machine context, and grind adjustment in one pass.</p>
+          <p>A guided chat that collects shot context, analyzes timing, and recommends the next grind setting.</p>
         </div>
         <div className="header-stats" aria-label="Pipeline">
+          <span>Chat</span>
           <span>Audio</span>
-          <span>Machine profile</span>
           <span>Recommendation</span>
         </div>
       </header>
 
-      <ShotUpload />
+      <ChatCoach />
     </main>
   );
 }

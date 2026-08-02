@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.agent import conversation
 from services.agent.prompts import SYSTEM_PROMPT
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse
 from services.espresso_mcp import app as espresso_tools
@@ -61,28 +62,13 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
 
 
 def chat(request: ChatRequest) -> ChatResponse:
-    """Return a lightweight agent response for chat requests."""
+    """Run the guided espresso coach conversation."""
     METRICS["chat_requests_total"] += 1
-    latest_user_message = ""
-    for message in reversed(request.messages):
-        if message.role == "user":
-            latest_user_message = message.content
-            break
-
-    if request.shot_context and (request.shot_context.video_s3_key or request.shot_context.total_shot_seconds):
-        missing = _missing_fields(request.shot_context)
-        if missing:
-            response = "I can analyze the shot, but I still need: " + ", ".join(missing) + "."
-        else:
-            response = "I have enough shot context to analyze timing and recommend one next adjustment."
-        return ChatResponse(response=response, needs_shot_analysis=True, system_prompt=SYSTEM_PROMPT)
-
-    response = latest_user_message or "Send me an espresso shot video path and shot details when you are ready."
-    return ChatResponse(
-        response="Send a shot video plus machine, grinder, dose, grind setting, roast, taste, and yield if available so I can analyze it.",
-        needs_shot_analysis=False,
-        system_prompt=SYSTEM_PROMPT,
-    )
+    response = conversation.handle_chat(request, analyze_shot)
+    response.system_prompt = SYSTEM_PROMPT
+    if response.shot_context:
+        METRICS["last_missing_fields_count"] = len(response.missing_fields)
+    return response
 
 
 def metrics() -> dict[str, int]:
