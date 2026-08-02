@@ -52,6 +52,10 @@ class ChatResponse(BaseModel):
     response: str
     needs_shot_analysis: bool
     system_prompt: str
+    shot_context: ShotContext | None = None
+    analysis_result: AnalyzeShotResponse | None = None
+    next_field: str | None = None
+    missing_fields: list[str] = []
 
 
 class HealthResponse(BaseModel):

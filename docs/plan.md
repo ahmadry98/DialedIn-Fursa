@@ -2,9 +2,9 @@
 
 > **For agentic workers:** Use the superpowers workflow when available for checkpoint implementation and review. Keep each checkpoint small, branch-based, tested, and reviewable.
 
-**Goal:** Build an espresso shot review app that analyzes machine/pump timing from audio, combines it with machine/grinder context, recommends the next grind adjustment, and grows its equipment profiles through a human-reviewed Bedrock research workflow.
+**Goal:** Build a chat-first espresso coach that can guide a user through machine/grinder context, shot timing, video analysis, and exact grind recommendations while growing equipment profiles through a human-reviewed Bedrock research workflow.
 
-**Current architecture:** Next.js frontend -> FastAPI agent -> `espresso_mcp` tool layer. Audio timing and recommendations run synchronously for the MVP. Unknown gear research uses web evidence plus Bedrock, then a human promotion step.
+**Current architecture:** Next.js frontend -> FastAPI agent -> `espresso_mcp` tool layer. Audio timing and recommendations run synchronously for the MVP. The current form UI proves the core workflow; Checkpoint 12 turns it into a guided chat experience. Unknown gear research uses web evidence plus Bedrock, then a human promotion step.
 
 **Tech stack:** Python, FastAPI, MCP-compatible tool layer, ffmpeg/audio heuristics, Next.js, Bedrock, optional LangGraph orchestration, optional S3/DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus/Grafana, GitHub Actions.
 
@@ -13,7 +13,9 @@
 - Audio timing is the MVP source of truth; visual detection is future work.
 - The LLM must not invent timestamps or machine facts.
 - Recommendation decisions are deterministic/rule-based, not LLM-based.
-- LangGraph is future orchestration work; current MVP uses direct FastAPI orchestration.
+- Chat UX may use an LLM for natural conversation and value extraction, but timing and grind math must come from existing tools.
+- Image-based machine/grinder recognition must ask the user to confirm before trusting the guess.
+- LangGraph orchestrates the chat-first coach flow; deterministic espresso tools remain the source of truth.
 - Bedrock is used for profile research drafts only.
 - Profile drafts require human review before promotion to trusted JSON.
 - Built-in grinders must not create fake separate grinder candidates.
@@ -251,7 +253,69 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Disable profile research autorun during CI tests so Bedrock/network work does not run accidentally.
 - [ ] Add deployment workflow after the deployment target is finalized.
 
-## Checkpoint 12: Review/Admin UI
+## Checkpoint 12: Chat-First Espresso Coach UX
+
+**Files:**
+- Create/modify: `services/agent/conversation.py`
+- Modify: `services/agent/app.py`
+- Modify: `services/agent/schemas.py`
+- Create: `services/agent/graph.py`
+- Modify: `services/agent/requirements.txt`
+- Create/modify: `services/agent/tests/test_conversation.py`
+- Create: `services/agent/tests/test_graph.py`
+- Create/modify: `services/frontend/app/page.tsx`
+- Create: `services/frontend/components/chat-coach.tsx`
+- Modify: `services/frontend/lib/api.ts`
+
+**Deliverable:** Guided chat experience that uses the existing analysis engine instead of a large form.
+
+- [x] Add a conversation state object for machine, grinder, built-in grinder, dose, yield, grind setting, roast, taste, timing/video, and confirmation state.
+- [x] Use LangGraph to orchestrate context loading, parsing, missing-field routing, analysis, and response assembly.
+- [ ] Let users send normal messages such as greetings and questions.
+- [ ] Ask the next missing espresso question naturally.
+- [ ] Extract typed values from user replies where possible.
+- [ ] Accept machine/grinder names manually in chat.
+- [ ] Accept video path or manual timing in chat.
+- [ ] Call the existing `/analyze-shot` flow once required fields are available.lw
+- [ ] Show the same timing, warning, exact-setting, and recommendation output inside the chat.
+- [ ] Keep the old form logic reusable as the underlying engine.
+- [ ] Make the chat layout mobile-friendly from the start.
+
+## Checkpoint 13: Image Recognition For Machine And Grinder
+
+**Files:**
+- Modify: `services/agent/conversation.py`
+- Modify: `services/agent/app.py`
+- Modify: `services/agent/schemas.py`
+- Create/modify: `services/agent/tests/test_image_identification.py`
+- Modify: `services/frontend/components/chat-coach.tsx`
+
+**Deliverable:** Optional photo-assisted gear identification inside the chat flow.
+
+- [ ] Let the user upload a machine or grinder photo in chat.
+- [ ] Send image to a multimodal LLM for a best-guess model name.
+- [ ] Match the guess against trusted machine/grinder profiles and aliases.
+- [ ] Ask the user to confirm before using the guessed gear.
+- [ ] Save low-confidence or unknown gear as profile candidates.
+- [ ] Never treat image recognition as verified machine facts.
+
+## Checkpoint 14: Mobile/PWA Experience
+
+**Files:**
+- Modify: `services/frontend/app/page.tsx`
+- Modify: `services/frontend/app/globals.css`
+- Create/modify: `services/frontend/app/manifest.ts` or static manifest files
+- Add mobile upload/camera affordances as needed
+
+**Deliverable:** Phone-friendly DialedIN experience before any native desktop/mobile wrapper.
+
+- [ ] Optimize chat layout for phone screens.
+- [ ] Make upload controls work well with camera/photo/video library.
+- [ ] Add PWA manifest and app metadata.
+- [ ] Keep desktop web usable.
+- [ ] Defer native desktop app wrapping until the web/PWA flow is stable.
+
+## Checkpoint 15: Review/Admin UI
 
 **Files:**
 - Create/modify: frontend review page/components
@@ -266,7 +330,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Show source URLs/evidence snippets.
 - [ ] Allow editing draft notes before promotion.
 
-## Checkpoint 13: LangGraph Orchestration Upgrade
+## Checkpoint 16: Advanced LangGraph And LLM Orchestration
 
 **Files:**
 - Create: `services/agent/graph.py`
@@ -274,16 +338,16 @@ attach_draft_profile(candidate_key, draft_profile)
 - Modify: `services/agent/requirements.txt`
 - Create/modify: `services/agent/tests/test_graph.py`
 
-**Deliverable:** Optional LangGraph wrapper around the existing shot-analysis workflow.
+**Deliverable:** Expand the current LangGraph chat flow with smarter LLM extraction, persistence, and richer graph observability.
 
-- [ ] Add graph state schema for shot request, timing, profiles, recommendation, candidates, save result, and response.
-- [ ] Create nodes for timing, profile lookup, recommendation, unknown gear capture, save/compare, and response assembly.
+- [ ] Replace deterministic-only extraction with LLM-assisted structured extraction.
+- [ ] Add graph persistence/checkpointing for longer sessions.
+- [ ] Add optional image-recognition nodes after Checkpoint 13.
+- [ ] Add graph observability/debug output for demo and troubleshooting.
 - [ ] Keep recommendation logic deterministic by calling existing `espresso_mcp` functions.
 - [ ] Preserve the existing `/analyze-shot` response shape.
-- [ ] Add tests proving LangGraph and current runner produce equivalent core results.
-- [ ] Keep direct runner fallback for simple MVP/deployment debugging.
 
-## Checkpoint 14: Storage
+## Checkpoint 17: Storage
 
 **Files:**
 - `services/agent/storage.py`
@@ -298,7 +362,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Keep local development fallback.
 - [ ] Add mocked storage tests.
 
-## Checkpoint 15: Docker Compose
+## Checkpoint 18: Docker Compose
 
 **Files:**
 - `compose.yaml`
@@ -312,7 +376,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add Prometheus/Grafana.
 - [ ] Verify frontend can call agent in compose.
 
-## Checkpoint 16: Kubernetes On AWS EC2
+## Checkpoint 19: Kubernetes On AWS EC2
 
 **Files:**
 - `infra/k8s/*.yaml`
@@ -326,7 +390,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add HPA if required.
 - [ ] Test with `kubectl port-forward` or ingress.
 
-## Checkpoint 17: Terraform
+## Checkpoint 20: Terraform
 
 **Files:**
 - `infra/terraform/*.tf`
@@ -339,7 +403,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Provision IAM permissions for Bedrock/S3/DynamoDB.
 - [ ] Document apply/destroy commands.
 
-## Checkpoint 18: Observability
+## Checkpoint 21: Observability
 
 **Files:**
 - `monitoring/prometheus.yml`
@@ -354,7 +418,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add MCP/tool error metrics.
 - [ ] Build Grafana dashboard.
 
-## Checkpoint 19: Deployment Automation
+## Checkpoint 22: Deployment Automation
 
 **Files:**
 - `.github/workflows/ci.yml`
@@ -370,7 +434,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Deploy to dev.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 20: Final Demo
+## Checkpoint 23: Final Demo
 
 **Files:**
 - `docs/demo-script.md`

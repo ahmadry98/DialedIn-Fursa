@@ -2,7 +2,7 @@
 
 ## 1. Problem Statement
 
-Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN lets a user upload or reference a video of an espresso shot, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment.
+Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN acts as a guided espresso coach: it asks for the machine, grinder, dose, grind setting, roast, taste, and shot video or manual timing, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment.
 
 The product also learns from unknown equipment. When the user enters a machine or grinder that is not in the curated profiles, DialedIN captures it as a research candidate, gathers source evidence, asks Bedrock to draft a profile, and keeps that draft pending human review before it becomes trusted data.
 
@@ -10,18 +10,18 @@ The product also learns from unknown equipment. When the user enters a machine o
 
 The MVP proves this core flow:
 
-1. User selects an espresso shot video or enters manual shot timing.
-2. The system extracts/analyzes audio to detect machine start and stop.
-3. Timing logic calculates total shot time and confidence.
-4. User provides machine, grinder or built-in grinder choice, dose, optional yield, grind setting, roast level, and taste notes.
+1. User chats with DialedIN instead of filling a large form.
+2. The coach asks for missing context one step at a time: machine, grinder or built-in grinder choice, dose, optional yield, grind setting, roast level, taste notes, and shot video or manual timing.
+3. The system extracts/analyzes audio to detect machine start and stop when a video path is provided.
+4. Timing logic calculates total shot time and confidence.
 5. The backend uses curated machine and grinder profiles when available.
 6. Recommendation rules return one next action, including exact next grinder setting when the grinder profile supports it.
 7. Unknown gear is captured into a candidate queue.
 8. Bedrock can research unknown gear using web evidence and create a draft profile.
 9. Human review promotes approved drafts into trusted profile JSON.
-10. The frontend shows timing, confidence, recommendation, missing fields, and unknown gear candidate state.
+10. The frontend shows timing, confidence, recommendation, missing fields, and unknown gear candidate state inside the chat.
 
-The MVP does not train a visual model. It is audio-first, rule-based for recommendation decisions, and LLM-assisted only for equipment profile research/drafting.
+The MVP does not train a visual model. It is audio-first, rule-based for recommendation decisions, and LLM-assisted for profile research/drafting and, later, natural chat or image recognition. Chat wording must not override deterministic timing or grind-adjustment logic.
 
 ## 3. Audio Timing Model
 
@@ -57,7 +57,7 @@ The MVP does not calculate `first_flow_time`, `startup_delay_seconds`, or `visib
 
 The system is split into small services/modules:
 
-- `services/frontend`: Next.js web UI for video selection/path, shot context, built-in grinder selection, timing correction, and results.
+- `services/frontend`: Next.js web UI. The current form proves the analysis workflow; the next UX layer is a chat-first coach for guided data collection, timing correction, and results.
 - `services/agent`: FastAPI service exposing `/analyze-shot`, `/chat`, `/health`, and `/metrics`.
 - `services/espresso_mcp`: MCP-compatible tool layer for audio timing, recommendations, machine profiles, grinder profiles, unknown gear capture, profile research, and profile promotion helpers.
 - `modeling`: local scripts/tests for audio experiments and evaluation.
@@ -70,25 +70,27 @@ Planned deployment components remain:
 - Docker/Kubernetes on AWS EC2 for course deployment.
 - Prometheus/Grafana for metrics and debugging.
 
-The current MVP processes videos synchronously. A separate async worker/SQS flow is future work if jobs become slow or concurrent. The current agent orchestration is direct FastAPI Python flow, not LangGraph. A future LangGraph upgrade can wrap the existing tool functions as graph nodes for timing, profile lookup, recommendation, unknown gear capture, profile research, save, and response assembly without rewriting the core espresso logic.
+The current MVP processes videos synchronously. A separate async worker/SQS flow is future work if jobs become slow or concurrent. The chat-first coach uses LangGraph to orchestrate context loading, message parsing, missing-field routing, shot analysis, and response assembly. The underlying shot analysis still calls deterministic `espresso_mcp` functions directly for timing, profile lookup, recommendation, unknown gear capture, save, and comparison.
 
 ## 6. Data Flow
 
-1. User opens the frontend.
-2. User selects a video/path and enters shot context.
-3. User chooses either an external grinder or checks `Built-in` next to the grinder field.
-4. Frontend sends the shot context to the FastAPI agent.
-5. Agent calls audio timing if a video path is provided, or uses manual total time.
-6. Agent looks up the machine profile.
-7. Agent builds recommendation context, including `uses_built_in_grinder` when relevant.
-8. Agent calls recommendation logic.
-9. Recommendation logic validates known grinder settings and calculates exact next settings when possible.
-10. Unknown external machines/grinders are captured as profile candidates.
-11. Built-in grinder machines do not create fake separate grinder candidates.
-12. If profile research autorun is enabled, the agent starts a background Bedrock profile research worker.
-13. Worker collects web evidence, calls Bedrock, and attaches a draft profile to the candidate.
-14. Human reviewer edits/approves the draft.
-15. Profile promoter copies the approved draft into trusted machine/grinder profiles.
+1. User opens the frontend chat.
+2. User can greet or ask general espresso questions.
+3. Coach keeps a conversation state for machine, grinder, built-in grinder choice, dose, optional yield, grind setting, roast, taste, timing/video, and confirmations.
+4. Coach asks the next missing question naturally.
+5. User enters typed values, chooses known gear, or provides a video path/manual timing.
+6. Frontend sends the accumulated shot context to the FastAPI agent when enough data exists.
+7. Agent calls audio timing if a video path is provided, or uses manual total time.
+8. Agent looks up the machine profile.
+9. Agent builds recommendation context, including `uses_built_in_grinder` when relevant.
+10. Agent calls deterministic recommendation logic.
+11. Recommendation logic validates known grinder settings and calculates exact next settings when possible.
+12. Unknown external machines/grinders are captured as profile candidates.
+13. Built-in grinder machines do not create fake separate grinder candidates.
+14. If profile research autorun is enabled, the agent starts a background Bedrock profile research worker.
+15. Worker collects web evidence, calls Bedrock, and attaches a draft profile to the candidate.
+16. Human reviewer edits/approves the draft.
+17. Profile promoter copies the approved draft into trusted machine/grinder profiles.
 
 ## 7. MCP / Tool Layer
 
@@ -107,9 +109,30 @@ The custom `espresso_mcp` layer exposes:
 - `prepare_profile_research(candidate_key)`
 - `attach_draft_profile(candidate_key, draft_profile)`
 
-The FastAPI agent currently calls these Python functions directly for the MVP. Future work can switch to real MCP transport without changing response shape. LangGraph can also be added later as an orchestration layer that calls the same tool functions through graph nodes instead of direct sequential code.
+The FastAPI agent calls these Python functions directly for shot analysis. The chat coach wraps the conversation flow in LangGraph and calls the same tool-backed analysis path when enough structured context is available. Future work can switch to real MCP transport without changing response shape.
 
-## 8. Machine Profiles
+## 8. Chat-First Coach UX
+
+The current user experience turns the working analysis form into a guided espresso coach. The chat should feel natural, but it should still collect structured state and call the same deterministic analysis tools.
+
+Conversation state includes:
+
+- `machine`
+- `grinder`
+- `uses_built_in_grinder`
+- `dose_g`
+- `yield_g`
+- `grind_setting`
+- `roast_level`
+- `taste`
+- `video_s3_key` or local video path
+- manual timing fields when the user does not want video/audio
+- confirmation state for guessed gear or low-confidence timing
+
+The chat layer may use an LLM for normal replies, extracting values from messy text, and eventually interpreting images. It must not invent shot timing, grinder math, or verified machine facts. The first implementation uses LangGraph with deterministic extraction plus an optional Claude Haiku/Bedrock extraction node for natural multi-field messages. If Bedrock is disabled or denied by IAM, the graph falls back to deterministic extraction. When enough structured context is collected, the graph calls the existing `/analyze-shot` flow and renders the result conversationally.
+
+
+## 9. Machine Profiles
 
 Machine profiles prevent the app from treating all machines the same. They include sourced technical facts and conservative brew defaults.
 
@@ -142,7 +165,7 @@ Profile shape:
 
 Current profiles include common home machines plus a generic fallback. Newly promoted example: Meraki, with built-in grinder notes.
 
-## 9. Grinder Profiles And Exact Settings
+## 10. Grinder Profiles And Exact Settings
 
 Grinder profiles allow the app to return exact next settings instead of vague advice like “1-2 steps finer.”
 
@@ -163,7 +186,7 @@ Each grinder profile includes:
 
 When the grinder is known, the app validates settings and calculates the next setting. The exact-setting calculation uses the shot-time gap plus `seconds_per_small_step_estimate` when the grinder profile has one. For example, if a shot is 10 seconds fast and the grinder estimate is 2.5 seconds per small step, the app recommends about 4 small steps finer and converts that into the grinder's numeric setting. When unknown, it uses `Generic Numeric Grinder` as a conservative fallback. Built-in grinders are represented by `uses_built_in_grinder=true`; they use generic numeric logic until a machine-specific built-in grinder profile is verified.
 
-## 10. Built-In Grinder Handling
+## 11. Built-In Grinder Handling
 
 Some machines, such as Meraki or Breville Barista Express, have built-in grinders. The frontend has a `Built-in` checkbox next to the grinder field.
 
@@ -177,7 +200,7 @@ When checked:
 
 This prevents incorrect candidates like `grinder:meraki`.
 
-## 11. Unknown Gear Research Workflow
+## 12. Unknown Gear Research Workflow
 
 Unknown equipment is handled through a reviewable learning loop:
 
@@ -200,9 +223,11 @@ PROFILE_RESEARCH_AUTORUN_LIMIT=1
 PROFILE_RESEARCH_WEB_EVIDENCE=true
 MODEL=bedrock/openai.gpt-oss-20b-1:0
 AWS_REGION=us-east-1
+CHAT_LLM_EXTRACTION=true
+CHAT_LLM_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
-## 12. Recommendation Rules
+## 13. Recommendation Rules
 
 The recommendation engine is deterministic and explainable:
 
@@ -215,7 +240,7 @@ The recommendation engine is deterministic and explainable:
 
 The app recommends one primary next change and lists what to keep fixed. When it calculates an exact grinder setting, it also explains the timing gap, grinder sensitivity estimate, estimated number of small steps, and recommendation confidence reasons. Yield is optional because many users do not weigh output, but recommendations improve when yield is available.
 
-## 13. Agent System Prompt
+## 14. Agent System Prompt
 
 The agent system prompt defines DialedIN as an espresso coach. It must:
 
@@ -227,7 +252,7 @@ The agent system prompt defines DialedIN as an espresso coach. It must:
 - Tell the user what to keep fixed.
 - Mention low confidence and ask the user to confirm timing when needed.
 
-## 14. Dataset Label Schema
+## 15. Dataset Label Schema
 
 The first dataset uses a CSV file with these columns:
 
@@ -238,7 +263,7 @@ video_id,machine_start_time,machine_stop_time,machine,grinder,dose_g,yield_g,gri
 The required fields for audio evaluation are `video_id`, `machine_start_time`, and `machine_stop_time`. Other fields can be empty if the video does not provide them.
 
 
-## 15. CI/CD Workflow
+## 16. CI/CD Workflow
 
 GitHub Actions protects the branch workflow before review and merge. The current CI runs on pull requests to `main`/`dev`, pushes to `main`/`dev`, and manual workflow dispatch.
 
@@ -251,11 +276,11 @@ The CI workflow includes:
 
 Deployment/CD is future work and should be added after the deployment target is finalized. The profile research worker can later get a separate manual workflow using GitHub secrets for AWS credentials, but normal PR CI should remain deterministic and cheap.
 
-## 16. Future LangGraph Orchestration
+## 17. Future LangGraph Enhancements
 
-LangGraph is not part of the current MVP implementation. It is a future orchestration upgrade for making the agent workflow more explicit, inspectable, and extensible.
+LangGraph is now part of the chat-first MVP. Future work can make the graph smarter, more persistent, and easier to inspect.
 
-A future graph can use nodes such as:
+Future graph enhancements can use nodes such as:
 
 1. Receive shot request.
 2. Detect or accept timing.
@@ -266,12 +291,15 @@ A future graph can use nodes such as:
 7. Save result and compare previous shots.
 8. Assemble final response.
 
-This should reuse the existing `espresso_mcp` functions rather than replacing them. Recommendation decisions should remain deterministic unless the project intentionally changes that requirement.
+These enhancements should reuse the existing `espresso_mcp` functions rather than replacing them. Recommendation decisions should remain deterministic unless the project intentionally changes that requirement.
 
-## 17. Future Visual Analysis
+## 18. Future Visual And Image Recognition
 
 Visual analysis is out of current MVP scope. Future versions can add:
 
+- Machine photo recognition.
+- Grinder photo recognition.
+- User confirmation before accepting image guesses.
 - Frame extraction.
 - First coffee flow detection.
 - Flow end visual confirmation.
@@ -280,7 +308,20 @@ Visual analysis is out of current MVP scope. Future versions can add:
 - Crema/blonding analysis.
 - Ultralytics image classification or object detection.
 
-## 18. Error Handling
+
+## 19. Mobile And PWA Direction
+
+DialedIN should become phone-friendly before becoming a native desktop or mobile app. The near-term target is a responsive web/PWA experience because users naturally record espresso videos on their phones.
+
+Priorities:
+
+- Mobile-first chat layout.
+- Camera/photo/video upload affordances.
+- PWA manifest and installable app metadata.
+- Keep desktop web usable for development and demos.
+- Defer desktop wrappers such as Electron/Tauri until the web/PWA experience is stable.
+
+## 20. Error Handling
 
 The system handles:
 
@@ -296,7 +337,7 @@ The system handles:
 
 Background profile research failures should not break shot analysis.
 
-## 19. Testing Strategy
+## 21. Testing Strategy
 
 Unit tests cover:
 
@@ -321,7 +362,7 @@ Integration/manual checks cover:
 
 Current verified local checks include backend pytest suite and Next.js production build.
 
-## 18. Deployment And Observability
+## 22. Deployment And Observability
 
 Final course deployment target:
 
