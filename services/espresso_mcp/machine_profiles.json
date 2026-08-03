@@ -1109,13 +1109,41 @@
   },
   {
     "machine_name": "LELIT Anita PL042TEMD",
-    "aliases": [],
+    "aliases": [
+      "anita",
+      "anita pl042temd",
+      "lelit anita",
+      "lelit anita pl042",
+      "lelit anita pl042temd",
+      "pl042temd",
+      "pl042temd-120",
+      "pl042temd-as",
+      "pl042temdaus4i80",
+      "pesat01",
+      "pesat07"
+    ],
     "specs": {
-      "portafilter_mm": null,
-      "pump_type": "unknown",
-      "pressure_type": "unknown",
-      "has_preinfusion": null,
-      "has_built_in_grinder": true
+      "portafilter_mm": 57,
+      "pump_type": "vibration",
+      "pressure_type": "coffee-pressure manometer with optimal extraction zone; retailer spec lists vibratory pump",
+      "has_preinfusion": false,
+      "has_built_in_grinder": true,
+      "group_system": "LELIT57",
+      "built_in_grinder_burr_mm": 38,
+      "grinder_adjustment": "micrometric stepless side-knob adjustment",
+      "termopid": true,
+      "three_way_solenoid_valve": true,
+      "pressure_gauge": true,
+      "boiler_material": "brass",
+      "boiler_ml": 250,
+      "bean_hopper_g": 150,
+      "water_tank_l": 2.7,
+      "dimensions_cm": [
+        31.5,
+        36.5,
+        37
+      ],
+      "weight_kg": 10.2
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1128,17 +1156,32 @@
       ],
       "typical_startup_delay_seconds": null
     },
-    "grind_adjustment_notes": "Micrometric stepless grinding adjustment via side knob on built\u2011in grinder.",
+    "grind_adjustment_notes": "Anita PL042TEMD has a built-in grinder with 38 mm conical burrs and micrometric stepless side-knob adjustment. Keep dose and yield fixed when changing grind, move in small side-knob changes, and remember the machine uses the LELIT57 group/portafilter system.",
     "sources": {
-      "aliases": [],
-      "portafilter_mm": [],
-      "pump_type": [],
-      "pressure_type": [
-        "https://www.lelit.com/en-ca/products/anita-pl042temd"
+      "aliases": [
+        "https://www.lelit.com/product/anita-pl042temd/",
+        "https://www.lelit.com/categorie-prodotti/coffee-machines/"
       ],
-      "has_preinfusion": [],
+      "portafilter_mm": [
+        "https://www.lelit.com/product/anita-pl042temd/",
+        "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
+      ],
+      "pump_type": [
+        "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
+      ],
+      "pressure_type": [
+        "https://www.lelit.com/product/anita-pl042temd/",
+        "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
+      ],
+      "has_preinfusion": [
+        "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
+      ],
       "has_built_in_grinder": [
-        "https://www.lelit.com/en-ca/products/anita-pl042temd"
+        "https://www.lelit.com/product/anita-pl042temd/"
+      ],
+      "technical_features": [
+        "https://www.lelit.com/product/anita-pl042temd/",
+        "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
       ]
     }
   },

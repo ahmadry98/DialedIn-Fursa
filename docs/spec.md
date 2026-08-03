@@ -129,7 +129,7 @@ Conversation state includes:
 - manual timing fields when the user does not want video/audio
 - confirmation state for guessed gear or low-confidence timing
 
-The chat layer may use an LLM for normal replies, extracting values from messy text, and eventually interpreting images. It must not invent shot timing, grinder math, or verified machine facts. The first implementation uses LangGraph with deterministic extraction plus an optional Claude Haiku/Bedrock extraction node for natural multi-field messages. If Bedrock is disabled or denied by IAM, the graph falls back to deterministic extraction. When enough structured context is collected, the graph calls the existing `/analyze-shot` flow and renders the result conversationally.
+The chat layer may use an LLM for normal replies, extracting values from messy text, and eventually interpreting images. It must not invent shot timing, grinder math, or verified machine facts. The first implementation uses LangGraph with deterministic extraction plus optional Claude Haiku/Bedrock nodes for natural multi-field messages and machine/grinder photo guesses. If Bedrock is disabled or denied by IAM, the graph falls back to deterministic extraction. Image guesses are stored as pending gear and require user confirmation before becoming machine or grinder context. When enough structured context is collected, the graph calls the existing `/analyze-shot` flow and renders the result conversationally.
 
 
 ## 9. Machine Profiles
@@ -297,9 +297,9 @@ These enhancements should reuse the existing `espresso_mcp` functions rather tha
 
 Visual analysis is out of current MVP scope. Future versions can add:
 
-- Machine photo recognition.
-- Grinder photo recognition.
-- User confirmation before accepting image guesses.
+- Machine photo recognition through Claude/Bedrock image messages.
+- Grinder photo recognition through Claude/Bedrock image messages.
+- User confirmation before accepting image guesses into shot context.
 - Frame extraction.
 - First coffee flow detection.
 - Flow end visual confirmation.

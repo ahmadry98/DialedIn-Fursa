@@ -44,6 +44,18 @@ class MachineProfilesTest(unittest.TestCase):
             with self.subTest(alias=alias):
                 self.assertEqual(get_machine_profile(alias)["machine_name"], expected_name)
 
+    def test_anita_profile_has_reviewed_technical_details(self):
+        profile = get_machine_profile("PL042TEMD")
+
+        self.assertEqual(profile["machine_name"], "LELIT Anita PL042TEMD")
+        self.assertEqual(profile["specs"]["portafilter_mm"], 57)
+        self.assertEqual(profile["specs"]["group_system"], "LELIT57")
+        self.assertTrue(profile["specs"]["has_built_in_grinder"])
+        self.assertEqual(profile["specs"]["built_in_grinder_burr_mm"], 38)
+        self.assertTrue(profile["specs"]["termopid"])
+        self.assertFalse(profile["specs"]["has_preinfusion"])
+        self.assertTrue(profile["sources"]["technical_features"])
+
     def test_unknown_machine_returns_generic_profile(self):
         profile = get_machine_profile("Mystery Steam Box 3000")
 
