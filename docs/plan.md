@@ -271,15 +271,15 @@ attach_draft_profile(candidate_key, draft_profile)
 
 - [x] Add a conversation state object for machine, grinder, built-in grinder, dose, yield, grind setting, roast, taste, timing/video, and confirmation state.
 - [x] Use LangGraph to orchestrate context loading, parsing, missing-field routing, analysis, and response assembly.
-- [ ] Let users send normal messages such as greetings and questions.
-- [ ] Ask the next missing espresso question naturally.
-- [ ] Extract typed values from user replies where possible.
-- [ ] Accept machine/grinder names manually in chat.
-- [ ] Accept video path or manual timing in chat.
-- [ ] Call the existing `/analyze-shot` flow once required fields are available.lw
-- [ ] Show the same timing, warning, exact-setting, and recommendation output inside the chat.
-- [ ] Keep the old form logic reusable as the underlying engine.
-- [ ] Make the chat layout mobile-friendly from the start.
+- [x] Let users send normal messages such as greetings and questions.
+- [x] Ask the next missing espresso question naturally.
+- [x] Extract typed values from user replies where possible.
+- [x] Accept machine/grinder names manually in chat.
+- [x] Accept video path or manual timing in chat.
+- [x] Call the existing `/analyze-shot` flow once required fields are available.
+- [x] Show the same timing, warning, exact-setting, and recommendation output inside the chat.
+- [x] Keep the old form logic reusable as the underlying engine.
+- [x] Make the chat layout mobile-friendly from the start.
 
 ## Checkpoint 13: Image Recognition For Machine And Grinder
 
@@ -292,12 +292,12 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Optional photo-assisted gear identification inside the chat flow.
 
-- [ ] Let the user upload a machine or grinder photo in chat.
-- [ ] Send image to a multimodal LLM for a best-guess model name.
-- [ ] Match the guess against trusted machine/grinder profiles and aliases.
-- [ ] Ask the user to confirm before using the guessed gear.
-- [ ] Save low-confidence or unknown gear as profile candidates.
-- [ ] Never treat image recognition as verified machine facts.
+- [x] Let the user upload a machine or grinder photo in chat.
+- [x] Send image to a multimodal LLM for a best-guess model name.
+- [x] Match the guess against trusted machine/grinder profiles and aliases.
+- [x] Ask the user to confirm before using the guessed gear.
+- [x] Route low-confidence or unknown photo results back to manual gear entry so the existing candidate workflow can capture them after analysis.
+- [x] Never treat image recognition as verified machine facts.
 
 ## Checkpoint 14: Mobile/PWA Experience
 

@@ -6,7 +6,7 @@ from typing import Any, Callable, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from services.agent import conversation, llm_extraction
+from services.agent import conversation, image_identification, llm_extraction
 from services.agent.config import get_settings
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse, ShotContext
 
@@ -23,6 +23,8 @@ class CoachGraphState(TypedDict, total=False):
     response: str
     analysis_result: AnalyzeShotResponse | None
     llm_error: str | None
+    image_guess: dict[str, Any] | None
+    image_error: str | None
 
 
 def run_chat_graph(request: ChatRequest, analyze_callback: AnalyzeCallback) -> ChatResponse:
@@ -37,6 +39,7 @@ def run_chat_graph(request: ChatRequest, analyze_callback: AnalyzeCallback) -> C
         analysis_result=state.get("analysis_result"),
         next_field=state.get("next_field"),
         missing_fields=state.get("missing_fields", []),
+        image_guess=state.get("image_guess"),
     )
 
 
@@ -44,6 +47,7 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     """Build and compile the espresso coach graph."""
     builder = StateGraph(CoachGraphState)
     builder.add_node("load_context", _load_context)
+    builder.add_node("image_identify", _image_identify)
     builder.add_node("llm_extract", _llm_extract)
     builder.add_node("parse_message", _parse_message)
     builder.add_node("compute_missing", _compute_missing)
@@ -51,7 +55,8 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     builder.add_node("analyze_shot", _make_analyze_node(analyze_callback))
 
     builder.add_edge(START, "load_context")
-    builder.add_edge("load_context", "llm_extract")
+    builder.add_edge("load_context", "image_identify")
+    builder.add_edge("image_identify", "llm_extract")
     builder.add_edge("llm_extract", "parse_message")
     builder.add_edge("parse_message", "compute_missing")
     builder.add_conditional_edges(
@@ -67,6 +72,7 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
 def _load_context(state: CoachGraphState) -> dict[str, Any]:
     request = state["request"]
     context = request.shot_context.model_copy(deep=True) if request.shot_context else ShotContext()
+    context = conversation.sanitize_context(context)
     return {
         "context": context,
         "message": conversation.latest_user_message(request),
@@ -74,7 +80,56 @@ def _load_context(state: CoachGraphState) -> dict[str, Any]:
     }
 
 
+def _image_identify(state: CoachGraphState) -> dict[str, Any]:
+    request = state["request"]
+    message = _latest_user_message_object(request)
+    if not message or not message.image_base64 or not message.image_kind:
+        return {}
+
+    settings = get_settings()
+    if not settings.chat_llm_extraction_enabled:
+        return {}
+
+    try:
+        guess = image_identification.identify_gear_image_with_bedrock(
+            image_base64=message.image_base64,
+            media_type=message.image_media_type or "image/jpeg",
+            gear_type=message.image_kind,
+            model_id=settings.chat_llm_model_id,
+            region=settings.aws_region,
+        )
+    except Exception as error:  # pragma: no cover - external Bedrock failures should not break chat.
+        return {"image_error": f"{type(error).__name__}: {error}"}
+
+    gear_type = guess.get("gear_type") or message.image_kind
+    gear_name = guess.get("name")
+    confidence = str(guess.get("confidence") or "low").lower()
+    updates: dict[str, Any] = {}
+    if gear_name and str(gear_name).lower() != "unknown" and confidence in {"medium", "high"}:
+        canonical_name = conversation.canonical_gear_name(str(gear_name), gear_type)
+        updates = {
+            "pending_gear_type": gear_type,
+            "pending_gear_name": canonical_name,
+            "pending_gear_confidence": confidence,
+        }
+        guess = {**guess, "name": canonical_name, "confidence": confidence}
+
+    context = state["context"].model_copy(update=updates) if updates else state["context"]
+    return {"context": context, "image_guess": guess}
+
+
+def _latest_user_message_object(request: ChatRequest):
+    for message in reversed(request.messages):
+        if message.role == "user":
+            return message
+    return None
+
+
 def _llm_extract(state: CoachGraphState) -> dict[str, Any]:
+    latest_message = _latest_user_message_object(state["request"])
+    if latest_message and latest_message.image_base64:
+        return {}
+
     message = state.get("message", "")
     if not message:
         return {}
@@ -93,11 +148,30 @@ def _llm_extract(state: CoachGraphState) -> dict[str, Any]:
     except Exception as error:  # pragma: no cover - external Bedrock failures should not break chat.
         return {"llm_error": f"{type(error).__name__}: {error}"}
 
+    extracted = _filter_extracted_context(extracted, message, state.get("previous_missing", []))
     return {"context": llm_extraction.merge_extracted_context(state["context"], extracted)}
+
+
+def _filter_extracted_context(extracted: dict[str, Any], message: str, previous_missing: list[str]) -> dict[str, Any]:
+    """Keep LLM extraction aligned with the field the coach asked for."""
+    expected_field = previous_missing[0] if previous_missing else None
+    filtered = dict(extracted)
+    if expected_field != "timing" and not conversation.has_explicit_timing(message):
+        filtered.pop("total_shot_seconds", None)
+        filtered.pop("video_s3_key", None)
+    if filtered.get("machine"):
+        filtered["machine"] = conversation.canonical_gear_name(str(filtered["machine"]), "machine")
+    if filtered.get("grinder"):
+        filtered["grinder"] = conversation.canonical_gear_name(str(filtered["grinder"]), "grinder")
+    return filtered
 
 
 def _parse_message(state: CoachGraphState) -> dict[str, Any]:
     context = state["context"]
+    latest_message = _latest_user_message_object(state["request"])
+    if latest_message and latest_message.image_base64:
+        return {"context": context}
+
     message = state.get("message", "")
     if message:
         conversation.apply_message_to_context(context, message, state.get("previous_missing", []))
@@ -119,13 +193,35 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
     message = state.get("message", "")
     context = state["context"]
     missing = state.get("missing_fields", [])
-    if not message:
+    previous_missing = state.get("previous_missing", [])
+    if image_prompt := _low_confidence_image_prompt(state):
+        response = image_prompt
+    elif not message:
         response = "Hey, I can help dial in your espresso. What machine are you using?"
+    elif previous_missing[:1] == ["confirm_machine"] and conversation.is_confirmation_no(message):
+        response = "No problem. What machine is it?"
+    elif previous_missing[:1] == ["confirm_grinder"] and conversation.is_confirmation_no(message):
+        response = "No problem. What grinder is it?"
     elif conversation.is_greeting(message) and conversation.is_empty_context(context):
         response = "Hey, I can help dial in your espresso shot. What machine are you using?"
+    elif small_talk_response := conversation.small_talk_reply(message, missing[0], context):
+        response = small_talk_response
     else:
         response = conversation.question_for(missing[0], context)
     return {"response": response, "analysis_result": None}
+
+
+def _low_confidence_image_prompt(state: CoachGraphState) -> str | None:
+    guess = state.get("image_guess") or {}
+    latest_message = _latest_user_message_object(state["request"])
+    if not latest_message or not latest_message.image_base64:
+        return None
+    if guess.get("name") and str(guess.get("confidence") or "low").lower() in {"medium", "high"}:
+        return None
+    gear_type = guess.get("gear_type") or latest_message.image_kind or "machine"
+    if gear_type == "grinder":
+        return "I could not identify the grinder confidently from the photo. What grinder is it?"
+    return "I could not identify the machine confidently from the photo. What machine is it?"
 
 
 def _make_analyze_node(analyze_callback: AnalyzeCallback):

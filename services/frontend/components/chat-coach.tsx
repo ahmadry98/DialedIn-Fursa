@@ -38,8 +38,8 @@ export function ChatCoach() {
     await sendMessage(trimmed);
   }
 
-  async function sendMessage(content: string) {
-    const userMessage: UiMessage = { id: makeId("user"), role: "user", content };
+  async function sendMessage(content: string, image?: Pick<ChatMessage, "image_base64" | "image_media_type" | "image_kind">) {
+    const userMessage: UiMessage = { id: makeId("user"), role: "user", content, ...image };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     setIsLoading(true);
@@ -47,7 +47,13 @@ export function ChatCoach() {
 
     try {
       const response = await chatWithCoach({
-        messages: nextMessages.map(({ role, content }) => ({ role, content })),
+        messages: nextMessages.map(({ id, role, content, image_base64, image_media_type, image_kind }) => ({
+          role,
+          content,
+          image_base64: id === userMessage.id ? image_base64 : undefined,
+          image_media_type: id === userMessage.id ? image_media_type : undefined,
+          image_kind: id === userMessage.id ? image_kind : undefined,
+        })),
         shot_context: shotContext,
       });
       if (response.shot_context) {
@@ -106,12 +112,35 @@ export function ChatCoach() {
     }
   }
 
-  function handleFileSelected(fileName: string) {
-    if (!fileName) {
+  async function handleAttachmentSelected(file: File | null) {
+    if (!file || isLoading) {
       return;
     }
-    const path = `data/raw-videos/${fileName}`;
-    setInput(path);
+
+    if (file.type.startsWith("video/") || isVideoFile(file.name)) {
+      await sendMessage(`data/raw-videos/${file.name}`);
+      return;
+    }
+
+    if (!file.type.startsWith("image/") && !isImageFile(file.name)) {
+      setError("Attach an image of the machine/grinder or a shot video.");
+      return;
+    }
+
+    const kind = inferImageKind(shotContext);
+    setIsLoading(true);
+    setError("");
+    try {
+      const imageBase64 = await readFileAsBase64(file);
+      await sendMessage("I uploaded a photo.", {
+        image_base64: imageBase64,
+        image_media_type: file.type || "image/jpeg",
+        image_kind: kind,
+      });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Unable to read attached file.");
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -121,6 +150,7 @@ export function ChatCoach() {
           {messages.map((message) => (
             <div className={`chat-message ${message.role}`} key={message.id}>
               <p>{message.content}</p>
+              {message.image_base64 ? <span className="chat-image-note">Photo attached</span> : null}
             </div>
           ))}
           {isLoading ? (
@@ -141,19 +171,25 @@ export function ChatCoach() {
 
         {error ? <div className="alert">{error}</div> : null}
 
-        <form className="chat-composer" onSubmit={handleSubmit}>
-          <label className="file-icon-button" title="Choose local video">
+        <div className="attachment-toolbar" aria-label="Attachments">
+          <label className="attachment-button" title="Attach a setup photo or shot video">
             <input
               type="file"
-              accept="video/mp4,video/quicktime,video/*"
-              onChange={(event) => handleFileSelected(event.target.files?.[0]?.name ?? "")}
+              accept="image/png,image/jpeg,image/webp,image/*,video/mp4,video/quicktime,video/*"
+              onChange={(event) => {
+                handleAttachmentSelected(event.target.files?.[0] ?? null);
+                event.currentTarget.value = "";
+              }}
             />
-            Video
+            Attach
           </label>
+        </div>
+
+        <form className="chat-composer" onSubmit={handleSubmit}>
           <input
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Type an answer, video path, or manual time like 27 seconds"
+            placeholder="Type a reply, a full shot description, or 27 seconds"
             aria-label="Message"
           />
           <button className="primary-button" type="submit" disabled={isLoading || !input.trim()}>
@@ -221,4 +257,38 @@ function round(value: number) {
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function readFileAsBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+
+function inferImageKind(context: ShotFormValues): "machine" | "grinder" {
+  if (context.pending_gear_type === "grinder") {
+    return "grinder";
+  }
+  if (context.pending_gear_type === "machine") {
+    return "machine";
+  }
+  if (!context.machine) {
+    return "machine";
+  }
+  if (!context.uses_built_in_grinder && !context.grinder) {
+    return "grinder";
+  }
+  return "machine";
+}
+
+function isVideoFile(fileName: string) {
+  return /\.(mp4|mov|m4v)$/i.test(fileName);
+}
+
+function isImageFile(fileName: string) {
+  return /\.(png|jpe?g|webp|heic)$/i.test(fileName);
 }

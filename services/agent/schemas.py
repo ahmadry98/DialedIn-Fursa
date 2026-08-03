@@ -21,6 +21,9 @@ class ShotContext(BaseModel):
     timing_confidence: float | None = None
     total_shot_seconds: float | None = None
     requires_manual_confirmation: bool = False
+    pending_gear_type: str | None = None
+    pending_gear_name: str | None = None
+    pending_gear_confidence: str | None = None
 
 
 class AnalyzeShotRequest(ShotContext):
@@ -41,6 +44,9 @@ class AnalyzeShotResponse(BaseModel):
 class ChatMessage(BaseModel):
     role: str = Field(pattern="^(user|assistant|system)$")
     content: str
+    image_base64: str | None = None
+    image_media_type: str | None = None
+    image_kind: str | None = Field(default=None, pattern="^(machine|grinder)$")
 
 
 class ChatRequest(BaseModel):
@@ -56,6 +62,7 @@ class ChatResponse(BaseModel):
     analysis_result: AnalyzeShotResponse | None = None
     next_field: str | None = None
     missing_fields: list[str] = []
+    image_guess: dict[str, Any] | None = None
 
 
 class HealthResponse(BaseModel):

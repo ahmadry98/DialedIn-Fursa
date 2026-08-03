@@ -1,5 +1,8 @@
 export type ShotFormValues = {
   user_id: string;
+  pending_gear_type?: string | null;
+  pending_gear_name?: string | null;
+  pending_gear_confidence?: string | null;
   video_s3_key?: string | null;
   machine?: string | null;
   grinder?: string | null;
@@ -67,6 +70,9 @@ export type AnalyzeShotResponse = {
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
+  image_base64?: string | null;
+  image_media_type?: string | null;
+  image_kind?: "machine" | "grinder" | null;
 };
 
 export type ChatResponse = {
@@ -77,6 +83,12 @@ export type ChatResponse = {
   analysis_result?: AnalyzeShotResponse | null;
   next_field?: string | null;
   missing_fields: string[];
+  image_guess?: {
+    gear_type?: string;
+    name?: string | null;
+    confidence?: string;
+    reason?: string;
+  } | null;
 };
 
 export async function chatWithCoach(payload: {
