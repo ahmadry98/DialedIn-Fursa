@@ -213,6 +213,8 @@ Unknown equipment is handled through a reviewable learning loop:
 7. Human reviewer edits or approves the draft.
 8. `profile_promoter` promotes the reviewed draft into trusted profile JSON.
 
+Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile.
+
 Important rule: observed app context, such as a user-entered grind setting, must not be treated as manufacturer data or a typical setting.
 
 Local env controls:

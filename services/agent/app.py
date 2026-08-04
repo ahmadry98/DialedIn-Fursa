@@ -14,9 +14,11 @@ from services.agent.schemas import (
     ChatResponse,
     HealthResponse,
     MetricsResponse,
+    ProfileCandidateUpdateRequest,
 )
 from services.espresso_mcp import app as espresso_tools
 from services.espresso_mcp import profile_candidates
+from services.espresso_mcp import profile_promoter
 from services.espresso_mcp import profile_research_worker
 
 settings = get_settings()
@@ -57,6 +59,68 @@ def profile_research_status() -> dict[str, object]:
         "queued_count": len(queued),
         "queued_candidate_keys": [candidate.get("candidate_key") for candidate in queued],
     }
+
+
+
+
+@app.get("/profile-candidates")
+def list_profile_candidates() -> dict[str, object]:
+    candidates = profile_candidates.load_profile_candidates()
+    return {
+        "count": len(candidates),
+        "candidates": sorted(
+            candidates,
+            key=lambda candidate: (
+                str(candidate.get("status", "")),
+                str(candidate.get("last_seen_at", "")),
+                str(candidate.get("candidate_key", "")),
+            ),
+            reverse=True,
+        ),
+    }
+
+
+@app.patch("/profile-candidates/{candidate_key:path}")
+def update_profile_candidate(candidate_key: str, request: ProfileCandidateUpdateRequest) -> dict[str, object]:
+    try:
+        candidate = profile_candidates.update_profile_candidate(
+            candidate_key,
+            draft_profile=request.draft_profile,
+            review_notes=request.review_notes,
+            status=request.status,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"candidate": candidate}
+
+
+@app.delete("/profile-candidates/{candidate_key:path}")
+def delete_profile_candidate(candidate_key: str) -> dict[str, object]:
+    try:
+        return profile_candidates.delete_profile_candidate(candidate_key)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/profile-candidates/{candidate_key:path}/research")
+def rerun_profile_candidate_research(candidate_key: str) -> dict[str, object]:
+    try:
+        results = profile_research_worker.run_worker(candidate_key=candidate_key)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"results": results}
+
+
+@app.post("/profile-candidates/{candidate_key:path}/promote")
+def promote_profile_candidate(candidate_key: str) -> dict[str, object]:
+    try:
+        return profile_promoter.promote_candidate(candidate_key)
+    except ValueError as error:
+        message = str(error)
+        status_code = 404 if "Unknown candidate_key" in message else 400
+        raise HTTPException(status_code=status_code, detail=message) from error
 
 
 @app.post("/analyze-shot", response_model=AnalyzeShotResponse)

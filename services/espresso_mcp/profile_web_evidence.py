@@ -30,6 +30,25 @@ OFFICIAL_HINTS = {
     "specs",
     "pdf",
 }
+KNOWN_BRAND_DOMAINS = {
+    "illy": ["illy.com"],
+    "x1 anniversary": ["illy.com"],
+    "x1 anniversary ese": ["illy.com"],
+    "breville": ["breville.com"],
+    "gaggia": ["gaggia.com"],
+    "rancilio": ["ranciliogroup.com", "ranciliogroupna.com"],
+    "lelit": ["lelit.com"],
+    "la marzocco": ["lamarzocco.com", "home.lamarzoccousa.com"],
+    "delonghi": ["delonghi.com"],
+    "de longhi": ["delonghi.com"],
+    "profitec": ["profitec-espresso.com"],
+    "ecm": ["ecm.de"],
+    "rocket": ["rocket-espresso.com"],
+    "varia": ["variabrewing.com"],
+    "baratza": ["baratza.com"],
+    "eureka": ["eureka.co.it"],
+    "niche": ["nichecoffee.co.uk"],
+}
 
 
 def collect_web_evidence(
@@ -108,15 +127,13 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
         slugs = unique([*slug_variants, *(f"{slug}-grinder" for slug in slug_variants), "espresso-grinder", "coffee-grinder"])
 
     domains = []
+    for domain in known_brand_domains(name):
+        domains.extend([f"https://www.{domain}", f"https://{domain}"])
     for brand in brand_domains:
         domains.extend(
             [
                 f"https://www.{brand}.com",
                 f"https://{brand}.com",
-                f"https://{brand}ae.com",
-                f"https://www.{brand}tech.com",
-                f"https://{brand}tech.com",
-                f"https://eu.{brand}tech.com",
             ]
         )
     domains = unique(domains)
@@ -164,6 +181,15 @@ def machine_specific_slug_candidates(tokens: list[str]) -> list[str]:
     return unique(candidates)
 
 
+def known_brand_domains(name: str) -> list[str]:
+    normalized = " ".join(re.split(r"[^a-z0-9]+", name.lower())).strip()
+    domains: list[str] = []
+    for hint, hint_domains in KNOWN_BRAND_DOMAINS.items():
+        if hint in normalized:
+            domains.extend(hint_domains)
+    return unique(domains)
+
+
 def brand_domain_candidates(name: str, tokens: list[str]) -> list[str]:
     raw_tokens = [token for token in re.split(r"[^a-z0-9]+", name.lower()) if token]
     candidates: list[str] = []
@@ -206,15 +232,18 @@ def unique(values: list[str]) -> list[str]:
 
 def build_queries(gear_type: str, name: str) -> list[str]:
     quoted = f'"{name}"'
+    brand_site_queries = [f"site:{domain} {quoted} official specifications manual" for domain in known_brand_domains(name)]
     if gear_type == "machine":
         return [
-            f"{quoted} espresso machine official specifications portafilter pump preinfusion",
-            f"{quoted} espresso machine manual pdf",
+            *brand_site_queries,
+            f"{quoted} espresso machine official manufacturer specifications portafilter pump preinfusion",
+            f"{quoted} espresso machine official manual pdf",
             f"{quoted} manufacturer espresso machine specs",
         ]
     return [
-        f"{quoted} grinder official specifications espresso range clicks",
-        f"{quoted} grinder manual pdf adjustment clicks",
+        *brand_site_queries,
+        f"{quoted} grinder official manufacturer specifications espresso range clicks",
+        f"{quoted} grinder official manual pdf adjustment clicks",
         f"{quoted} coffee grinder manufacturer specs",
     ]
 
@@ -273,6 +302,12 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
     if gear_type == "grinder" and any(term in haystack for term in ["grinder", "espresso range", "click", "burr"]):
         score += 3
     url = result.get("url", "").lower()
+    host = urllib.parse.urlparse(url).netloc.lower()
+    official_domains = known_brand_domains(name)
+    if any(host == domain or host.endswith(f".{domain}") for domain in official_domains):
+        score += 18
+    if "x1tech.com" in host and "illy.com" in official_domains:
+        score -= 20
     if result.get("source") == "direct_fallback":
         score += 1
         has_name_token = any(token in url for token in normalized_tokens(name))

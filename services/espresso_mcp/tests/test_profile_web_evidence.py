@@ -5,11 +5,45 @@ from services.espresso_mcp import profile_web_evidence
 
 
 class ProfileWebEvidenceTest(unittest.TestCase):
-    def test_build_queries_prefers_machine_specs_and_manuals(self):
+    def test_build_queries_prefers_known_manufacturer_site(self):
         queries = profile_web_evidence.build_queries("machine", "Lelit Victoria")
 
-        self.assertIn("official specifications", queries[0])
-        self.assertIn("manual pdf", queries[1])
+        self.assertTrue(queries[0].startswith("site:lelit.com"))
+        self.assertTrue(any("manual pdf" in query for query in queries))
+
+
+    def test_x1_anniversary_queries_prefer_illy_site(self):
+        queries = profile_web_evidence.build_queries("machine", "X1 Anniversary E.S.E. Pod & Ground Espresso Machine")
+
+        self.assertTrue(queries[0].startswith("site:illy.com"))
+
+    def test_x1_anniversary_direct_candidates_do_not_guess_x1tech(self):
+        urls = [
+            result["url"]
+            for result in profile_web_evidence.build_direct_url_candidates(
+                "machine", "X1 Anniversary E.S.E. Pod & Ground Espresso Machine"
+            )
+        ]
+
+        self.assertTrue(any("illy.com" in url for url in urls))
+        self.assertFalse(any("x1tech.com" in url for url in urls))
+
+    def test_known_manufacturer_domain_scores_above_misleading_x1tech_domain(self):
+        illy = {
+            "url": "https://www.illy.com/en-us/coffee-machines/all-italian-espresso-machines/x1-anniversary-coffee-machine-ese-ground/coffee-machines-X1-Anniversary-ESE-and-Ground-us-p.html",
+            "title": "X1 Anniversary E.S.E. and Ground Coffee Machine",
+            "snippet": "Illy coffee machine official product page",
+        }
+        misleading = {
+            "url": "https://www.x1tech.com/products/anniversary-pod-ground-espressomachine",
+            "title": "X1 Anniversary Pod Ground Espresso Machine",
+            "snippet": "Product page",
+        }
+
+        self.assertGreater(
+            profile_web_evidence.score_result(illy, "machine", "X1 Anniversary E.S.E. Pod & Ground Espresso Machine"),
+            profile_web_evidence.score_result(misleading, "machine", "X1 Anniversary E.S.E. Pod & Ground Espresso Machine"),
+        )
 
     def test_slug_candidates_include_model_without_brand(self):
         slugs = profile_web_evidence.slug_candidates(["lelit", "anita", "pl042temd"])
