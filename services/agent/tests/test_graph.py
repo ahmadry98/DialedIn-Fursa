@@ -62,6 +62,86 @@ class CoachGraphTest(unittest.TestCase):
         self.assertEqual(response.shot_context.machine, "Rancilio Silvia")
         self.assertEqual(response.next_field, "grinder")
 
+
+    def test_graph_rejects_llm_invalid_unknown_machine_name(self):
+        request = ChatRequest(messages=[ChatMessage(role="user", content="whatever dsasd")], shot_context=ShotContext())
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={}
+        ), patch.object(
+            graph.equipment_validation,
+            "validate_equipment_name",
+            return_value={
+                "is_equipment": False,
+                "confidence": "high",
+                "corrected_name": None,
+                "reason": "Random words, not an espresso machine.",
+            },
+        ) as fake_validate:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        fake_validate.assert_called_once()
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("could not confirm", response.response.lower())
+        self.assertIn("espresso machine", response.response.lower())
+
+    def test_graph_rejects_llm_invalid_unknown_grinder_name(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="whatever dsasd")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={}
+        ), patch.object(
+            graph.equipment_validation,
+            "validate_equipment_name",
+            return_value={
+                "is_equipment": False,
+                "confidence": "high",
+                "corrected_name": None,
+                "reason": "Random words, not a grinder.",
+            },
+        ) as fake_validate:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        fake_validate.assert_called_once()
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("could not confirm", response.response.lower())
+        self.assertIn("coffee grinder", response.response.lower())
+
+    def test_graph_bad_grind_setting_asks_for_numeric_value(self):
+        def reject_bad_grind(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
+            raise ValueError("Use a numeric grind setting.")
+
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="data/raw-videos/IMG_9514.MOV")],
+            shot_context=ShotContext(
+                machine="LELIT Anita PL042TEMD",
+                grinder="LELIT Anita PL042TEMD built-in grinder",
+                uses_built_in_grinder=True,
+                dose_g=18,
+                grind_setting="medium",
+                roast_level="dark",
+                taste="balanced",
+            ),
+        )
+
+        response = graph.run_chat_graph(request, reject_bad_grind)
+
+        self.assertIsNone(response.analysis_result)
+        self.assertIsNone(response.shot_context.grind_setting)
+        self.assertEqual(response.next_field, "grind_setting")
+        self.assertIn("numeric", response.response.lower())
+
     def test_graph_runs_analysis_when_context_is_complete(self):
         request = ChatRequest(
             messages=[ChatMessage(role="user", content="17 seconds")],

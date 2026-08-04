@@ -76,6 +76,24 @@ class RecommendationRulesTest(unittest.TestCase):
         self.assertEqual(result["recommendation"], "grind_coarser")
         self.assertEqual(result["adjustment"], "try grind setting 2.2 next (about 4 small steps coarser)")
 
+    def test_generic_grinder_uses_relative_steps_not_exact_setting(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 53.7,
+                "taste": "balanced",
+                "timing_confidence": 0.96,
+                "grinder": "LELIT Anita PL042TEMD built-in grinder",
+                "grind_setting": "2.1",
+                "machine_profile": {"target_total_shot_seconds": [25, 32]},
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_coarser")
+        self.assertEqual(result["adjustment"], "move about 6 small steps coarser from your current setting")
+        self.assertIsNone(result["exact_grind_setting"]["suggested_setting"])
+        self.assertIsNone(result["exact_grind_setting"]["setting_label"])
+        self.assertTrue(any("exact scale is unknown" in item for item in result["calculation_explanation"]))
+
     def test_normal_sour_shot_recommends_more_extraction(self):
         result = recommend_grind_adjustment(
             {

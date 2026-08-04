@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "candidate_key": "machine:acme espresso x1",
+    "type": "machine",
+    "name_entered": "Acme Espresso X1",
+    "status": "needs_research",
+    "created_at": "2026-08-04T10:09:52Z",
+    "last_seen_at": "2026-08-04T10:09:52Z",
+    "seen_count": 1,
+    "user_ids": [
+      "demo-user"
+    ],
+    "latest_context": {},
+    "research_prompt": "Search official manufacturer pages and manuals for this espresso machine. Extract aliases, portafilter size, pump type, pressure/preinfusion behavior, and source URLs. Return a draft machine profile JSON for: Acme Espresso X1.",
+    "draft_profile": null,
+    "review_notes": []
+  },
+  {
+    "candidate_key": "grinder:acme grinder g2",
+    "type": "grinder",
+    "name_entered": "Acme Grinder G2",
+    "status": "needs_research",
+    "created_at": "2026-08-04T10:09:52Z",
+    "last_seen_at": "2026-08-04T10:09:52Z",
+    "seen_count": 1,
+    "user_ids": [
+      "demo-user"
+    ],
+    "latest_context": {},
+    "research_prompt": "Search official manufacturer pages, manuals, and reputable grinder databases for this grinder. Extract aliases, setting type, finer direction, min/max setting, espresso range, step size, and source URLs. Return a draft grinder profile JSON for: Acme Grinder G2.",
+    "draft_profile": null,
+    "review_notes": []
+  }
+]

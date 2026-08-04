@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,10 @@ def get_grinder_profile(grinder_name: str | None) -> dict[str, Any]:
             names = [profile.get("grinder_name", ""), *profile.get("aliases", [])]
             if normalized in {_normalize(name) for name in names}:
                 return deepcopy(profile)
+
+        fuzzy_match = _best_fuzzy_profile_match(normalized, profiles)
+        if fuzzy_match is not None:
+            return deepcopy(fuzzy_match)
 
     return deepcopy(_generic_profile(profiles))
 
@@ -102,6 +107,32 @@ def _range_error(profile: dict[str, Any]) -> str:
     maximum = profile.get("max_setting")
     return f"{profile['grinder_name']} accepts settings from {minimum} to {maximum}."
 
+
+def _best_fuzzy_profile_match(normalized_query: str, profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return a likely typo match while avoiding weak guesses."""
+    query_value = normalized_query
+    scores_by_profile: list[tuple[float, dict[str, Any]]] = []
+
+    for profile in profiles:
+        if profile.get("grinder_name") == GENERIC_GRINDER_NAME:
+            continue
+        profile_best = 0.0
+        for name in [profile.get("grinder_name", ""), *profile.get("aliases", [])]:
+            candidate = _normalize(name)
+            if candidate:
+                profile_best = max(profile_best, SequenceMatcher(None, query_value, candidate).ratio())
+        if profile_best:
+            scores_by_profile.append((profile_best, profile))
+
+    scores_by_profile.sort(key=lambda item: item[0], reverse=True)
+    if not scores_by_profile:
+        return None
+
+    best_score, best_profile = scores_by_profile[0]
+    second_score = scores_by_profile[1][0] if len(scores_by_profile) > 1 else 0.0
+    if best_score >= 0.9 and best_score - second_score >= 0.03:
+        return best_profile
+    return None
 
 def _load_profiles() -> list[dict[str, Any]]:
     with PROFILE_PATH.open(encoding="utf-8") as profile_file:

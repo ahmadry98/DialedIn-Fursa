@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -34,8 +35,38 @@ def get_machine_profile(machine_name: str | None) -> dict[str, Any]:
         if any(query and (query in name or name in query) for name in names):
             return profile.copy()
 
+    fuzzy_match = _best_fuzzy_profile_match(query, profiles)
+    if fuzzy_match is not None:
+        return fuzzy_match.copy()
+
     return generic.copy()
 
+
+def _best_fuzzy_profile_match(query: str, profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return a likely typo match while avoiding weak guesses."""
+    query_value = query
+    scores_by_profile: list[tuple[float, dict[str, Any]]] = []
+
+    for profile in profiles:
+        if profile.get("machine_name") == GENERIC_PROFILE_NAME:
+            continue
+        profile_best = 0.0
+        for name in [profile.get("machine_name", ""), *profile.get("aliases", [])]:
+            candidate = _normalize(name)
+            if candidate:
+                profile_best = max(profile_best, SequenceMatcher(None, query_value, candidate).ratio())
+        if profile_best:
+            scores_by_profile.append((profile_best, profile))
+
+    scores_by_profile.sort(key=lambda item: item[0], reverse=True)
+    if not scores_by_profile:
+        return None
+
+    best_score, best_profile = scores_by_profile[0]
+    second_score = scores_by_profile[1][0] if len(scores_by_profile) > 1 else 0.0
+    if best_score >= 0.9 and best_score - second_score >= 0.03:
+        return best_profile
+    return None
 
 @lru_cache(maxsize=1)
 def load_machine_profiles() -> list[dict[str, Any]]:

@@ -309,6 +309,18 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Phone-friendly DialedIN experience before any native desktop/mobile wrapper.
 
+**Skills/tools for this checkpoint:**
+- `browser:control-in-app-browser`: test the app visually in desktop/mobile widths, click through chat, verify uploads, and capture screenshots.
+- `sites:sites-building`: optional if the frontend becomes a hosted Sites deployment; not required for local-only PWA work.
+- `sites-design-picker`: optional only if we generate three comparable design directions and need a design choice.
+- `visualize:visualize`: optional for quick mobile-flow or layout prototypes.
+- `imagegen`: optional for app icons, PWA splash assets, or polished visual assets.
+- Next.js: app metadata, manifest support, routing, production build, and frontend app structure.
+- React/TypeScript: chat state, attachment handling, typed API payloads, and component behavior.
+- CSS: responsive layout, mobile safe areas, touch targets, sticky chat composer, and desktop compatibility.
+- Browser file input APIs: camera/photo/video library selection and upload affordances.
+- `npm run typecheck` and `npm run build`: required frontend verification.
+
 - [ ] Optimize chat layout for phone screens.
 - [ ] Make upload controls work well with camera/photo/video library.
 - [ ] Add PWA manifest and app metadata.
