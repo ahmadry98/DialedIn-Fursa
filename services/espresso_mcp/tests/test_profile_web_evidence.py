@@ -70,6 +70,71 @@ class ProfileWebEvidenceTest(unittest.TestCase):
         self.assertIn("https://www.lapavoni.com/en/products/domestic-machines/new-casabar", urls)
         self.assertIn("https://www.lapavoni.com/en/products/domestic-machines/new-casabar-pid-black", urls)
 
+
+
+    def test_known_direct_asset_candidates_include_elizabeth_pdf(self):
+        urls = [result["url"] for result in profile_web_evidence.known_direct_asset_candidates("LELIT Elizabeth")]
+
+        self.assertIn("https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf", urls)
+
+    def test_source_family_key_deduplicates_regional_product_pages(self):
+        self.assertEqual(
+            profile_web_evidence.source_family_key("https://www.lelit.com/en/products/domestic-machines/elizabeth"),
+            profile_web_evidence.source_family_key("https://www.lelit.com/en-ca/products/elizabeth"),
+        )
+        self.assertEqual(
+            profile_web_evidence.source_family_key("https://www.lelit.com/products/elizabeth"),
+            profile_web_evidence.source_family_key("https://www.lelit.com/product/elizabeth"),
+        )
+
+    def test_pdf_and_trusted_asset_domains_rank_high_for_lelit(self):
+        pdf_result = {
+            "url": "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf",
+            "title": "LELIT Elizabeth PL92T technical manual",
+            "snippet": "dual boiler preinfusion LELIT58",
+        }
+        duplicate_product = {
+            "url": "https://www.lelit.com/en-ca/products/elizabeth",
+            "title": "LELIT Elizabeth",
+            "snippet": "Product page",
+        }
+
+        self.assertGreater(
+            profile_web_evidence.score_result(pdf_result, "machine", "LELIT Elizabeth"),
+            profile_web_evidence.score_result(duplicate_product, "machine", "LELIT Elizabeth"),
+        )
+
+    def test_collect_web_evidence_deduplicates_regional_pages_and_keeps_pdf(self):
+        search_results = [
+            {"url": "https://www.lelit.com/en/products/elizabeth", "title": "Elizabeth", "snippet": "LELIT58 group"},
+            {"url": "https://www.lelit.com/en-ca/products/elizabeth", "title": "Elizabeth Canada", "snippet": "LELIT58 group"},
+            {"url": "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf", "title": "Manual PDF", "snippet": "dual boiler preinfusion"},
+        ]
+
+        def fake_fetch(url, **_kwargs):
+            if url.endswith(".pdf"):
+                return "Technical data says dual boiler, LELIT58 group, preinfusion activation."
+            return "Official product page says LELIT58 group."
+
+        with patch.object(profile_web_evidence, "build_direct_url_candidates", return_value=[]), patch.object(
+            profile_web_evidence, "search_web", return_value=search_results
+        ), patch.object(profile_web_evidence, "fetch_page_text", side_effect=fake_fetch):
+            evidence = profile_web_evidence.collect_web_evidence(
+                {"type": "machine", "name_entered": "LELIT Elizabeth"}, max_results=3
+            )
+
+        urls = [source["url"] for source in evidence["sources"]]
+        self.assertIn("https://www.lelit.com/en/products/elizabeth", urls)
+        self.assertIn("https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf", urls)
+        self.assertNotIn("https://www.lelit.com/en-ca/products/elizabeth", urls)
+        self.assertIn("dual boiler", evidence["text"])
+
+    def test_extract_pdf_text_falls_back_when_dependency_missing(self):
+        with patch.dict("sys.modules", {"pypdf": None}):
+            text = profile_web_evidence.extract_pdf_text(b"not a real pdf")
+
+        self.assertIn("pypdf is not installed", text)
+
     def test_duckduckgo_parser_extracts_results(self):
         body = """
         <a rel=\"nofollow\" class=\"result__a\" href=\"/l/?uddg=https%3A%2F%2Fexample.com%2Fmanual.pdf\">Official Manual</a>

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import io
 import re
 import urllib.parse
 import urllib.request
@@ -10,7 +11,7 @@ from html.parser import HTMLParser
 from typing import Any
 
 SEARCH_URL = "https://duckduckgo.com/html/"
-DEFAULT_TIMEOUT_SECONDS = 8
+DEFAULT_TIMEOUT_SECONDS = 5
 BLOCKED_DOMAINS = {
     "amazon.",
     "ebay.",
@@ -54,8 +55,8 @@ KNOWN_BRAND_DOMAINS = {
 def collect_web_evidence(
     candidate: dict[str, Any],
     *,
-    max_results: int = 4,
-    max_chars_per_page: int = 1800,
+    max_results: int = 6,
+    max_chars_per_page: int = 2600,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Search the web and fetch a compact evidence packet for one candidate."""
@@ -66,8 +67,6 @@ def collect_web_evidence(
 
     found: list[dict[str, str]] = []
     seen_urls: set[str] = set()
-    for result in build_direct_url_candidates(gear_type, name):
-        _append_result(found, seen_urls, result, "direct official URL fallback")
 
     search_result_count = 0
     for query in build_queries(gear_type, name):
@@ -78,23 +77,37 @@ def collect_web_evidence(
                 search_result_count += 1
             if search_result_count >= max_results * 4:
                 break
-        if search_result_count >= max_results * 4:
+        if search_result_count >= max_results * 5:
             break
 
-    ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 24]
+    for result in build_direct_url_candidates(gear_type, name):
+        _append_result(found, seen_urls, result, "direct official URL fallback")
+
+    ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 18]
     sources: list[dict[str, str]] = []
     evidence_chunks: list[str] = []
+    seen_families: set[str] = set()
+    fetch_attempts = 0
+    max_fetch_attempts = max_results * 3
     for result in ranked:
+        if fetch_attempts >= max_fetch_attempts:
+            break
+        family = source_family_key(result["url"])
+        if family in seen_families:
+            continue
+        fetch_attempts += 1
         page_text = fetch_page_text(result["url"], timeout=timeout, max_chars=max_chars_per_page)
         if not page_text and result.get("source") == "direct_fallback":
             continue
         if not page_text and not result.get("snippet"):
             continue
+        seen_families.add(family)
         source = {
             "url": result["url"],
             "title": result.get("title", ""),
             "snippet": result.get("snippet", ""),
             "query": result.get("query", ""),
+            "source_type": source_type(result["url"]),
         }
         sources.append(source)
         evidence_chunks.append(format_evidence_chunk(source, page_text))
@@ -162,6 +175,22 @@ def build_direct_url_candidates(gear_type: str, name: str) -> list[dict[str, str
                         "source": "direct_fallback",
                     }
                 )
+    results.extend(known_direct_asset_candidates(name))
+    return results
+
+
+def known_direct_asset_candidates(name: str) -> list[dict[str, str]]:
+    normalized = " ".join(re.split(r"[^a-z0-9]+", name.lower())).strip()
+    results: list[dict[str, str]] = []
+    if "lelit" in normalized and "elizabeth" in normalized:
+        results.append(
+            {
+                "url": "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf",
+                "title": "Official LELIT Elizabeth PL92T technical manual PDF",
+                "snippet": "Official technical manual PDF candidate for LELIT Elizabeth PL92T.",
+                "source": "direct_asset",
+            }
+        )
     return results
 
 
@@ -233,12 +262,15 @@ def unique(values: list[str]) -> list[str]:
 def build_queries(gear_type: str, name: str) -> list[str]:
     quoted = f'"{name}"'
     brand_site_queries = [f"site:{domain} {quoted} official specifications manual" for domain in known_brand_domains(name)]
+    asset_site_queries = [f"site:{domain} {quoted} pdf technical data manual" for domain in trusted_asset_domains(name) if domain not in known_brand_domains(name)]
     if gear_type == "machine":
         return [
             *brand_site_queries,
-            f"{quoted} espresso machine official manufacturer specifications portafilter pump preinfusion",
-            f"{quoted} espresso machine official manual pdf",
-            f"{quoted} manufacturer espresso machine specs",
+            *asset_site_queries,
+            f"{quoted} official manufacturer technical specifications portafilter pump preinfusion boiler pressure",
+            f"{quoted} official manual pdf technical data",
+            f"{quoted} manufacturer support manual specifications",
+            f"{quoted} spare parts filterholder group pump",
         ]
     return [
         *brand_site_queries,
@@ -262,19 +294,38 @@ def search_web(query: str, *, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> list[di
     return DuckDuckGoResultParser.parse(body)
 
 
-def fetch_page_text(url: str, *, timeout: int = DEFAULT_TIMEOUT_SECONDS, max_chars: int = 1800) -> str:
-    if url.lower().endswith(".pdf"):
-        return "PDF source found. Use the URL/title/snippet as evidence unless manual text is supplied separately."
+def fetch_page_text(url: str, *, timeout: int = DEFAULT_TIMEOUT_SECONDS, max_chars: int = 2600) -> str:
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 DialedINProfileResearch/1.0"})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            content_type = response.headers.get("content-type", "")
-            if "text/html" not in content_type and "text/plain" not in content_type:
-                return ""
-            body = response.read(1_200_000).decode("utf-8", errors="ignore")
+            content_type = response.headers.get("content-type", "").lower()
+            body = response.read(2_500_000)
     except Exception:
         return ""
-    return clean_page_text(body)[:max_chars]
+
+    if url.lower().endswith(".pdf") or "application/pdf" in content_type:
+        return extract_pdf_text(body, max_chars=max_chars)
+    if "text/html" not in content_type and "text/plain" not in content_type:
+        return ""
+    return clean_page_text(body.decode("utf-8", errors="ignore"))[:max_chars]
+
+
+def extract_pdf_text(pdf_bytes: bytes, *, max_chars: int = 2600) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return "PDF source found, but pypdf is not installed so text could not be extracted."
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        chunks: list[str] = []
+        for page in reader.pages[:6]:
+            chunks.append(page.extract_text() or "")
+            if sum(len(chunk) for chunk in chunks) >= max_chars:
+                break
+    except Exception:
+        return ""
+    return clean_page_text(" ".join(chunks))[:max_chars]
 
 
 def format_evidence_chunk(source: dict[str, str], page_text: str) -> str:
@@ -297,7 +348,7 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
     for hint in OFFICIAL_HINTS:
         if hint in haystack:
             score += 2
-    if gear_type == "machine" and any(term in haystack for term in ["espresso", "portafilter", "preinfusion", "pump"]):
+    if gear_type == "machine" and any(term in haystack for term in ["espresso", "portafilter", "filterholder", "preinfusion", "pump", "boiler", "technical", "manual"]):
         score += 3
     if gear_type == "grinder" and any(term in haystack for term in ["grinder", "espresso range", "click", "burr"]):
         score += 3
@@ -308,14 +359,52 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
         score += 18
     if "x1tech.com" in host and "illy.com" in official_domains:
         score -= 20
+    if result.get("source") == "direct_asset":
+        score += 18
     if result.get("source") == "direct_fallback":
         score += 1
         has_name_token = any(token in url for token in normalized_tokens(name))
         if has_name_token and "-espresso-machine" not in url and "-grinder" not in url and "espresso-machine" not in url:
             score += 5
     if url.endswith(".pdf"):
-        score += 4
+        score += 12
+    if any(term in url for term in ["manual", "technical", "spec", "asset", "download"]):
+        score += 6
+    if any(host == domain or host.endswith(f".{domain}") for domain in trusted_asset_domains(name)):
+        score += 14
     return score
+
+
+def trusted_asset_domains(name: str) -> list[str]:
+    domains = known_brand_domains(name)
+    normalized = " ".join(re.split(r"[^a-z0-9]+", name.lower())).strip()
+    if "lelit" in normalized:
+        domains.append("assets.breville.com")
+    return unique(domains)
+
+
+def source_type(url: str) -> str:
+    parsed = urllib.parse.urlparse(url.lower())
+    if parsed.path.endswith(".pdf"):
+        return "pdf"
+    if any(term in parsed.path for term in ["manual", "technical", "spec", "download", "asset"]):
+        return "technical"
+    return "web"
+
+
+def source_family_key(url: str) -> str:
+    parsed = urllib.parse.urlparse(url.lower())
+    host = parsed.netloc.removeprefix("www.")
+    path = re.sub(r"/(en|en-us|en-ca|en-eu|it|de|fr|es)(?=/)", "/{locale}", parsed.path)
+    path = re.sub(r"/$", "", path)
+    parts = [part for part in path.split("/") if part and part != "{locale}"]
+    if host == "lelit.com" and parts:
+        slug = parts[-1]
+        if "manuals" in parts:
+            return f"{host}/manuals/{slug}"
+        if any(part in {"product", "products", "domestic-machines", "coffee-machines"} for part in parts):
+            return f"{host}/products/{slug}"
+    return f"{host}{path}"
 
 
 def normalize_url(url: str) -> str:

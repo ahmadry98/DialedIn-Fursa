@@ -342,22 +342,24 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Show source URLs/evidence snippets.
 - [x] Allow editing draft notes before promotion.
 
-## Checkpoint 16: Advanced LangGraph And LLM Orchestration
+## Checkpoint 16: Research Quality Gate
 
 **Files:**
-- Create: `services/agent/graph.py`
-- Modify: `services/agent/agent_runner.py`
-- Modify: `services/agent/requirements.txt`
-- Create/modify: `services/agent/tests/test_graph.py`
+- Create: `services/espresso_mcp/research_quality.py`
+- Modify: `services/espresso_mcp/profile_research.py`
+- Modify: `services/espresso_mcp/profile_web_evidence.py`
+- Modify: frontend/admin review UI
+- Create/modify: quality gate tests
 
-**Deliverable:** Expand the current LangGraph chat flow with smarter LLM extraction, persistence, and richer graph observability.
+**Deliverable:** Prevent empty or weak researched drafts from being marked ready.
 
-- [ ] Replace deterministic-only extraction with LLM-assisted structured extraction.
-- [ ] Add graph persistence/checkpointing for longer sessions.
-- [ ] Add optional image-recognition nodes after Checkpoint 13.
-- [ ] Add graph observability/debug output for demo and troubleshooting.
-- [ ] Keep recommendation logic deterministic by calling existing `espresso_mcp` functions.
-- [ ] Preserve the existing `/analyze-shot` response shape.
+- [x] Extract useful text from PDF/manual sources.
+- [x] Deduplicate regional/product-page source variants.
+- [x] Prefer manufacturer and official asset/manual sources while still allowing reputable supporting sources.
+- [x] Store `research_quality` with score, threshold, reasons, and warnings.
+- [x] Mark drafts `draft_ready` only when schema is valid and score is above 55.
+- [x] Mark no-source or mostly empty drafts as `research_failed`.
+- [x] Show quality score and reasons in the admin review UI.
 
 ## Checkpoint 17: Storage
 

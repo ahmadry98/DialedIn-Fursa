@@ -58,14 +58,48 @@ class ProfileResearchTest(unittest.TestCase):
 
         self.assertEqual(updated["status"], "draft_ready")
         self.assertTrue(updated["draft_validation"]["is_valid"])
+        self.assertGreater(updated["research_quality"]["score"], 55)
         self.assertEqual(updated["draft_profile"]["machine_name"], "Mystery Machine X")
 
-    def test_invalid_grinder_draft_needs_review(self):
+
+    def test_empty_machine_draft_with_no_sources_is_research_failed(self):
+        candidate = profile_candidates.save_profile_candidate("machine", "Empty Machine", "user-1", {})
+        draft = {
+            "machine_name": "Empty Machine",
+            "aliases": [],
+            "specs": {
+                "portafilter_mm": None,
+                "pump_type": "unknown",
+                "pressure_type": "unknown",
+                "has_preinfusion": None,
+            },
+            "brew_defaults": {
+                "target_total_shot_seconds": [25, 32],
+                "target_visible_flow_seconds": [20, 28],
+                "typical_startup_delay_seconds": None,
+            },
+            "grind_adjustment_notes": "unknown",
+            "sources": {
+                "aliases": [],
+                "portafilter_mm": [],
+                "pump_type": [],
+                "pressure_type": [],
+                "has_preinfusion": [],
+            },
+        }
+
+        updated = profile_research.attach_draft_profile(candidate["candidate_key"], draft)
+
+        self.assertEqual(updated["status"], "research_failed")
+        self.assertEqual(updated["research_quality"]["status"], "research_failed")
+        self.assertIn("no source URLs found", updated["research_quality"]["warnings"])
+
+    def test_invalid_grinder_draft_without_sources_is_research_failed(self):
         candidate = profile_candidates.save_profile_candidate("grinder", "Mystery Grinder Y", "user-1", {})
 
         updated = profile_research.attach_draft_profile(candidate["candidate_key"], {"grinder_name": "Mystery Grinder Y"})
 
-        self.assertEqual(updated["status"], "draft_needs_review")
+        self.assertEqual(updated["status"], "research_failed")
         self.assertFalse(updated["draft_validation"]["is_valid"])
         self.assertIn("aliases", updated["draft_validation"]["missing_fields"])
 

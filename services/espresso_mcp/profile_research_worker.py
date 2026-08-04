@@ -80,6 +80,7 @@ def run_worker(
                     "candidate_key": candidate["candidate_key"],
                     "status": updated["status"],
                     "validation": updated.get("draft_validation"),
+                    "research_quality": updated.get("research_quality"),
                 }
             )
         except Exception as error:

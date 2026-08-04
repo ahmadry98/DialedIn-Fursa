@@ -1284,40 +1284,37 @@
   {
     "machine_name": "LELIT Elizabeth PL92T",
     "aliases": [
+      "LELIT Elizabeth",
       "Elizabeth PL92T"
     ],
     "specs": {
       "portafilter_mm": 58,
       "pump_type": "unknown",
       "pressure_type": "unknown",
-      "has_preinfusion": null,
+      "has_preinfusion": true,
       "has_built_in_grinder": false
     },
     "brew_defaults": {
-      "target_total_shot_seconds": [
-        25,
-        32
-      ],
-      "target_visible_flow_seconds": [
-        20,
-        28
-      ],
+      "target_total_shot_seconds": null,
+      "target_visible_flow_seconds": null,
       "typical_startup_delay_seconds": null
     },
-    "grind_adjustment_notes": "unknown",
+    "grind_adjustment_notes": "",
     "sources": {
       "aliases": [
-        "https://www.lelit.com/en/products/elizabeth"
+        "https://lelit.com/manuals/elizabeth",
+        "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf"
       ],
       "portafilter_mm": [
-        "https://www.lelit.com/en/products/elizabeth"
+        "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf"
       ],
       "pump_type": [],
       "pressure_type": [],
-      "has_preinfusion": [],
-      "has_built_in_grinder": [
-        "https://www.lelit.com/en/products/elizabeth"
-      ]
+      "has_preinfusion": [
+        "https://assets.breville.com/Lelit/PESEL01/LELIT-Elizabeth-PL92T-120-EN.pdf",
+        "https://lelit.com/manuals/elizabeth"
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
