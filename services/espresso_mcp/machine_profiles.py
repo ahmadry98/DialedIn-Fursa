@@ -31,7 +31,8 @@ def get_machine_profile(machine_name: str | None) -> dict[str, Any]:
             return profile.copy()
 
     for profile in profiles:
-        names = [_normalize(profile["machine_name"]), *[_normalize(alias) for alias in profile.get("aliases", [])]]
+        names = [_normalize(profile["machine_name"]), *[_normalize(alias)
+         for alias in profile.get("aliases", [])]]
         if any(query and (query in name or name in query) for name in names):
             return profile.copy()
 
@@ -54,7 +55,8 @@ def _best_fuzzy_profile_match(query: str, profiles: list[dict[str, Any]]) -> dic
         for name in [profile.get("machine_name", ""), *profile.get("aliases", [])]:
             candidate = _normalize(name)
             if candidate:
-                profile_best = max(profile_best, SequenceMatcher(None, query_value, candidate).ratio())
+                profile_best = max(profile_best,
+                                    SequenceMatcher(None, query_value, candidate).ratio())
         if profile_best:
             scores_by_profile.append((profile_best, profile))
 
