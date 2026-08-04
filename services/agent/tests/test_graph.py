@@ -43,6 +43,45 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIn("machine", response.response.lower())
 
 
+
+    def test_graph_answers_name_question_without_validating_as_machine(self):
+        response = graph.run_chat_graph(
+            ChatRequest(messages=[ChatMessage(role="user", content="what is your name")], shot_context=ShotContext()),
+            fake_analyze,
+        )
+
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("dialedin", response.response.lower())
+        self.assertIn("machine", response.response.lower())
+        self.assertNotIn("could not confirm", response.response.lower())
+
+
+    def test_graph_explicitly_rejects_bad_machine_reply_without_llm(self):
+        response = graph.run_chat_graph(
+            ChatRequest(messages=[ChatMessage(role="user", content="gello")], shot_context=ShotContext()),
+            fake_analyze,
+        )
+
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("could not confirm", response.response.lower())
+        self.assertIn("espresso machine", response.response.lower())
+
+    def test_graph_explicitly_rejects_bad_grinder_reply_without_llm(self):
+        response = graph.run_chat_graph(
+            ChatRequest(
+                messages=[ChatMessage(role="user", content="ghjsd")],
+                shot_context=ShotContext(machine="Rancilio Silvia"),
+            ),
+            fake_analyze,
+        )
+
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("could not confirm", response.response.lower())
+        self.assertIn("coffee grinder", response.response.lower())
+
     def test_graph_rejects_non_equipment_machine_reply(self):
         response = graph.run_chat_graph(
             ChatRequest(messages=[ChatMessage(role="user", content="height")], shot_context=ShotContext()),
@@ -141,6 +180,85 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIsNone(response.shot_context.grind_setting)
         self.assertEqual(response.next_field, "grind_setting")
         self.assertIn("numeric", response.response.lower())
+
+
+    def test_graph_accepts_built_it_as_built_in_grinder(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="built it")],
+            shot_context=ShotContext(machine="LELIT Anita PL042TEMD"),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertTrue(response.shot_context.uses_built_in_grinder)
+        self.assertEqual(response.shot_context.grinder, "LELIT Anita PL042TEMD built-in grinder")
+        self.assertEqual(response.next_field, "dose_g")
+
+    def test_graph_rejects_invalid_grind_setting_immediately(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="nothing")],
+            shot_context=ShotContext(
+                machine="LELIT Anita PL042TEMD",
+                grinder="LELIT Anita PL042TEMD built-in grinder",
+                uses_built_in_grinder=True,
+                dose_g=18,
+            ),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.grind_setting)
+        self.assertEqual(response.next_field, "grind_setting")
+        self.assertIn("grind setting should be", response.response.lower())
+
+    def test_graph_rejects_invalid_roast_level_immediately(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="nothing")],
+            shot_context=ShotContext(
+                machine="Rancilio Silvia",
+                grinder="Turin DF54",
+                dose_g=18,
+                grind_setting="15",
+            ),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.roast_level)
+        self.assertEqual(response.next_field, "roast_level")
+        self.assertIn("light, medium, or dark", response.response.lower())
+
+
+    def test_graph_low_video_timing_confidence_asks_for_confirmation(self):
+        def low_confidence_analyze(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
+            response = fake_analyze(request)
+            response.timing.update({
+                "source_path": "data/raw-videos/noisy.mov",
+                "start_confidence": 0.56,
+                "stop_confidence": 0.8,
+                "audio_method": "heuristic_energy",
+                "requires_manual_confirmation": False,
+            })
+            return response
+
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="data/raw-videos/noisy.mov")],
+            shot_context=ShotContext(
+                machine="Rancilio Silvia",
+                grinder="Turin DF54",
+                dose_g=18,
+                grind_setting="15",
+                roast_level="medium",
+                taste="balanced",
+            ),
+        )
+
+        response = graph.run_chat_graph(request, low_confidence_analyze)
+
+        self.assertIsNotNone(response.analysis_result)
+        self.assertIn("timing confidence is only 56%", response.response.lower())
+        self.assertIn("confirm", response.response.lower())
+        self.assertIn("less talking", response.response.lower())
 
     def test_graph_runs_analysis_when_context_is_complete(self):
         request = ChatRequest(

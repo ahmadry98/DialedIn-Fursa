@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { analyzeShot, AnalyzeShotResponse, chatWithCoach, ChatMessage, ShotFormValues } from "../lib/api";
 import { ShotResult } from "./shot-result";
 
-type UiMessage = ChatMessage & { id: string };
+type UiMessage = ChatMessage & { id: string; preview_url?: string; preview_kind?: "image" | "video"; preview_name?: string };
 
 const initialAssistant: UiMessage = {
   id: "assistant-start",
@@ -21,11 +21,19 @@ export function ChatCoach() {
   const [manualStop, setManualStop] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showMobileResults, setShowMobileResults] = useState(false);
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const mediaObjectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, result]);
+
+  useEffect(() => {
+    return () => {
+      mediaObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,8 +46,12 @@ export function ChatCoach() {
     await sendMessage(trimmed);
   }
 
-  async function sendMessage(content: string, image?: Pick<ChatMessage, "image_base64" | "image_media_type" | "image_kind">) {
-    const userMessage: UiMessage = { id: makeId("user"), role: "user", content, ...image };
+  async function sendMessage(
+    content: string,
+    image?: Pick<ChatMessage, "image_base64" | "image_media_type" | "image_kind">,
+    preview?: Pick<UiMessage, "preview_url" | "preview_kind" | "preview_name">,
+  ) {
+    const userMessage: UiMessage = { id: makeId("user"), role: "user", content, ...image, ...preview };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     setIsLoading(true);
@@ -61,6 +73,7 @@ export function ChatCoach() {
       }
       if (response.analysis_result) {
         setResult(response.analysis_result);
+        setShowMobileResults(true);
         setManualStart(formatInputTime(response.analysis_result.timing.machine_start_time));
         setManualStop(formatInputTime(response.analysis_result.timing.machine_stop_time));
       }
@@ -97,6 +110,7 @@ export function ChatCoach() {
       const response = await analyzeShot(payload);
       setShotContext(payload);
       setResult(response);
+      setShowMobileResults(true);
       setMessages((current) => [
         ...current,
         {
@@ -118,7 +132,12 @@ export function ChatCoach() {
     }
 
     if (file.type.startsWith("video/") || isVideoFile(file.name)) {
-      await sendMessage(`data/raw-videos/${file.name}`);
+      const previewUrl = createMediaPreviewUrl(file, mediaObjectUrlsRef.current);
+      await sendMessage(`data/raw-videos/${file.name}`, undefined, {
+        preview_url: previewUrl,
+        preview_kind: "video",
+        preview_name: file.name,
+      });
       return;
     }
 
@@ -128,6 +147,7 @@ export function ChatCoach() {
     }
 
     const kind = inferImageKind(shotContext);
+    const previewUrl = createMediaPreviewUrl(file, mediaObjectUrlsRef.current);
     setIsLoading(true);
     setError("");
     try {
@@ -136,8 +156,14 @@ export function ChatCoach() {
         image_base64: imageBase64,
         image_media_type: file.type || "image/jpeg",
         image_kind: kind,
+      }, {
+        preview_url: previewUrl,
+        preview_kind: "image",
+        preview_name: file.name,
       });
     } catch (requestError) {
+      URL.revokeObjectURL(previewUrl);
+      mediaObjectUrlsRef.current = mediaObjectUrlsRef.current.filter((url) => url !== previewUrl);
       setError(requestError instanceof Error ? requestError.message : "Unable to read attached file.");
       setIsLoading(false);
     }
@@ -149,8 +175,9 @@ export function ChatCoach() {
         <div className="chat-thread">
           {messages.map((message) => (
             <div className={`chat-message ${message.role}`} key={message.id}>
-              <p>{message.content}</p>
-              {message.image_base64 ? <span className="chat-image-note">Photo attached</span> : null}
+              {message.preview_url ? <MediaPreview message={message} /> : null}
+              {shouldShowMessageText(message) ? <p>{message.content}</p> : null}
+              {message.image_base64 && !message.preview_url ? <span className="chat-image-note">Photo attached</span> : null}
             </div>
           ))}
           {isLoading ? (
@@ -161,19 +188,22 @@ export function ChatCoach() {
           <div ref={messageEndRef} />
         </div>
 
-        <div className="context-strip" aria-label="Collected shot context">
-          {contextItems(shotContext).map((item) => (
-            <span className={item.ready ? "context-chip ready" : "context-chip"} key={item.label}>
-              {item.label}: {item.value || "needed"}
-            </span>
-          ))}
-        </div>
-
         {error ? <div className="alert" role="alert">{error}</div> : null}
 
         <div className="chat-input-dock">
-          <div className="attachment-toolbar" aria-label="Attachments">
-            <label className="attachment-button" title="Attach a setup photo or shot video">
+          {result ? (
+            <button className="mobile-results-button" type="button" onClick={() => setShowMobileResults(true)}>
+              View shot analysis
+            </button>
+          ) : null}
+          <form className="chat-composer" onSubmit={handleSubmit}>
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Message DialedIN..."
+              aria-label="Message"
+            />
+            <label className="composer-icon-button attachment-icon-button" title="Attach photo or video" aria-label="Attach photo or video">
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/heic,image/heif,image/*,video/mp4,video/quicktime,video/x-m4v,video/*"
@@ -182,26 +212,28 @@ export function ChatCoach() {
                   event.currentTarget.value = "";
                 }}
               />
-              <span>Attach photo/video</span>
+              <PaperclipIcon />
             </label>
-            <span className="attachment-hint">Use a machine/grinder photo or a shot video.</span>
-          </div>
-
-          <form className="chat-composer" onSubmit={handleSubmit}>
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="Type a reply, a full shot description, or 27 seconds"
-              aria-label="Message"
-            />
-            <button className="primary-button" type="submit" disabled={isLoading || !input.trim()}>
-              Send
+            <button
+              className="composer-icon-button send-icon-button"
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              title="Send message"
+              aria-label="Send message"
+            >
+              <SendIcon />
             </button>
           </form>
         </div>
       </section>
 
-      <aside className="chat-result-column" aria-label="Shot result">
+      <aside className={showMobileResults ? "chat-result-column open" : "chat-result-column"} aria-label="Shot result">
+        <div className="mobile-results-header">
+          <strong>Shot Analysis</strong>
+          <button type="button" onClick={() => setShowMobileResults(false)} aria-label="Close shot analysis">
+            Close
+          </button>
+        </div>
         {result ? (
           <ShotResult
             result={result}
@@ -221,28 +253,63 @@ export function ChatCoach() {
   );
 }
 
-function contextItems(context: ShotFormValues) {
-  return [
-    { label: "Machine", value: context.machine, ready: Boolean(context.machine) },
-    {
-      label: "Grinder",
-      value: context.uses_built_in_grinder ? "Built-in" : context.grinder,
-      ready: Boolean(context.uses_built_in_grinder || context.grinder),
-    },
-    {
-      label: "Dose",
-      value: hasNumber(context.dose_g) ? `${context.dose_g}g` : "",
-      ready: hasNumber(context.dose_g),
-    },
-    { label: "Grind", value: context.grind_setting, ready: Boolean(context.grind_setting) },
-    { label: "Roast", value: context.roast_level, ready: Boolean(context.roast_level) },
-    { label: "Taste", value: context.taste, ready: Boolean(context.taste) },
-    {
-      label: "Timing",
-      value: context.video_s3_key || (hasNumber(context.total_shot_seconds) ? `${context.total_shot_seconds}s` : ""),
-      ready: Boolean(context.video_s3_key || hasNumber(context.total_shot_seconds)),
-    },
-  ];
+
+
+
+function shouldShowMessageText(message: UiMessage) {
+  if (!message.content.trim()) {
+    return false;
+  }
+  if (message.preview_kind === "image" && message.content === "I uploaded a photo.") {
+    return false;
+  }
+  if (message.preview_kind === "video" && isVideoPathMessage(message.content)) {
+    return false;
+  }
+  return true;
+}
+
+function isVideoPathMessage(content: string) {
+  return /(?:^data\/|\.(?:mp4|mov|m4v)(?:$|[\s.,]))/i.test(content.trim());
+}
+
+function MediaPreview({ message }: { message: UiMessage }) {
+  if (!message.preview_url) {
+    return null;
+  }
+
+  if (message.preview_kind === "video") {
+    return (
+      <video className="chat-media-preview" src={message.preview_url} controls preload="metadata">
+        Your browser does not support video preview.
+      </video>
+    );
+  }
+
+  return <img className="chat-media-preview" src={message.preview_url} alt={message.preview_name || "Attached preview"} />;
+}
+
+function createMediaPreviewUrl(file: File, objectUrls: string[]) {
+  const previewUrl = URL.createObjectURL(file);
+  objectUrls.push(previewUrl);
+  return previewUrl;
+}
+
+function PaperclipIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M8.5 12.5L14.7 6.3a3.2 3.2 0 0 1 4.5 4.5l-7.6 7.6a5 5 0 0 1-7.1-7.1l7.7-7.7" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M4 12L20 4l-4.5 16-3.2-6.6L4 12z" />
+      <path d="M12.3 13.4L20 4" />
+    </svg>
+  );
 }
 
 function parseOptionalNumber(value: string) {

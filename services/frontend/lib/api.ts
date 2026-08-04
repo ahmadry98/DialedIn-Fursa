@@ -217,7 +217,17 @@ export async function chatWithCoach(payload: {
   return response.json();
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_AGENT_API_URL ?? "http://127.0.0.1:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_AGENT_API_URL ?? defaultApiBaseUrl();
+
+function defaultApiBaseUrl() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return `http://${host}:8000`;
+    }
+  }
+  return "http://127.0.0.1:8000";
+}
 
 export async function analyzeShot(payload: ShotFormValues): Promise<AnalyzeShotResponse> {
   const response = await fetch(`${API_BASE_URL}/analyze-shot`, {

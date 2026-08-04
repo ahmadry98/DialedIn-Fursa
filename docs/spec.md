@@ -2,7 +2,7 @@
 
 ## 1. Problem Statement
 
-Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN acts as a guided espresso coach: it asks for the machine, grinder, dose, grind setting, roast, taste, and shot video or manual timing, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment.
+Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN acts as a guided espresso coach: it asks for the machine, grinder, dose, grind setting, roast, taste, and shot video or manual timing, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment. Local file paths are only a development bridge; production/mobile video input should upload media and analyze a stored object key.
 
 The product also learns from unknown equipment. When the user enters a machine or grinder that is not in the curated profiles, DialedIN captures it as a research candidate, gathers source evidence, asks Bedrock to draft a profile, and keeps that draft pending human review before it becomes trusted data.
 
@@ -12,7 +12,7 @@ The MVP proves this core flow:
 
 1. User chats with DialedIN instead of filling a large form.
 2. The coach asks for missing context one step at a time: machine, grinder or built-in grinder choice, dose, optional yield, grind setting, roast level, taste notes, and shot video or manual timing.
-3. The system extracts/analyzes audio to detect machine start and stop when a video path is provided.
+3. The system extracts/analyzes audio to detect machine start and stop when a shot video is provided. In local development this may be a file path; in production/mobile it should be an uploaded S3 object key.
 4. Timing logic calculates total shot time and confidence.
 5. The backend uses curated machine and grinder profiles when available.
 6. Recommendation rules return one next action, including exact next grinder setting when the grinder profile supports it.
@@ -78,9 +78,9 @@ The current MVP processes videos synchronously. A separate async worker/SQS flow
 2. User can greet or ask general espresso questions.
 3. Coach keeps a conversation state for machine, grinder, built-in grinder choice, dose, optional yield, grind setting, roast, taste, timing/video, and confirmations.
 4. Coach asks the next missing question naturally.
-5. User enters typed values, chooses known gear, or provides a video path/manual timing.
+5. User enters typed values, chooses known gear, attaches/uploads a shot video, or provides manual timing.
 6. Frontend sends the accumulated shot context to the FastAPI agent when enough data exists.
-7. Agent calls audio timing if a video path is provided, or uses manual total time.
+7. Agent calls audio timing if an uploaded video key/local development path is provided, or uses manual total time.
 8. Agent looks up the machine profile.
 9. Agent builds recommendation context, including `uses_built_in_grinder` when relevant.
 10. Agent calls deterministic recommendation logic.
@@ -125,7 +125,7 @@ Conversation state includes:
 - `grind_setting`
 - `roast_level`
 - `taste`
-- `video_s3_key` or local video path
+- `video_s3_key` from storage, local development path, or manual timing
 - manual timing fields when the user does not want video/audio
 - confirmation state for guessed gear or low-confidence timing
 
@@ -314,24 +314,48 @@ Visual analysis is out of current MVP scope. Future versions can add:
 - Ultralytics image classification or object detection.
 
 
-## 19. Mobile And PWA Direction
+## 19. Mobile, PWA, And Native App Direction
 
-DialedIN should become phone-friendly before becoming a native desktop or mobile app. The near-term target is a responsive web/PWA experience because users naturally record espresso videos on their phones.
+DialedIN should be phone-first because users naturally record espresso videos on their phones. The current Next.js chat is useful for local development and demos, but the product direction is to make the AI coach feel built into the existing Expo `DialedIn` mobile app.
 
-Priorities:
+Near-term web/PWA priorities:
 
 - Mobile-first chat layout.
 - Camera/photo/video upload affordances.
 - PWA manifest and installable app metadata.
 - Keep desktop web usable for development and demos.
-- Defer desktop wrappers such as Electron/Tauri until the web/PWA experience is stable.
+- On small screens, show timing/recommendation conclusions as a separate analysis view instead of forcing right-side cards beside the chat.
 
-## 20. Error Handling
+Native Expo direction:
+
+- Implement the AI Shot Analysis chat as native React Native/Expo components inside `DialedIn/dialedin-mobile`.
+- Reuse the same FastAPI `/chat` and `/analyze-shot` APIs instead of opening the Next.js page as a separate website.
+- Use native media pickers/camera flow for photo/video selection.
+- Render chat messages, media previews, low-confidence timing confirmation, and recommendation conclusions directly in the mobile app.
+- Keep WebView/open-browser integration only as a temporary bridge, not the final product UX.
+
+## 20. Video Upload And Storage Direction
+
+Local `data/raw-videos/...` paths are only for development on the Mac. They are not a good phone workflow because a real mobile app cannot rely on the user's local project folder.
+
+Production/mobile video flow should be:
+
+1. User records or selects a shot video inside the Expo app.
+2. App requests a presigned upload URL from the backend.
+3. App uploads the raw video to S3.
+4. Backend returns/stores a `video_s3_key`.
+5. Chat sends that key as timing context.
+6. Agent/MCP downloads or streams the S3 object, extracts audio, analyzes timing, and saves derived artifacts.
+7. Shot result stores the video key, timing result, recommendation, and user-confirmed corrections for history/compare features.
+
+The same storage layer can later support extracted audio files, waveform/debug artifacts, and persistent chat/shot history.
+
+## 21. Error Handling
 
 The system handles:
 
-- Unsupported or missing file path.
-- Video path pointing to a directory.
+- Unsupported or missing video upload/key/local development path.
+- Local development video path pointing to a directory.
 - Missing audio track.
 - Noisy audio or low confidence.
 - Missing machine/grinder/dose/grind setting/roast/taste.
@@ -342,7 +366,7 @@ The system handles:
 
 Background profile research failures should not break shot analysis.
 
-## 21. Testing Strategy
+## 22. Testing Strategy
 
 Unit tests cover:
 
@@ -367,7 +391,7 @@ Integration/manual checks cover:
 
 Current verified local checks include backend pytest suite and Next.js production build.
 
-## 22. Deployment And Observability
+## 23. Deployment And Observability
 
 Final course deployment target:
 
