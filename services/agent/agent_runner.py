@@ -159,8 +159,15 @@ def _effective_grinder_name(
 
 
 def _build_message(timing: dict[str, Any], recommendation: dict[str, Any], missing_fields: list[str]) -> str:
-    if timing.get("requires_manual_confirmation"):
-        return "Timing confidence is low. Confirm the detected start and stop before changing grind."
+    confidence = min(
+        float(timing.get("start_confidence") or 0),
+        float(timing.get("stop_confidence") or 0),
+    )
+    if timing.get("requires_manual_confirmation") or (timing.get("audio_method") != "manual_total_time" and confidence < 0.7):
+        return (
+            f"Detected a {timing.get('total_shot_seconds')}s shot, but timing confidence is {confidence * 100:.0f}%. "
+            "Confirm the detected start and stop, or send another video with less talking/background noise and a clear machine sound."
+        )
 
     total = timing.get("total_shot_seconds")
     action = recommendation.get("adjustment", "review the shot context")

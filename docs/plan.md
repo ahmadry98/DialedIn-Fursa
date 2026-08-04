@@ -6,7 +6,7 @@
 
 **Current architecture:** Next.js frontend -> FastAPI agent -> `espresso_mcp` tool layer. Audio timing and recommendations run synchronously for the MVP. The current form UI proves the core workflow; Checkpoint 12 turns it into a guided chat experience. Unknown gear research uses web evidence plus Bedrock, then a human promotion step.
 
-**Tech stack:** Python, FastAPI, MCP-compatible tool layer, ffmpeg/audio heuristics, Next.js, Bedrock, optional LangGraph orchestration, optional S3/DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus/Grafana, GitHub Actions.
+**Tech stack:** Python, FastAPI, MCP-compatible tool layer, ffmpeg/audio heuristics, Next.js, Expo/React Native, Bedrock, LangGraph orchestration, S3/DynamoDB, Docker, Kubernetes on AWS EC2, Terraform, Prometheus/Grafana, GitHub Actions.
 
 ## Global Constraints
 
@@ -275,7 +275,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Ask the next missing espresso question naturally.
 - [x] Extract typed values from user replies where possible.
 - [x] Accept machine/grinder names manually in chat.
-- [x] Accept video path or manual timing in chat.
+- [x] Accept local development video path or manual timing in chat. Production/mobile should use uploaded video keys instead of local paths.
 - [x] Call the existing `/analyze-shot` flow once required fields are available.
 - [x] Show the same timing, warning, exact-setting, and recommendation output inside the chat.
 - [x] Keep the old form logic reusable as the underlying engine.
@@ -321,11 +321,34 @@ attach_draft_profile(candidate_key, draft_profile)
 - Browser file input APIs: camera/photo/video library selection and upload affordances.
 - `npm run typecheck` and `npm run build`: required frontend verification.
 
-- [ ] Optimize chat layout for phone screens.
-- [ ] Make upload controls work well with camera/photo/video library.
+- [x] Optimize chat layout for phone screens.
+- [x] Show timing/recommendation conclusions as a separate mobile analysis panel instead of forcing right-side cards beside chat.
+- [x] Make upload controls preview attached photo/video in chat.
 - [ ] Add PWA manifest and app metadata.
-- [ ] Keep desktop web usable.
+- [x] Keep desktop web usable.
 - [ ] Defer native desktop app wrapping until the web/PWA flow is stable.
+
+## Checkpoint 14.5: Product Polish And Mobile Chat Review
+
+**Files:**
+- Modify: `services/frontend/components/chat-coach.tsx`
+- Modify: `services/frontend/app/globals.css`
+- Modify: `services/agent/conversation.py`
+- Modify: `services/agent/graph.py`
+- Modify: `services/agent/agent_runner.py`
+- Modify: `services/agent/tests/test_graph.py`
+
+**Deliverable:** Make the chat demo feel product-ready before native mobile work.
+
+- [x] Hide internal context chips from the user-facing chat.
+- [x] Rename page to AI Shot Analysis.
+- [x] Use compact chat composer with attach/send icon buttons.
+- [x] Show image/video previews inside chat bubbles.
+- [x] Hide internal local video paths from the visible chat bubble when a preview exists.
+- [x] Reject invalid field answers immediately instead of waiting until final analysis.
+- [x] Treat common built-in grinder wording like `built it` as built-in grinder.
+- [x] Ask for timing confirmation or cleaner video when video timing confidence is below 70%.
+- [x] Open mobile shot conclusions in a separate analysis panel.
 
 ## Checkpoint 15: Review/Admin UI
 
@@ -361,7 +384,28 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Mark no-source or mostly empty drafts as `research_failed`.
 - [x] Show quality score and reasons in the admin review UI.
 
-## Checkpoint 17: Storage
+
+## Checkpoint 17: Native Expo AI Chat Integration
+
+**Files:**
+- Modify/create in sibling app: `DialedIn/dialedin-mobile/app/machine/[slug]/ai.tsx`
+- Modify/create in sibling app: `DialedIn/dialedin-mobile/components/AIShotChat.tsx`
+- Modify/create in sibling app: `DialedIn/dialedin-mobile/lib/aiShotApi.ts`
+- Modify/create in sibling app: media picker/upload helpers as needed
+- Modify: `services/agent/app.py` only if mobile-specific API affordances are needed
+
+**Deliverable:** AI Shot Analysis runs inside the DialedIn Expo app instead of opening the Next.js site.
+
+- [ ] Replace the temporary open-browser/WebView bridge with native React Native chat components.
+- [ ] Render assistant/user bubbles, photo/video previews, loading state, and errors natively.
+- [ ] Call FastAPI `/chat` directly from the Expo app.
+- [ ] Keep conversation state in the Expo screen.
+- [ ] Show timing/recommendation as a native full-screen or bottom-sheet analysis view.
+- [ ] Support low-confidence timing confirmation inside the native screen.
+- [ ] Keep Next.js frontend available for desktop/admin/local demos.
+- [ ] Test on iPhone simulator and a real phone using LAN or deployed API URLs.
+
+## Checkpoint 18: Storage And S3 Video Upload
 
 **Files:**
 - `services/agent/storage.py`
@@ -369,14 +413,19 @@ attach_draft_profile(candidate_key, draft_profile)
 - `infra/terraform/s3.tf`
 - `infra/terraform/database.tf`
 
-**Deliverable:** Persistent upload/result storage.
+**Deliverable:** Persistent upload/result storage and a phone-safe way to send shot videos.
 
-- [ ] Add S3 bucket for videos, audio, and analysis outputs.
-- [ ] Add DynamoDB table for shot results.
-- [ ] Keep local development fallback.
-- [ ] Add mocked storage tests.
+- [ ] Add S3 bucket for raw videos, extracted audio, and analysis outputs.
+- [ ] Add backend endpoint to create presigned upload URLs.
+- [ ] Add backend endpoint/helper to register uploaded video metadata and return `video_s3_key`.
+- [ ] Update Expo native chat to upload selected/recorded videos to S3 before calling `/chat`.
+- [ ] Update Next.js local demo to support either local paths or uploaded S3 keys.
+- [ ] Add DynamoDB table for shot results/history.
+- [ ] Store timing result, recommendation, confirmed corrections, and media key for compare/history.
+- [ ] Keep local development fallback for `data/raw-videos/...`.
+- [ ] Add mocked storage tests for S3 upload registration and result persistence.
 
-## Checkpoint 18: Docker Compose
+## Checkpoint 19: Docker Compose
 
 **Files:**
 - `compose.yaml`
@@ -390,7 +439,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add Prometheus/Grafana.
 - [ ] Verify frontend can call agent in compose.
 
-## Checkpoint 19: Kubernetes On AWS EC2
+## Checkpoint 20: Kubernetes On AWS EC2
 
 **Files:**
 - `infra/k8s/*.yaml`
@@ -404,7 +453,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add HPA if required.
 - [ ] Test with `kubectl port-forward` or ingress.
 
-## Checkpoint 20: Terraform
+## Checkpoint 21: Terraform
 
 **Files:**
 - `infra/terraform/*.tf`
@@ -417,7 +466,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Provision IAM permissions for Bedrock/S3/DynamoDB.
 - [ ] Document apply/destroy commands.
 
-## Checkpoint 21: Observability
+## Checkpoint 22: Observability
 
 **Files:**
 - `monitoring/prometheus.yml`
@@ -432,7 +481,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add MCP/tool error metrics.
 - [ ] Build Grafana dashboard.
 
-## Checkpoint 22: Deployment Automation
+## Checkpoint 23: Deployment Automation
 
 **Files:**
 - `.github/workflows/ci.yml`
@@ -448,7 +497,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Deploy to dev.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 23: Final Demo
+## Checkpoint 24: Final Demo
 
 **Files:**
 - `docs/demo-script.md`
