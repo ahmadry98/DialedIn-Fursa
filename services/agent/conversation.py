@@ -85,7 +85,7 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
     if is_small_talk(text):
         return
 
-    if any(term in lowered for term in ["built in", "built-in", "builtin"]):
+    if is_built_in_grinder_reply(text):
         context.uses_built_in_grinder = True
         if context.machine and not context.grinder:
             context.grinder = f"{context.machine} built-in grinder"
@@ -167,7 +167,7 @@ def question_for(field: str, context: ShotContext) -> str:
         "grind_setting": "What grind setting are you currently using?",
         "roast_level": "What roast level is the coffee: light, medium, or dark?",
         "taste": "How did the shot taste? Sour, bitter, balanced, thin, harsh, or anything you noticed.",
-        "timing": "Send the shot video path, or type the total shot time in seconds if you timed it manually.",
+        "timing": "Attach or send your espresso shot video. If you timed it yourself, you can type the total time, like 27 seconds.",
     }
     if field.startswith("confirm_") and context.pending_gear_name:
         label = "machine" if context.pending_gear_type == "machine" else "grinder"
@@ -183,9 +183,38 @@ def analysis_reply(analysis: AnalyzeShotResponse) -> str:
     setting = recommendation.get("exact_grind_setting") or {}
     setting_label = setting.get("setting_label")
     prefix = f"I measured this as a {timing}s shot. " if timing is not None else "I analyzed the shot. "
+    confidence = _analysis_timing_confidence(analysis)
+    if _is_video_timing(analysis) and confidence is not None and confidence < 0.7:
+        return (
+            prefix
+            + f"Timing confidence is only {confidence * 100:.0f}%. Please confirm the start and stop times, "
+            + "or send another video with less talking/background noise and a clear machine sound."
+        )
     if setting_label:
         return prefix + f"Next, set the grinder to {setting_label}. {recommendation.get('reason', '')}"
     return prefix + f"Next action: {recommendation.get('adjustment', 'review the shot')}. {recommendation.get('reason', '')}"
+
+
+def _analysis_timing_confidence(analysis: AnalyzeShotResponse) -> float | None:
+    values = [
+        analysis.timing.get("timing_confidence"),
+        analysis.timing.get("start_confidence"),
+        analysis.timing.get("stop_confidence"),
+    ]
+    parsed = [_float_or_none(value) for value in values]
+    available = [value for value in parsed if value is not None]
+    return min(available) if available else None
+
+
+def _is_video_timing(analysis: AnalyzeShotResponse) -> bool:
+    return analysis.timing.get("audio_method") != "manual_total_time"
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def has_explicit_timing(text: str) -> bool:
@@ -217,6 +246,9 @@ def is_small_talk(text: str) -> bool:
         "how r u",
         "whats up",
         "what is up",
+        "whats your name",
+        "what is your name",
+        "your name",
         "sup",
         "thank you",
         "thanks",
@@ -226,8 +258,23 @@ def is_small_talk(text: str) -> bool:
     }
     if lowered in small_talk:
         return True
-    return lowered.startswith(("how are", "what can you do", "who are you"))
+    return lowered.startswith(("how are", "what can you do", "who are you", "what is your name", "whats your name"))
 
+
+
+def is_built_in_grinder_reply(text: str) -> bool:
+    normalized = _normalize_text(text)
+    return normalized in {
+        "built in",
+        "built it",
+        "builtin",
+        "built in grinder",
+        "built it grinder",
+        "integrated grinder",
+        "internal grinder",
+        "in the machine",
+        "inside the machine",
+    } or any(phrase in normalized for phrase in ["built in grinder", "built into", "built it", "integrated grinder"])
 
 def looks_like_equipment_name(name: str, gear_type: str) -> bool:
     cleaned = _clean_equipment_reply(name)
@@ -255,7 +302,9 @@ def small_talk_reply(message: str, next_field: str | None, context: ShotContext)
     lowered = re.sub(r"[^a-z0-9 ]+", "", message.strip().lower()).strip()
     if lowered.startswith("thank") or lowered in {"thanks", "ok", "okay", "cool"}:
         prefix = "Of course."
-    elif lowered.startswith(("what can you do", "who are you")):
+    elif lowered.startswith(("what is your name", "whats your name", "who are you")):
+        prefix = "I'm DialedIN, your espresso shot coach."
+    elif lowered.startswith("what can you do"):
         prefix = "I can help identify your setup, collect shot details, analyze shot timing, and suggest the next grind setting."
     else:
         prefix = "I'm good, ready to help dial in your espresso."

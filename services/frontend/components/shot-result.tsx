@@ -79,13 +79,6 @@ export function ShotResult({
           </strong>
         </div>
 
-        {result.recommendation.keep_fixed.length ? (
-          <div className="tag-group" aria-label="Keep fixed">
-            {result.recommendation.keep_fixed.map((item) => (
-              <span className="tag" key={item}>{item}</span>
-            ))}
-          </div>
-        ) : null}
       </section>
 
       {result.profile_candidates?.length ? (

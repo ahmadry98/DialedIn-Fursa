@@ -26,6 +26,7 @@ class CoachGraphState(TypedDict, total=False):
     image_guess: dict[str, Any] | None
     image_error: str | None
     invalid_gear: dict[str, Any] | None
+    invalid_field: dict[str, Any] | None
 
 
 def run_chat_graph(request: ChatRequest, analyze_callback: AnalyzeCallback) -> ChatResponse:
@@ -52,6 +53,7 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     builder.add_node("llm_extract", _llm_extract)
     builder.add_node("parse_message", _parse_message)
     builder.add_node("validate_equipment", _validate_equipment)
+    builder.add_node("validate_field_answer", _validate_field_answer)
     builder.add_node("compute_missing", _compute_missing)
     builder.add_node("ask_next", _ask_next)
     builder.add_node("analyze_shot", _make_analyze_node(analyze_callback))
@@ -61,7 +63,8 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     builder.add_edge("image_identify", "llm_extract")
     builder.add_edge("llm_extract", "parse_message")
     builder.add_edge("parse_message", "validate_equipment")
-    builder.add_edge("validate_equipment", "compute_missing")
+    builder.add_edge("validate_equipment", "validate_field_answer")
+    builder.add_edge("validate_field_answer", "compute_missing")
     builder.add_conditional_edges(
         "compute_missing",
         _route_after_missing,
@@ -183,6 +186,10 @@ def _parse_message(state: CoachGraphState) -> dict[str, Any]:
 
 
 def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
+    latest_message = _latest_user_message_object(state["request"])
+    if latest_message and latest_message.image_base64:
+        return {}
+
     expected_field = (state.get("previous_missing") or [None])[0]
     if expected_field not in {"machine", "grinder"}:
         return {}
@@ -193,6 +200,15 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
 
     name = getattr(context, expected_field)
     if not name:
+        message = state.get("message", "")
+        if _should_reject_missing_equipment_reply(message):
+            return {
+                "invalid_gear": {
+                    "gear_type": expected_field,
+                    "name": message.strip(),
+                    "reason": "That does not look like a real espresso machine or grinder model.",
+                }
+            }
         return {}
 
     settings = get_settings()
@@ -224,6 +240,68 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
         },
     }
 
+
+
+def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
+    expected_field = (state.get("previous_missing") or [None])[0]
+    if expected_field not in {"dose_g", "grind_setting", "roast_level", "timing"}:
+        return {}
+
+    message = state.get("message", "")
+    if not message or conversation.is_small_talk(message):
+        return {}
+
+    context = state["context"]
+    updates: dict[str, Any] = {}
+    reason: str | None = None
+
+    if expected_field == "dose_g" and context.dose_g is None:
+        reason = "Dose should be a number in grams, like 18g."
+    elif expected_field == "grind_setting":
+        if not context.grind_setting or not _looks_numeric(context.grind_setting):
+            updates["grind_setting"] = None
+            reason = "Grind setting should be the number or mark on your grinder, like 12 or 2.1."
+    elif expected_field == "roast_level" and context.roast_level not in {"light", "medium", "dark"}:
+        updates["roast_level"] = None
+        reason = "Roast level should be light, medium, or dark."
+    elif expected_field == "timing" and not context.video_s3_key and context.total_shot_seconds is None:
+        reason = "Please attach or send a shot video, or type the total time if you timed it yourself, like 27 seconds."
+
+    if not reason:
+        return {}
+
+    next_context = context.model_copy(update=updates) if updates else context
+    return {
+        "context": next_context,
+        "invalid_field": {
+            "field": expected_field,
+            "reason": reason,
+        },
+    }
+
+
+def _looks_numeric(value: str | None) -> bool:
+    if value is None:
+        return False
+    try:
+        float(str(value).strip())
+    except ValueError:
+        return False
+    return True
+
+
+
+def _should_reject_missing_equipment_reply(message: str) -> bool:
+    cleaned = message.strip()
+    if not cleaned:
+        return False
+    if conversation.is_greeting(cleaned) or conversation.is_small_talk(cleaned):
+        return False
+    lowered = cleaned.lower()
+    if any(phrase in lowered for phrase in ["help", "dial in", "espresso shot", "shot analysis"]):
+        return False
+    return True
+
 def _compute_missing(state: CoachGraphState) -> dict[str, Any]:
     missing = conversation.missing_chat_fields(state["context"])
     return {"missing_fields": missing, "next_field": missing[0] if missing else None}
@@ -242,6 +320,8 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
     previous_missing = state.get("previous_missing", [])
     if invalid_prompt := _invalid_gear_prompt(state):
         response = invalid_prompt
+    elif invalid_field_prompt := _invalid_field_prompt(state, context):
+        response = invalid_field_prompt
     elif image_prompt := _low_confidence_image_prompt(state):
         response = image_prompt
     elif not message:
@@ -259,6 +339,16 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
     return {"response": response, "analysis_result": None}
 
 
+
+
+
+def _invalid_field_prompt(state: CoachGraphState, context: ShotContext) -> str | None:
+    invalid = state.get("invalid_field")
+    if not invalid:
+        return None
+    field = invalid.get("field")
+    reason = invalid.get("reason") or "That value does not look right."
+    return f"{reason} {conversation.question_for(str(field), context)}"
 
 def _invalid_gear_prompt(state: CoachGraphState) -> str | None:
     invalid = state.get("invalid_gear")
