@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.espresso_mcp import profile_candidates
+from services.espresso_mcp import profile_candidates, research_quality
 
 MACHINE_REQUIRED_FIELDS = {
     "machine_name",
@@ -69,9 +69,15 @@ def attach_draft_profile(candidate_key: str, draft_profile: dict[str, Any], sour
     for candidate in candidates:
         if candidate.get("candidate_key") == candidate_key:
             validation = validate_draft_profile(candidate["type"], draft_profile)
+            quality = research_quality.evaluate_research_quality(
+                candidate["type"],
+                draft_profile,
+                candidate.get("research_evidence", {}),
+            )
             candidate["draft_profile"] = draft_profile
             candidate["draft_validation"] = validation
-            candidate["status"] = "draft_ready" if validation["is_valid"] else "draft_needs_review"
+            candidate["research_quality"] = quality
+            candidate["status"] = research_quality.status_for_quality(validation, quality)
             if source_summary:
                 candidate.setdefault("review_notes", []).append(source_summary)
             profile_candidates._write_candidates(candidates)  # type: ignore[attr-defined]
@@ -138,11 +144,15 @@ def _research_instructions(gear_type: str, name: str) -> str:
             "If the candidate name includes or implies a brand, prefer that company's own domain over similarly named domains. "
             "For example, Illy X1/X1 Anniversary evidence should come from illy.com before any x1-branded or retailer domains. "
             "Retailer spec tables are allowed only when official sources do not provide a field. "
-            "Do not guess unverifiable fields; use null or 'unknown'. "
+            "Actively look for technical product pages, downloadable manuals, spec sheets, support pages, spare-parts pages, and documentation pages before giving up on a technical field. "
+            "For machines, try to verify every technical field independently: portafilter/filterholder/group size in mm, pump type, brew/pressure behavior, preinfusion or low-flow behavior, built-in grinder presence, boiler/thermoblock system, and official aliases/model codes. "
+            "Use source URLs field-by-field: if one official page proves portafilter_mm but not pump_type, cite it only for portafilter_mm and keep pump_type unknown unless another source proves it. "
+            "Do not leave a field null/unknown merely because the first product page omits it; use manuals and official support/spec documents when present in the evidence. "
+            "Do not guess unverifiable fields; use null or 'unknown' only after evidence does not support that field. "
             "Do not treat observed app context values, such as the current grind setting, as typical manufacturer data. "
             "If official evidence says a machine has LELIT57/LELIT58 group or filterholder, treat that as 57/58 mm portafilter evidence and cite the source. "
-            "Only mark has_preinfusion true when the evidence explicitly says preinfusion/pre-infusion; do not infer it from a solenoid valve. "
-            "For grind_adjustment_notes, avoid exact setting claims unless the evidence supports the setting range/direction. "
+            "Only mark has_preinfusion true when the evidence explicitly says preinfusion, pre-infusion, low-flow start, programmable preinfusion, or a named preinfusion function; do not infer it from a solenoid valve alone. "
+            "For grind_adjustment_notes, summarize practical machine-specific guidance only from verified machine capabilities; avoid exact grinder setting claims unless the evidence supports the setting range/direction. "
             "Return JSON only, matching expected_schema exactly. "
             f"Research espresso machine: {name}."
         )

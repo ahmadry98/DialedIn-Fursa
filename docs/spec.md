@@ -210,10 +210,11 @@ Unknown equipment is handled through a reviewable learning loop:
 4. Bedrock receives the expected schema, observed context for disambiguation only, and source evidence.
 5. Bedrock returns JSON only.
 6. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, and `research_evidence`.
-7. Human reviewer edits or approves the draft.
-8. `profile_promoter` promotes the reviewed draft into trusted profile JSON.
+7. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed`.
+8. Human reviewer edits or approves the draft.
+9. `profile_promoter` promotes the reviewed draft into trusted profile JSON.
 
-Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile.
+Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile. Checkpoint 16 adds PDF/manual text extraction, source deduplication, manufacturer-prioritized evidence ranking, and the research quality score shown in admin.
 
 Important rule: observed app context, such as a user-entered grind setting, must not be treated as manufacturer data or a typical setting.
 
