@@ -57,7 +57,7 @@ The MVP does not calculate `first_flow_time`, `startup_delay_seconds`, or `visib
 
 The system is split into small services/modules:
 
-- `services/frontend`: Next.js web UI. The current form proves the analysis workflow; the next UX layer is a chat-first coach for guided data collection, timing correction, and results.
+- `services/frontend`: Next.js web UI. The current form proves the analysis workflow; the next UX layer is a chat-first coach for guided data collection, timing correction, and results. Mobile/PWA work uses Next.js metadata/manifest support, React/TypeScript chat components, CSS responsive layout, browser file input APIs, and visual QA with `browser:control-in-app-browser`. Optional support tools are `sites:sites-building`, `sites-design-picker`, `visualize:visualize`, and `imagegen` when hosting, design selection, flow prototyping, or app icons are needed.
 - `services/agent`: FastAPI service exposing `/analyze-shot`, `/chat`, `/health`, and `/metrics`.
 - `services/espresso_mcp`: MCP-compatible tool layer for audio timing, recommendations, machine profiles, grinder profiles, unknown gear capture, profile research, and profile promotion helpers.
 - `modeling`: local scripts/tests for audio experiments and evaluation.
@@ -226,6 +226,8 @@ AWS_REGION=us-east-1
 CHAT_LLM_EXTRACTION=true
 CHAT_LLM_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
+
+`CHAT_LLM_EXTRACTION=true` enables both structured chat extraction and LLM validation of unknown machine/grinder names before the coach accepts them as shot context. Obvious junk is rejected deterministically before Bedrock is called.
 
 ## 13. Recommendation Rules
 

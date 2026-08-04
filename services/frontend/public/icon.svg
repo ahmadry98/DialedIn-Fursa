@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DialedIN">
+  <rect width="512" height="512" rx="96" fill="#f5f6f2"/>
+  <circle cx="256" cy="256" r="178" fill="#2f6f4f"/>
+  <path d="M168 198h152c35 0 62 27 62 62s-27 62-62 62H168V198Z" fill="#ffffff"/>
+  <path d="M320 228h18c18 0 32 14 32 32s-14 32-32 32h-18" fill="none" stroke="#f5f6f2" stroke-width="24" stroke-linecap="round"/>
+  <path d="M184 344h152" stroke="#ffffff" stroke-width="28" stroke-linecap="round"/>
+  <path d="M204 158h104" stroke="#ffffff" stroke-width="28" stroke-linecap="round"/>
+</svg>

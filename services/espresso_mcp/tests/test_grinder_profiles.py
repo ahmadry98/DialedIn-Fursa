@@ -18,6 +18,11 @@ class GrinderProfilesTest(unittest.TestCase):
 
         self.assertEqual(profile["grinder_name"], "Generic Numeric Grinder")
 
+    def test_likely_typo_resolves_known_grinder(self):
+        profile = get_grinder_profile("Varia V3")
+
+        self.assertEqual(profile["grinder_name"], "Varia VS3")
+
     def test_new_aliases_resolve_popular_grinders(self):
         cases = {
             "niche": "Niche Zero",

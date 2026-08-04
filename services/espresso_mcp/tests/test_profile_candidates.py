@@ -36,6 +36,22 @@ class ProfileCandidatesTest(unittest.TestCase):
 
         self.assertEqual(candidates, [])
 
+    def test_likely_grinder_typo_is_not_captured(self):
+        candidates = profile_candidates.capture_unknown_gear("user-1", "Rancilio Silvia", "Varia V3", {})
+
+        self.assertEqual(candidates, [])
+
+    def test_gibberish_machine_and_grinder_are_not_captured(self):
+        candidates = profile_candidates.capture_unknown_gear("user-1", "sfsts", "xqzzrp", {})
+
+        self.assertEqual(candidates, [])
+
+    def test_plausible_unknown_gear_is_still_captured(self):
+        candidates = profile_candidates.capture_unknown_gear("user-1", "Acme Espresso X1", "Acme Grinder G2", {})
+
+        self.assertEqual(len(candidates), 2)
+        self.assertEqual({candidate["type"] for candidate in candidates}, {"machine", "grinder"})
+
     def test_duplicate_candidate_updates_seen_count(self):
         first = profile_candidates.save_profile_candidate("machine", "Mystery Machine X", "user-1", {})
         second = profile_candidates.save_profile_candidate("machine", "Mystery Machine X", "user-2", {})

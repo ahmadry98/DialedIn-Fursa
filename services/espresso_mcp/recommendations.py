@@ -219,14 +219,19 @@ def _with_exact_setting(result: RecommendationResult, shot_context: dict[str, An
         })
 
     direction = "finer" if result.recommendation == "grind_finer" else "coarser"
-    estimated_steps = exact_setting.get("estimated_small_steps")
-    if estimated_steps:
-        step_word = "step" if estimated_steps == 1 else "steps"
-        adjustment_detail = f"about {estimated_steps} small {step_word} {direction}"
-    else:
-        size = exact_setting.get("adjustment_size")
-        size_text = f"{size} move " if size else ""
-        adjustment_detail = f"{size_text}{direction}"
+    adjustment_detail = _relative_adjustment_detail(exact_setting, direction)
+
+    if _uses_generic_grinder_profile(exact_setting):
+        relative_setting = {**exact_setting, "suggested_setting": None, "setting_label": None}
+        adjustment = f"move {adjustment_detail} from your current setting"
+        return RecommendationResult(**{
+            **asdict(result),
+            "adjustment": adjustment,
+            "exact_grind_setting": relative_setting,
+            "calculation_explanation": _exact_setting_explanation(relative_setting, result.target_range_seconds),
+            "confidence_reasons": confidence_reasons,
+        })
+
     adjustment = f"try grind setting {suggested} next ({adjustment_detail})"
     return RecommendationResult(**{
         **asdict(result),
@@ -236,6 +241,21 @@ def _with_exact_setting(result: RecommendationResult, shot_context: dict[str, An
         "confidence_reasons": confidence_reasons,
     })
 
+
+
+def _relative_adjustment_detail(exact_setting: dict[str, Any], direction: str) -> str:
+    estimated_steps = exact_setting.get("estimated_small_steps")
+    if estimated_steps:
+        step_word = "step" if estimated_steps == 1 else "steps"
+        return f"about {estimated_steps} small {step_word} {direction}"
+    size = exact_setting.get("adjustment_size")
+    size_text = f"{size} move " if size else ""
+    return f"{size_text}{direction}"
+
+
+def _uses_generic_grinder_profile(exact_setting: dict[str, Any]) -> bool:
+    profile = exact_setting.get("grinder_profile") or {}
+    return profile.get("grinder_name") == grinder_profiles.GENERIC_GRINDER_NAME
 
 def _exact_setting_explanation(exact_setting: dict[str, Any], target_range_seconds: tuple[float, float]) -> list[str]:
     explanation: list[str] = []
@@ -252,9 +272,14 @@ def _exact_setting_explanation(exact_setting: dict[str, Any], target_range_secon
             f"Shot was {seconds_gap:g}s outside the {target_range_seconds[0]:g}-{target_range_seconds[1]:g}s target range."
         )
     if seconds_per_step is not None and estimated_steps is not None:
-        explanation.append(
-            f"{grinder_name} is estimated at about {seconds_per_step:g}s per small grind step, so this uses about {estimated_steps} small steps."
-        )
+        if grinder_name == grinder_profiles.GENERIC_GRINDER_NAME:
+            explanation.append(
+                f"Generic grinder timing estimate suggests about {estimated_steps} small steps, but the exact scale is unknown."
+            )
+        else:
+            explanation.append(
+                f"{grinder_name} is estimated at about {seconds_per_step:g}s per small grind step, so this uses about {estimated_steps} small steps."
+            )
     if current not in (None, "") and suggested is not None:
         explanation.append(f"Current setting {current} becomes suggested setting {suggested}.")
     return explanation
