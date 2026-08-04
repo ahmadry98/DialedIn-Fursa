@@ -65,6 +65,13 @@ class ChatResponse(BaseModel):
     image_guess: dict[str, Any] | None = None
 
 
+
+
+class ProfileCandidateUpdateRequest(BaseModel):
+    draft_profile: dict[str, Any] | None = None
+    review_notes: list[str] | None = None
+    status: str | None = None
+
 class HealthResponse(BaseModel):
     status: str
     service: str

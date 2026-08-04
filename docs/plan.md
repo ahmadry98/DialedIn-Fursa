@@ -335,12 +335,12 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** UI for reviewing profile candidates without opening JSON files manually.
 
-- [ ] Add endpoint to list candidates.
-- [ ] Add endpoint to rerun research for one candidate.
-- [ ] Add endpoint to promote a reviewed candidate.
-- [ ] Add frontend candidate review page.
-- [ ] Show source URLs/evidence snippets.
-- [ ] Allow editing draft notes before promotion.
+- [x] Add endpoint to list candidates.
+- [x] Add endpoint to rerun research for one candidate.
+- [x] Add endpoint to promote a reviewed candidate.
+- [x] Add frontend candidate review page.
+- [x] Show source URLs/evidence snippets.
+- [x] Allow editing draft notes before promotion.
 
 ## Checkpoint 16: Advanced LangGraph And LLM Orchestration
 

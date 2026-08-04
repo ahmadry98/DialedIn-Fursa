@@ -134,7 +134,9 @@ def _warn_if_no_sources(sources: dict[str, Any], fields: set[str], warnings: lis
 def _research_instructions(gear_type: str, name: str) -> str:
     if gear_type == "machine":
         return (
-            "Use web search with official manufacturer pages and official manuals first. "
+            "Use the official manufacturer website and official manuals first. "
+            "If the candidate name includes or implies a brand, prefer that company's own domain over similarly named domains. "
+            "For example, Illy X1/X1 Anniversary evidence should come from illy.com before any x1-branded or retailer domains. "
             "Retailer spec tables are allowed only when official sources do not provide a field. "
             "Do not guess unverifiable fields; use null or 'unknown'. "
             "Do not treat observed app context values, such as the current grind setting, as typical manufacturer data. "

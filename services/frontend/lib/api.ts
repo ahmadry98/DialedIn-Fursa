@@ -91,6 +91,104 @@ export type ChatResponse = {
   } | null;
 };
 
+
+export type ProfileCandidate = {
+  candidate_key: string;
+  type: "machine" | "grinder" | string;
+  name_entered: string;
+  status: string;
+  created_at?: string;
+  last_seen_at?: string;
+  seen_count?: number;
+  user_ids?: string[];
+  latest_context?: Record<string, unknown>;
+  research_prompt?: string;
+  draft_profile?: Record<string, unknown> | null;
+  draft_validation?: {
+    is_valid?: boolean;
+    missing_fields?: string[];
+    warnings?: string[];
+  } | null;
+  research_evidence?: {
+    sources?: Array<{ url?: string; title?: string; snippet?: string; text?: string }>;
+    text?: string;
+  } | null;
+  review_notes?: string[];
+};
+
+export type ProfileCandidatesResponse = {
+  count: number;
+  candidates: ProfileCandidate[];
+};
+
+export async function listProfileCandidates(): Promise<ProfileCandidatesResponse> {
+  const response = await fetch(`${API_BASE_URL}/profile-candidates`, { cache: "no-store" });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Candidate request failed" }));
+    throw new Error(error.detail ?? "Candidate request failed");
+  }
+
+  return response.json();
+}
+
+export async function updateProfileCandidate(
+  candidateKey: string,
+  payload: { draft_profile?: Record<string, unknown>; review_notes?: string[]; status?: string }
+): Promise<{ candidate: ProfileCandidate }> {
+  const response = await fetch(`${API_BASE_URL}/profile-candidates/${encodeURIComponent(candidateKey)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Candidate update failed" }));
+    throw new Error(error.detail ?? "Candidate update failed");
+  }
+
+  return response.json();
+}
+
+export async function deleteProfileCandidate(candidateKey: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`${API_BASE_URL}/profile-candidates/${encodeURIComponent(candidateKey)}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Candidate delete failed" }));
+    throw new Error(error.detail ?? "Candidate delete failed");
+  }
+
+  return response.json();
+}
+
+export async function rerunProfileCandidateResearch(candidateKey: string): Promise<{ results: Record<string, unknown>[] }> {
+  const response = await fetch(`${API_BASE_URL}/profile-candidates/${encodeURIComponent(candidateKey)}/research`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Candidate research failed" }));
+    throw new Error(error.detail ?? "Candidate research failed");
+  }
+
+  return response.json();
+}
+
+export async function promoteProfileCandidate(candidateKey: string): Promise<Record<string, unknown>> {
+  const response = await fetch(`${API_BASE_URL}/profile-candidates/${encodeURIComponent(candidateKey)}/promote`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Candidate promotion failed" }));
+    throw new Error(error.detail ?? "Candidate promotion failed");
+  }
+
+  return response.json();
+}
+
 export async function chatWithCoach(payload: {
   messages: ChatMessage[];
   shot_context?: ShotFormValues | null;

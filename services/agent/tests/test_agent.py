@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from services.agent import app as agent_app
 from services.agent import agent_runner
 from services.espresso_mcp import app as espresso_tools
-from services.espresso_mcp import profile_candidates
+from services.espresso_mcp import grinder_profiles, machine_profiles, profile_candidates
 
 
 def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
@@ -90,6 +90,89 @@ class AgentApiTest(unittest.TestCase):
         self.assertFalse(payload["needs_shot_analysis"])
         self.assertIn("machine", payload["response"].lower())
         self.assertIn("Never invent timestamps", payload["system_prompt"])
+
+
+    def test_profile_candidate_admin_list_and_update(self):
+        candidate = profile_candidates.save_profile_candidate("machine", "Admin Machine", "user-admin", {"machine": "Admin Machine"})
+        response = self.client.get("/profile-candidates")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["candidates"][0]["candidate_key"], candidate["candidate_key"])
+
+        update = self.client.patch(
+            f"/profile-candidates/{candidate['candidate_key']}",
+            json={
+                "draft_profile": {"machine_name": "Admin Machine", "aliases": ["admin"]},
+                "review_notes": ["verified source urls"],
+                "status": "draft_needs_review",
+            },
+        )
+
+        self.assertEqual(update.status_code, 200)
+        updated = update.json()["candidate"]
+        self.assertEqual(updated["status"], "draft_needs_review")
+        self.assertEqual(updated["draft_profile"]["machine_name"], "Admin Machine")
+        self.assertEqual(updated["review_notes"], ["verified source urls"])
+
+    def test_profile_candidate_admin_deletes_candidate(self):
+        candidate = profile_candidates.save_profile_candidate("machine", "Delete Me", "user-admin", {})
+
+        response = self.client.delete(f"/profile-candidates/{candidate['candidate_key']}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["deleted"])
+        self.assertEqual(profile_candidates.load_profile_candidates(), [])
+
+    def test_profile_candidate_admin_reruns_research_for_one_candidate(self):
+        candidate = profile_candidates.save_profile_candidate("grinder", "Admin Grinder", "user-admin", {})
+        calls = []
+
+        def fake_worker(**kwargs):
+            calls.append(kwargs)
+            return [{"candidate_key": kwargs["candidate_key"], "status": "draft_ready"}]
+
+        original_worker = agent_app.profile_research_worker.run_worker
+        agent_app.profile_research_worker.run_worker = fake_worker
+        try:
+            response = self.client.post(f"/profile-candidates/{candidate['candidate_key']}/research")
+        finally:
+            agent_app.profile_research_worker.run_worker = original_worker
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [{"candidate_key": candidate["candidate_key"]}])
+        self.assertEqual(response.json()["results"][0]["status"], "draft_ready")
+
+    def test_profile_candidate_admin_promotes_reviewed_machine(self):
+        with TemporaryDirectory() as tmp:
+            original_machine_path = machine_profiles.PROFILE_PATH
+            original_grinder_path = grinder_profiles.PROFILE_PATH
+            machine_profiles.PROFILE_PATH = Path(tmp) / "machine_profiles.json"
+            grinder_profiles.PROFILE_PATH = Path(tmp) / "grinder_profiles.json"
+            machine_profiles.PROFILE_PATH.write_text('[{"machine_name":"Generic Espresso Machine","aliases":[]}]\n', encoding="utf-8")
+            grinder_profiles.PROFILE_PATH.write_text('[{"grinder_name":"Generic Numeric Grinder","aliases":[]}]\n', encoding="utf-8")
+            machine_profiles.load_machine_profiles.cache_clear()
+            try:
+                candidate = profile_candidates.save_profile_candidate("machine", "Admin Promote", "user-admin", {})
+                self.client.patch(
+                    f"/profile-candidates/{candidate['candidate_key']}",
+                    json={
+                        "draft_profile": {"machine_name": "Admin Promote", "aliases": ["admin promote"]},
+                        "review_notes": ["ready"],
+                        "status": "draft_ready",
+                    },
+                )
+
+                response = self.client.post(f"/profile-candidates/{candidate['candidate_key']}/promote")
+            finally:
+                machine_profiles.PROFILE_PATH = original_machine_path
+                grinder_profiles.PROFILE_PATH = original_grinder_path
+                machine_profiles.load_machine_profiles.cache_clear()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "inserted")
+        self.assertEqual(profile_candidates.load_profile_candidates(), [])
 
     def test_analyze_shot_with_manual_total_time(self):
         response = self.client.post(
