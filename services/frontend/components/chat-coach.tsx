@@ -169,33 +169,36 @@ export function ChatCoach() {
           ))}
         </div>
 
-        {error ? <div className="alert">{error}</div> : null}
+        {error ? <div className="alert" role="alert">{error}</div> : null}
 
-        <div className="attachment-toolbar" aria-label="Attachments">
-          <label className="attachment-button" title="Attach a setup photo or shot video">
+        <div className="chat-input-dock">
+          <div className="attachment-toolbar" aria-label="Attachments">
+            <label className="attachment-button" title="Attach a setup photo or shot video">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/heic,image/heif,image/*,video/mp4,video/quicktime,video/x-m4v,video/*"
+                onChange={(event) => {
+                  handleAttachmentSelected(event.target.files?.[0] ?? null);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <span>Attach photo/video</span>
+            </label>
+            <span className="attachment-hint">Use a machine/grinder photo or a shot video.</span>
+          </div>
+
+          <form className="chat-composer" onSubmit={handleSubmit}>
             <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/*,video/mp4,video/quicktime,video/*"
-              onChange={(event) => {
-                handleAttachmentSelected(event.target.files?.[0] ?? null);
-                event.currentTarget.value = "";
-              }}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Type a reply, a full shot description, or 27 seconds"
+              aria-label="Message"
             />
-            Attach
-          </label>
+            <button className="primary-button" type="submit" disabled={isLoading || !input.trim()}>
+              Send
+            </button>
+          </form>
         </div>
-
-        <form className="chat-composer" onSubmit={handleSubmit}>
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Type a reply, a full shot description, or 27 seconds"
-            aria-label="Message"
-          />
-          <button className="primary-button" type="submit" disabled={isLoading || !input.trim()}>
-            Send
-          </button>
-        </form>
       </section>
 
       <aside className="chat-result-column" aria-label="Shot result">
@@ -226,14 +229,18 @@ function contextItems(context: ShotFormValues) {
       value: context.uses_built_in_grinder ? "Built-in" : context.grinder,
       ready: Boolean(context.uses_built_in_grinder || context.grinder),
     },
-    { label: "Dose", value: context.dose_g ? `${context.dose_g}g` : "", ready: context.dose_g !== undefined },
+    {
+      label: "Dose",
+      value: hasNumber(context.dose_g) ? `${context.dose_g}g` : "",
+      ready: hasNumber(context.dose_g),
+    },
     { label: "Grind", value: context.grind_setting, ready: Boolean(context.grind_setting) },
     { label: "Roast", value: context.roast_level, ready: Boolean(context.roast_level) },
     { label: "Taste", value: context.taste, ready: Boolean(context.taste) },
     {
       label: "Timing",
-      value: context.video_s3_key || (context.total_shot_seconds ? `${context.total_shot_seconds}s` : ""),
-      ready: Boolean(context.video_s3_key || context.total_shot_seconds),
+      value: context.video_s3_key || (hasNumber(context.total_shot_seconds) ? `${context.total_shot_seconds}s` : ""),
+      ready: Boolean(context.video_s3_key || hasNumber(context.total_shot_seconds)),
     },
   ];
 }
@@ -249,6 +256,10 @@ function parseOptionalNumber(value: string) {
 
 function formatInputTime(value: number | null | undefined) {
   return typeof value === "number" ? String(round(value)) : "";
+}
+
+function hasNumber(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function round(value: number) {

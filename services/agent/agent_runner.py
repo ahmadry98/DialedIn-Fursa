@@ -13,6 +13,7 @@ from services.agent import conversation
 from services.agent.prompts import SYSTEM_PROMPT
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse
 from services.espresso_mcp import app as espresso_tools
+from services.espresso_mcp import grinder_profiles, machine_profiles
 
 REQUIRED_CONTEXT_FIELDS = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste"]
 METRICS = {
@@ -27,14 +28,16 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
     METRICS["shot_analysis_requests_total"] += 1
 
     timing = _timing_from_request(request)
-    machine_profile = espresso_tools.get_machine_profile(request.machine)
-    shot_context = _recommendation_context(request, timing, machine_profile)
+    canonical_machine = _canonical_machine_name(request.machine)
+    canonical_grinder = _canonical_grinder_name(None if request.uses_built_in_grinder else request.grinder)
+    machine_profile = espresso_tools.get_machine_profile(canonical_machine)
+    shot_context = _recommendation_context(request, timing, machine_profile, canonical_machine, canonical_grinder)
     recommendation = espresso_tools.recommend_grind_adjustment(shot_context)
     missing_fields = _missing_fields(request)
     profile_candidates = espresso_tools.capture_unknown_gear(
         request.user_id,
-        request.machine,
-        None if request.uses_built_in_grinder else request.grinder,
+        canonical_machine,
+        None if request.uses_built_in_grinder else canonical_grinder,
         shot_context,
     )
     METRICS["last_missing_fields_count"] = len(missing_fields)
@@ -101,11 +104,13 @@ def _recommendation_context(
     request: AnalyzeShotRequest,
     timing: dict[str, Any],
     machine_profile: dict[str, Any],
+    canonical_machine: str | None,
+    canonical_grinder: str | None,
 ) -> dict[str, Any]:
     return {
-        "machine": request.machine,
+        "machine": canonical_machine or request.machine,
         "machine_profile": machine_profile,
-        "grinder": _effective_grinder_name(request),
+        "grinder": _effective_grinder_name(request, canonical_machine, canonical_grinder),
         "uses_built_in_grinder": request.uses_built_in_grinder,
         "dose_g": request.dose_g,
         "yield_g": request.yield_g,
@@ -128,11 +133,29 @@ def _missing_fields(context: AnalyzeShotRequest) -> list[str]:
     return missing
 
 
-def _effective_grinder_name(request: AnalyzeShotRequest) -> str | None:
+def _canonical_machine_name(machine_name: str | None) -> str | None:
+    profile = machine_profiles.get_machine_profile(machine_name)
+    if profile.get("machine_name") == machine_profiles.GENERIC_PROFILE_NAME:
+        return machine_name
+    return profile.get("machine_name") or machine_name
+
+
+def _canonical_grinder_name(grinder_name: str | None) -> str | None:
+    profile = grinder_profiles.get_grinder_profile(grinder_name)
+    if profile.get("grinder_name") == grinder_profiles.GENERIC_GRINDER_NAME:
+        return grinder_name
+    return profile.get("grinder_name") or grinder_name
+
+
+def _effective_grinder_name(
+    request: AnalyzeShotRequest,
+    canonical_machine: str | None,
+    canonical_grinder: str | None,
+) -> str | None:
     if request.uses_built_in_grinder:
-        machine = request.machine or "machine"
+        machine = canonical_machine or request.machine or "machine"
         return request.grinder or f"{machine} built-in grinder"
-    return request.grinder
+    return canonical_grinder or request.grinder
 
 
 def _build_message(timing: dict[str, Any], recommendation: dict[str, Any], missing_fields: list[str]) -> str:

@@ -260,6 +260,28 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(len(payload["profile_candidates"]), 2)
         self.assertEqual({candidate["type"] for candidate in payload["profile_candidates"]}, {"machine", "grinder"})
 
+    def test_analyze_shot_uses_canonical_grinder_for_likely_typo(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "user_id": "user-typo",
+                "total_shot_seconds": 17,
+                "timing_confidence": 0.9,
+                "machine": "Rancilio Silvia",
+                "grinder": "Varia V3",
+                "dose_g": 18,
+                "grind_setting": "3.4",
+                "roast_level": "medium",
+                "taste": "balanced",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["profile_candidates"], [])
+        exact = payload["recommendation"]["exact_grind_setting"]
+        self.assertEqual(exact["grinder_profile"]["grinder_name"], "Varia VS3")
+
     def test_built_in_grinder_does_not_capture_separate_grinder_candidate(self):
         response = self.client.post(
             "/analyze-shot",
@@ -283,7 +305,8 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(payload["profile_candidates"][0]["type"], "machine")
         exact = payload["recommendation"]["exact_grind_setting"]
         self.assertEqual(exact["grinder_profile"]["grinder_name"], "Generic Numeric Grinder")
-        self.assertIsNotNone(exact["suggested_setting"])
+        self.assertIsNone(exact["suggested_setting"])
+        self.assertIn("small steps finer", payload["recommendation"]["adjustment"])
 
     def test_analyze_shot_rejects_invalid_known_grinder_setting(self):
         response = self.client.post(

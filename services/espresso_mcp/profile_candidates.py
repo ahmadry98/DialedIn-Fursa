@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -13,14 +14,102 @@ CANDIDATES_PATH = Path(__file__).with_name("profile_candidates.json")
 
 
 def capture_unknown_gear(user_id: str, machine: str | None, grinder: str | None, shot_context: dict[str, Any]) -> list[dict[str, Any]]:
-    """Save unknown machine/grinder names as reviewable profile candidates."""
+    """Save plausible unknown machine/grinder names as reviewable profile candidates."""
     candidates: list[dict[str, Any]] = []
-    if _is_unknown_machine(machine):
+    if _is_unknown_machine(machine) and is_plausible_gear_name("machine", machine):
         candidates.append(save_profile_candidate("machine", machine or "", user_id, shot_context))
-    if _is_unknown_grinder(grinder):
+    if _is_unknown_grinder(grinder) and is_plausible_gear_name("grinder", grinder):
         candidates.append(save_profile_candidate("grinder", grinder or "", user_id, shot_context))
     return candidates
 
+
+
+def is_plausible_gear_name(gear_type: str, name_entered: str | None) -> bool:
+    """Reject obvious nonsense before creating automatic profile candidates."""
+    if gear_type not in {"machine", "grinder"}:
+        raise ValueError("gear_type must be 'machine' or 'grinder'")
+
+    normalized = _normalize_candidate_name(name_entered)
+    if not normalized:
+        return False
+
+    compact = normalized.replace(" ", "")
+    if len(compact) < 5:
+        return False
+    if len(compact) > 60:
+        return False
+    if not any(character.isalpha() for character in compact):
+        return False
+
+    tokens = normalized.split()
+    if any(token in _KNOWN_BRAND_OR_MODEL_TOKENS for token in tokens):
+        return True
+    if any(any(character.isdigit() for character in token) and any(character.isalpha() for character in token) for token in tokens):
+        return True
+    if len(tokens) >= 2 and all(len(token) >= 2 for token in tokens):
+        return True
+    if len(tokens) >= 3 and len(tokens[-1]) == 1 and all(len(token) >= 2 for token in tokens[:-1]):
+        return True
+    if _looks_like_random_text(compact):
+        return False
+    if len(compact) >= 8:
+        return True
+    return False
+
+
+_KNOWN_BRAND_OR_MODEL_TOKENS = {
+    "1zpresso",
+    "acs",
+    "anita",
+    "ascaso",
+    "baratza",
+    "bezzera",
+    "breville",
+    "casabrews",
+    "comandante",
+    "dedica",
+    "delonghi",
+    "df54",
+    "df64",
+    "ecm",
+    "eureka",
+    "flair",
+    "gaggia",
+    "gevi",
+    "kingrinder",
+    "kinu",
+    "la",
+    "lelit",
+    "marzocco",
+    "mignon",
+    "niche",
+    "pavoni",
+    "profitec",
+    "quick",
+    "rancilio",
+    "rocket",
+    "silvia",
+    "timemore",
+    "turin",
+    "varia",
+}
+
+
+def _normalize_candidate_name(value: str | None) -> str:
+    if value is None:
+        return ""
+    value = value.lower().replace("de'longhi", "delonghi")
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _looks_like_random_text(compact: str) -> bool:
+    if not compact.isalpha():
+        return False
+    vowels = sum(1 for character in compact if character in "aeiou")
+    vowel_ratio = vowels / len(compact)
+    consonant_runs = re.findall(r"[bcdfghjklmnpqrstvwxyz]{4,}", compact)
+    return vowel_ratio < 0.2 or bool(consonant_runs)
 
 def save_profile_candidate(gear_type: str, name_entered: str, user_id: str, shot_context: dict[str, Any]) -> dict[str, Any]:
     """Insert or update a candidate without duplicating same type/name pairs."""

@@ -6,7 +6,7 @@ from typing import Any, Callable, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from services.agent import conversation, image_identification, llm_extraction
+from services.agent import conversation, equipment_validation, image_identification, llm_extraction
 from services.agent.config import get_settings
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse, ShotContext
 
@@ -25,6 +25,7 @@ class CoachGraphState(TypedDict, total=False):
     llm_error: str | None
     image_guess: dict[str, Any] | None
     image_error: str | None
+    invalid_gear: dict[str, Any] | None
 
 
 def run_chat_graph(request: ChatRequest, analyze_callback: AnalyzeCallback) -> ChatResponse:
@@ -50,6 +51,7 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     builder.add_node("image_identify", _image_identify)
     builder.add_node("llm_extract", _llm_extract)
     builder.add_node("parse_message", _parse_message)
+    builder.add_node("validate_equipment", _validate_equipment)
     builder.add_node("compute_missing", _compute_missing)
     builder.add_node("ask_next", _ask_next)
     builder.add_node("analyze_shot", _make_analyze_node(analyze_callback))
@@ -58,7 +60,8 @@ def build_chat_graph(analyze_callback: AnalyzeCallback):
     builder.add_edge("load_context", "image_identify")
     builder.add_edge("image_identify", "llm_extract")
     builder.add_edge("llm_extract", "parse_message")
-    builder.add_edge("parse_message", "compute_missing")
+    builder.add_edge("parse_message", "validate_equipment")
+    builder.add_edge("validate_equipment", "compute_missing")
     builder.add_conditional_edges(
         "compute_missing",
         _route_after_missing,
@@ -178,6 +181,49 @@ def _parse_message(state: CoachGraphState) -> dict[str, Any]:
     return {"context": context}
 
 
+
+def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
+    expected_field = (state.get("previous_missing") or [None])[0]
+    if expected_field not in {"machine", "grinder"}:
+        return {}
+
+    context = state["context"]
+    if expected_field == "grinder" and context.uses_built_in_grinder:
+        return {}
+
+    name = getattr(context, expected_field)
+    if not name:
+        return {}
+
+    settings = get_settings()
+    if not settings.chat_llm_extraction_enabled:
+        return {}
+
+    validation = equipment_validation.validate_equipment_name(
+        name=name,
+        gear_type=expected_field,
+        model_id=settings.chat_llm_model_id,
+        region=settings.aws_region,
+    )
+    if validation.get("is_equipment"):
+        corrected_name = validation.get("corrected_name") or name
+        updates = {expected_field: conversation.canonical_gear_name(str(corrected_name), expected_field)}
+        if expected_field == "machine" and context.uses_built_in_grinder and not context.grinder:
+            updates["grinder"] = f"{updates['machine']} built-in grinder"
+        return {"context": context.model_copy(update=updates)}
+
+    updates = {expected_field: None}
+    if expected_field == "machine":
+        updates.update({"uses_built_in_grinder": False, "grinder": None})
+    return {
+        "context": context.model_copy(update=updates),
+        "invalid_gear": {
+            "gear_type": expected_field,
+            "name": name,
+            "reason": validation.get("reason") or "That does not look like espresso equipment.",
+        },
+    }
+
 def _compute_missing(state: CoachGraphState) -> dict[str, Any]:
     missing = conversation.missing_chat_fields(state["context"])
     return {"missing_fields": missing, "next_field": missing[0] if missing else None}
@@ -194,7 +240,9 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
     context = state["context"]
     missing = state.get("missing_fields", [])
     previous_missing = state.get("previous_missing", [])
-    if image_prompt := _low_confidence_image_prompt(state):
+    if invalid_prompt := _invalid_gear_prompt(state):
+        response = invalid_prompt
+    elif image_prompt := _low_confidence_image_prompt(state):
         response = image_prompt
     elif not message:
         response = "Hey, I can help dial in your espresso. What machine are you using?"
@@ -210,6 +258,17 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
         response = conversation.question_for(missing[0], context)
     return {"response": response, "analysis_result": None}
 
+
+
+def _invalid_gear_prompt(state: CoachGraphState) -> str | None:
+    invalid = state.get("invalid_gear")
+    if not invalid:
+        return None
+    gear_type = invalid.get("gear_type") or "equipment"
+    name = invalid.get("name") or "that"
+    if gear_type == "machine":
+        return f"I could not confirm '{name}' as an espresso machine. Please enter the machine brand and model, like Rancilio Silvia or Breville Bambino."
+    return f"I could not confirm '{name}' as a coffee grinder. Please enter the grinder brand and model, like Varia VS3 or DF54."
 
 def _low_confidence_image_prompt(state: CoachGraphState) -> str | None:
     guess = state.get("image_guess") or {}
@@ -227,7 +286,19 @@ def _low_confidence_image_prompt(state: CoachGraphState) -> str | None:
 def _make_analyze_node(analyze_callback: AnalyzeCallback):
     def _analyze(state: CoachGraphState) -> dict[str, Any]:
         context = state["context"]
-        analysis = analyze_callback(AnalyzeShotRequest(**context.model_dump()))
+        try:
+            analysis = analyze_callback(AnalyzeShotRequest(**context.model_dump()))
+        except ValueError as error:
+            if "grind setting" in str(error).lower() or "numeric" in str(error).lower():
+                context.grind_setting = None
+                return {
+                    "context": context,
+                    "analysis_result": None,
+                    "response": f"That grind setting needs to be numeric. What grind setting are you currently using?",
+                    "missing_fields": ["grind_setting"],
+                    "next_field": "grind_setting",
+                }
+            raise
         return {
             "analysis_result": analysis,
             "response": conversation.analysis_reply(analysis),
