@@ -1282,6 +1282,45 @@
     }
   },
   {
+    "machine_name": "LELIT Elizabeth PL92T",
+    "aliases": [
+      "Elizabeth PL92T"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "unknown",
+      "pressure_type": "unknown",
+      "has_preinfusion": null,
+      "has_built_in_grinder": false
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": null
+    },
+    "grind_adjustment_notes": "unknown",
+    "sources": {
+      "aliases": [
+        "https://www.lelit.com/en/products/elizabeth"
+      ],
+      "portafilter_mm": [
+        "https://www.lelit.com/en/products/elizabeth"
+      ],
+      "pump_type": [],
+      "pressure_type": [],
+      "has_preinfusion": [],
+      "has_built_in_grinder": [
+        "https://www.lelit.com/en/products/elizabeth"
+      ]
+    }
+  },
+  {
     "machine_name": "Generic Espresso Machine",
     "aliases": [
       "generic",

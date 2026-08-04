@@ -170,6 +170,40 @@ def add_profile_candidate_note(candidate_key: str, note: str) -> None:
             candidate.setdefault("review_notes", []).append(note)
             _write_candidates(candidates)
             return
+    raise ValueError(f"Unknown candidate_key: {candidate_key}")
+
+
+def update_profile_candidate(
+    candidate_key: str,
+    *,
+    draft_profile: dict[str, Any] | None = None,
+    review_notes: list[str] | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """Update reviewable candidate fields from the admin UI."""
+    candidates = load_profile_candidates()
+    for candidate in candidates:
+        if candidate.get("candidate_key") != candidate_key:
+            continue
+        if draft_profile is not None:
+            candidate["draft_profile"] = draft_profile
+        if review_notes is not None:
+            candidate["review_notes"] = [str(note) for note in review_notes if str(note).strip()]
+        if status is not None:
+            candidate["status"] = status
+        _write_candidates(candidates)
+        return dict(candidate)
+    raise ValueError(f"Unknown candidate_key: {candidate_key}")
+
+
+def delete_profile_candidate(candidate_key: str) -> dict[str, Any]:
+    """Remove a candidate from the review queue."""
+    candidates = load_profile_candidates()
+    remaining = [candidate for candidate in candidates if candidate.get("candidate_key") != candidate_key]
+    if len(remaining) == len(candidates):
+        raise ValueError(f"Unknown candidate_key: {candidate_key}")
+    _write_candidates(remaining)
+    return {"candidate_key": candidate_key, "deleted": True}
 
 
 def build_research_prompt(gear_type: str, name_entered: str) -> str:
