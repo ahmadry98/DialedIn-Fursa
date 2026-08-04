@@ -109,6 +109,13 @@ export type ProfileCandidate = {
     missing_fields?: string[];
     warnings?: string[];
   } | null;
+  research_quality?: {
+    score?: number;
+    status?: string;
+    threshold?: number;
+    reasons?: string[];
+    warnings?: string[];
+  } | null;
   research_evidence?: {
     sources?: Array<{ url?: string; title?: string; snippet?: string; text?: string }>;
     text?: string;

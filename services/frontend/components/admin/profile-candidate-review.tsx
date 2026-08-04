@@ -244,6 +244,23 @@ export function ProfileCandidateReview() {
                   </ul>
                 </div>
               ) : null}
+
+              {selected.research_quality ? (
+                <div className="quality-block">
+                  <div>
+                    <span>Research quality</span>
+                    <strong>{selected.research_quality.score ?? 0}/100</strong>
+                    <small>Ready when score is above {selected.research_quality.threshold ?? 55}</small>
+                  </div>
+                  <div>
+                    <h3>{statusLabel(selected.research_quality.status ?? selected.status)}</h3>
+                    <ul>
+                      {(selected.research_quality.reasons ?? []).map((reason) => <li key={reason}>{reason}</li>)}
+                      {(selected.research_quality.warnings ?? []).map((warning) => <li key={warning}>Warning: {warning}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="panel admin-editor-panel">
