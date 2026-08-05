@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from machine_profiles import get_machine_profile, list_machine_profiles
+from machine_profiles import get_machine_profile, get_machine_profile_by_slug, list_machine_profiles
 
 
 class MachineProfilesTest(unittest.TestCase):
@@ -55,6 +55,12 @@ class MachineProfilesTest(unittest.TestCase):
         self.assertTrue(profile["specs"]["termopid"])
         self.assertFalse(profile["specs"]["has_preinfusion"])
         self.assertTrue(profile["sources"]["technical_features"])
+
+    def test_dialedin_slug_resolves_mobile_machine_profile(self):
+        profile = get_machine_profile_by_slug("rancilio-silvia")
+
+        self.assertEqual(profile["machine_name"], "Rancilio Silvia")
+        self.assertEqual(profile["dialedin_slug"], "rancilio-silvia")
 
     def test_unknown_machine_returns_generic_profile(self):
         profile = get_machine_profile("Mystery Steam Box 3000")

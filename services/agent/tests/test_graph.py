@@ -192,7 +192,22 @@ class CoachGraphTest(unittest.TestCase):
 
         self.assertTrue(response.shot_context.uses_built_in_grinder)
         self.assertEqual(response.shot_context.grinder, "LELIT Anita PL042TEMD built-in grinder")
-        self.assertEqual(response.next_field, "dose_g")
+        self.assertEqual(response.next_field, "grind_setting")
+        self.assertNotIn("dose_g", response.missing_fields)
+
+    def test_graph_rejects_built_in_grinder_when_machine_profile_disallows_it(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="builtin")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertFalse(response.shot_context.uses_built_in_grinder)
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("does not have a built-in grinder", response.response.lower())
+        self.assertIn("separate grinder", response.response.lower())
 
     def test_graph_rejects_invalid_grind_setting_immediately(self):
         request = ChatRequest(
@@ -302,7 +317,7 @@ class CoachGraphTest(unittest.TestCase):
 
         self.assertEqual(response.shot_context.dose_g, 17)
         self.assertIsNone(response.shot_context.total_shot_seconds)
-        self.assertEqual(response.next_field, "grind_setting")
+        self.assertEqual(response.next_field, "roast_level")
         self.assertIsNone(response.analysis_result)
 
     def test_graph_accepts_plain_number_timing_only_when_asking_for_timing(self):

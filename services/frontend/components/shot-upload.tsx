@@ -36,7 +36,7 @@ const initialForm: FormState = {
   machine: "",
   grinder: "",
   uses_built_in_grinder: false,
-  dose_g: "18",
+  dose_g: "",
   yield_g: "",
   grind_setting: "",
   roast_level: "",

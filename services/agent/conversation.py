@@ -14,7 +14,7 @@ from typing import Any
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse, ShotContext
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
-FIELD_ORDER = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste", "timing"]
+FIELD_ORDER = ["machine", "grinder", "grind_setting", "roast_level", "taste", "timing"]
 TASTE_WORDS = {"sour", "bitter", "balanced", "thin", "watery", "harsh", "dry", "sweet", "acidic"}
 ROAST_LEVELS = {"light", "medium", "dark"}
 VIDEO_PATTERN = re.compile(r"(?:data/[^\s]+|[^\s]+\.(?:mp4|mov|m4v|wav))", re.IGNORECASE)
@@ -48,8 +48,6 @@ def missing_chat_fields(context: ShotContext) -> list[str]:
         missing.append("machine")
     if not context.uses_built_in_grinder and not context.grinder:
         missing.append("grinder")
-    if context.dose_g is None:
-        missing.append("dose_g")
     if not context.grind_setting:
         missing.append("grind_setting")
     if not context.roast_level:
@@ -164,7 +162,7 @@ def question_for(field: str, context: ShotContext) -> str:
         "machine": "What espresso machine are you using? You can type the model name for now.",
         "grinder": "What grinder are you using? If it is built into the machine, say built-in.",
         "dose_g": "What dose are you using in grams? For example: 18g.",
-        "grind_setting": "What grind setting are you currently using?",
+        "grind_setting": "What grind setting are you currently using? If you know the dose, you can include it too, like 18g.",
         "roast_level": "What roast level is the coffee: light, medium, or dark?",
         "taste": "How did the shot taste? Sour, bitter, balanced, thin, harsh, or anything you noticed.",
         "timing": "Attach or send your espresso shot video. If you timed it yourself, you can type the total time, like 27 seconds.",
