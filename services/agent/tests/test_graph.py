@@ -102,6 +102,24 @@ class CoachGraphTest(unittest.TestCase):
         self.assertEqual(response.next_field, "grinder")
 
 
+    def test_graph_parses_compact_setup_message(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="Lelit Anita, builtin, 18g, 2.1, medium, dark")],
+            shot_context=ShotContext(),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.machine, "LELIT Anita PL042TEMD")
+        self.assertTrue(response.shot_context.uses_built_in_grinder)
+        self.assertEqual(response.shot_context.grinder, "LELIT Anita PL042TEMD built-in grinder")
+        self.assertEqual(response.shot_context.dose_g, 18)
+        self.assertEqual(response.shot_context.grind_setting, "2.1")
+        self.assertEqual(response.shot_context.roast_level, "medium")
+        self.assertEqual(response.shot_context.taste, "dark")
+        self.assertEqual(response.next_field, "timing")
+
+
     def test_graph_rejects_llm_invalid_unknown_machine_name(self):
         request = ChatRequest(messages=[ChatMessage(role="user", content="whatever dsasd")], shot_context=ShotContext())
 
@@ -296,7 +314,7 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIn("Next", response.response)
 
 
-    def test_graph_ignores_llm_plain_number_timing_when_asking_for_dose(self):
+    def test_graph_ignores_llm_plain_number_timing_and_dose_when_asking_for_grind(self):
         request = ChatRequest(
             messages=[ChatMessage(role="user", content="17")],
             shot_context=ShotContext(
@@ -315,7 +333,8 @@ class CoachGraphTest(unittest.TestCase):
             fake_settings.return_value.aws_region = "us-east-1"
             response = graph.run_chat_graph(request, fake_analyze)
 
-        self.assertEqual(response.shot_context.dose_g, 17)
+        self.assertEqual(response.shot_context.grind_setting, "17")
+        self.assertIsNone(response.shot_context.dose_g)
         self.assertIsNone(response.shot_context.total_shot_seconds)
         self.assertEqual(response.next_field, "roast_level")
         self.assertIsNone(response.analysis_result)
@@ -378,6 +397,74 @@ class CoachGraphTest(unittest.TestCase):
         self.assertEqual(response.shot_context.grinder, "Turin DF54")
         self.assertEqual(response.shot_context.total_shot_seconds, 17)
 
+
+    def test_graph_bare_grind_number_does_not_become_dose_with_llm(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="1.8")],
+            shot_context=ShotContext(
+                machine="LELIT Anita PL042TEMD",
+                grinder="LELIT Anita PL042TEMD built-in grinder",
+                uses_built_in_grinder=True,
+            ),
+        )
+        extracted = {"dose_g": 1.8, "grind_setting": "1.8"}
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value=extracted
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.grind_setting, "1.8")
+        self.assertIsNone(response.shot_context.dose_g)
+        self.assertEqual(response.next_field, "roast_level")
+
+    def test_graph_dose_correction_during_taste_question_does_not_set_taste(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="Dose is 18g")],
+            shot_context=ShotContext(
+                machine="LELIT Anita PL042TEMD",
+                grinder="LELIT Anita PL042TEMD built-in grinder",
+                uses_built_in_grinder=True,
+                dose_g=1.8,
+                grind_setting="1.8",
+                roast_level="medium",
+            ),
+        )
+
+        response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.dose_g, 18)
+        self.assertIsNone(response.shot_context.taste)
+        self.assertEqual(response.next_field, "taste")
+        self.assertIn("taste", response.response.lower())
+
+    def test_graph_llm_taste_value_ignored_for_dose_correction(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="Dose is 18g")],
+            shot_context=ShotContext(
+                machine="LELIT Anita PL042TEMD",
+                grinder="LELIT Anita PL042TEMD built-in grinder",
+                uses_built_in_grinder=True,
+                grind_setting="1.8",
+                roast_level="medium",
+            ),
+        )
+        extracted = {"dose_g": 18, "taste": "Dose is 18g"}
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value=extracted
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.dose_g, 18)
+        self.assertIsNone(response.shot_context.taste)
+        self.assertEqual(response.next_field, "taste")
 
 
     def test_graph_low_confidence_image_guess_asks_for_name(self):

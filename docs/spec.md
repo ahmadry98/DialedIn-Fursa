@@ -334,7 +334,50 @@ Native Expo direction:
 - Render chat messages, media previews, low-confidence timing confirmation, and recommendation conclusions directly in the mobile app.
 - Keep WebView/open-browser integration only as a temporary bridge, not the final product UX.
 
+## Equipment Profile API And Images
+
+DialedIn should stop duplicating equipment knowledge between the mobile app and DialChat. The backend profile API becomes the shared source for machines and grinders while the JSON files remain the storage source until the schema stabilizes. The mobile machines page should read from `GET /machines`, and the new grinders page should read from `GET /grinders`.
+
+Machine and grinder profiles may include optional image metadata:
+
+```json
+{
+  "image": {
+    "url": "https://...",
+    "local_asset_key": "rancilio-silvia",
+    "source_url": "https://...",
+    "license_or_source_type": "manufacturer|retailer|local",
+    "status": "reviewed|needs_review|missing",
+    "review_notes": "string|null"
+  }
+}
+```
+
+Images are product-display data, not verified machine specifications. The app should only show reviewed images. For missing images, the profile API returns `has_image=false` and the mobile UI shows a neutral placeholder. Image discovery should prefer manufacturer/official product pages first, then reputable retailers if official images are not usable. Production should avoid fragile hotlinks by curating images into mobile assets or S3 after review.
+
+The database migration should wait until profile API, profile image metadata, and mobile machine/grinder pages are stable. Until then, JSON plus tests is simpler and easier to review.
+
 ## 20. Video Upload And Storage Direction
+
+Checkpoint 18 adds the production-shaped upload flow while preserving a local development fallback. The Expo app no longer sends a phone-local video path directly to analysis. It asks FastAPI for an upload target, uploads the selected shot video, registers the uploaded media, and then sends the returned `video_s3_key` into the chat context. In `local` mode, FastAPI writes the uploaded video below `data/uploads/` and returns that local path as the key so ffmpeg/audio analysis still works on the developer machine. In `s3` mode, FastAPI returns a presigned S3 PUT URL and the S3 object key.
+
+Storage environment variables:
+
+- `DIALEDIN_MEDIA_STORAGE_MODE=local|s3`
+- `DIALEDIN_LOCAL_MEDIA_UPLOAD_DIR=data/uploads`
+- `DIALEDIN_MEDIA_UPLOAD_BUCKET=<bucket-name>` for S3 mode
+- `DIALEDIN_MEDIA_UPLOAD_PREFIX=dialchat-media`
+- `DIALEDIN_MEDIA_UPLOAD_URL_EXPIRES_SECONDS=900`
+
+Terraform defines the S3 media bucket and DynamoDB shot-results table. The Terraform layout follows the PolyAIFursa pattern with separate `versions.tf`, `locals.tf`, `variables.tf`, resource files, outputs, workspace-based names, and environment tfvars. Runtime shot history uses in-memory storage by default for local development, and switches to DynamoDB when `DIALEDIN_SHOT_RESULTS_TABLE` is configured. The storage layer keeps the same MCP tool names, so `save_shot_result` and `compare_previous_shots` do not change at the agent boundary.
+
+Shot history environment variables:
+
+- `DIALEDIN_SHOT_RESULTS_TABLE=<table-name>` enables DynamoDB persistence.
+- `DIALEDIN_SHOT_HISTORY_STORAGE=memory|dynamodb` can force memory mode or require DynamoDB mode.
+
+S3 upload/download failures should return actionable messages, such as missing AWS credentials, missing bucket, missing object, or missing `s3:PutObject`/`s3:GetObject` permissions.
+
 
 Local `data/raw-videos/...` paths are only for development on the Mac. They are not a good phone workflow because a real mobile app cannot rely on the user's local project folder.
 

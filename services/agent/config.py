@@ -27,6 +27,11 @@ def load_local_env() -> None:
 class AgentSettings:
     app_name: str = "DialedIN Agent"
     local_upload_dir: Path = Path("data/raw-videos")
+    local_media_upload_dir: Path = Path("data/uploads")
+    media_storage_mode: str = "local"
+    media_upload_bucket: str | None = None
+    media_upload_prefix: str = "dialchat-media"
+    media_upload_url_expires_seconds: int = 900
     require_confirm_below_confidence: float = 0.35
     profile_research_autorun: bool = False
     profile_research_autorun_limit: int = 1
@@ -39,6 +44,11 @@ def get_settings() -> AgentSettings:
     load_local_env()
 
     upload_dir = Path(os.getenv("DIALEDIN_LOCAL_UPLOAD_DIR", "data/raw-videos"))
+    media_upload_dir = Path(os.getenv("DIALEDIN_LOCAL_MEDIA_UPLOAD_DIR", "data/uploads"))
+    media_storage_mode = os.getenv("DIALEDIN_MEDIA_STORAGE_MODE", "local").lower()
+    media_upload_bucket = os.getenv("DIALEDIN_MEDIA_UPLOAD_BUCKET") or None
+    media_upload_prefix = os.getenv("DIALEDIN_MEDIA_UPLOAD_PREFIX", "dialchat-media")
+    media_upload_expires = int(os.getenv("DIALEDIN_MEDIA_UPLOAD_URL_EXPIRES_SECONDS", "900"))
     confidence = float(os.getenv("DIALEDIN_CONFIRM_CONFIDENCE", "0.35"))
     autorun = os.getenv("PROFILE_RESEARCH_AUTORUN", "false").lower() in {"1", "true", "yes", "on"}
     autorun_limit = int(os.getenv("PROFILE_RESEARCH_AUTORUN_LIMIT", "1"))
@@ -47,6 +57,11 @@ def get_settings() -> AgentSettings:
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
     return AgentSettings(
         local_upload_dir=upload_dir,
+        local_media_upload_dir=media_upload_dir,
+        media_storage_mode=media_storage_mode if media_storage_mode in {"local", "s3"} else "local",
+        media_upload_bucket=media_upload_bucket,
+        media_upload_prefix=media_upload_prefix,
+        media_upload_url_expires_seconds=media_upload_expires,
         require_confirm_below_confidence=confidence,
         profile_research_autorun=autorun,
         profile_research_autorun_limit=max(1, autorun_limit),
