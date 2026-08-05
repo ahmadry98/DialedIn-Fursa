@@ -9,6 +9,7 @@ data/raw-videos/*.m4v
 data/raw-videos/*.avi
 data/frames/
 data/classification-dataset/
+data/uploads/
 
 # Trained model artifacts
 models/*.pt
@@ -26,3 +27,7 @@ out/
 dist/
 npm-debug.log*
 *.tsbuildinfo
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+terraform.tfstate.d/

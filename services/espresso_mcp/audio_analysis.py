@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from modeling import audio_analysis as modeling_audio
+from services.espresso_mcp import storage
 
 AUDIO_OUTPUT_DIR = Path(tempfile.gettempdir()) / "espresso_mcp_audio"
 
@@ -18,9 +19,7 @@ def extract_audio_track(video_s3_key: str, output_dir: str | None = None) -> dic
     The MVP treats ``video_s3_key`` as a local file path during development. The
     later storage checkpoint can replace path resolution with S3 download/upload.
     """
-    media_path = Path(video_s3_key)
-    if not media_path.exists():
-        raise FileNotFoundError(f"Video/audio key does not exist locally: {video_s3_key}")
+    media_path = storage.resolve_media_key_to_local_path(video_s3_key)
 
     output_root = Path(output_dir) if output_dir else AUDIO_OUTPUT_DIR
     output_root.mkdir(parents=True, exist_ok=True)
@@ -56,5 +55,6 @@ def calculate_total_shot_time(machine_start_time: float, machine_stop_time: floa
 
 def analyze_audio_timing(video_s3_key: str) -> dict[str, Any]:
     """Extract/analyze audio timing for a local video or WAV key/path."""
-    result = modeling_audio.analyze_media(Path(video_s3_key))
+    media_path = storage.resolve_media_key_to_local_path(video_s3_key)
+    result = modeling_audio.analyze_media(media_path)
     return asdict(result)

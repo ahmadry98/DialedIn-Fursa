@@ -5,6 +5,7 @@ import unittest
 import wave
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import numpy as np
 
@@ -12,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from mcp import types
 
-from services.espresso_mcp import app
+from services.espresso_mcp import app, storage
 
 
 def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
@@ -35,7 +36,12 @@ def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
 
 class EspressoMcpToolsTest(unittest.TestCase):
     def setUp(self):
+        self.env_patch = patch.dict("os.environ", {"DIALEDIN_SHOT_HISTORY_STORAGE": "memory"})
+        self.env_patch.start()
         app.SHOT_HISTORY.clear()
+
+    def tearDown(self):
+        self.env_patch.stop()
 
     def test_registered_tool_names(self):
         self.assertEqual(
@@ -120,6 +126,89 @@ class EspressoMcpToolsTest(unittest.TestCase):
 
         self.assertFalse(comparison["has_previous"])
         self.assertIn("No previous shots", comparison["message"])
+
+
+    def test_dynamodb_shot_history_when_table_is_configured(self):
+        saved_items = []
+
+        class FakeTable:
+            def put_item(self, Item):
+                saved_items.append(Item)
+
+            def query(self, **kwargs):
+                return {
+                    "Items": [
+                        {"result": {"total_shot_seconds": 27}},
+                        {"result": {"total_shot_seconds": 22}},
+                    ]
+                }
+
+        class FakeResource:
+            def Table(self, table_name):
+                self.table_name = table_name
+                return fake_table
+
+        class FakeSession:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def resource(self, service_name):
+                self.service_name = service_name
+                return fake_resource
+
+        fake_table = FakeTable()
+        fake_resource = FakeResource()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "DIALEDIN_SHOT_HISTORY_STORAGE": "dynamodb",
+                "DIALEDIN_SHOT_RESULTS_TABLE": "dialedin-test-shot-results",
+                "AWS_REGION": "us-east-1",
+            },
+        ), patch("boto3.Session", FakeSession):
+            saved = storage.save_shot_result("user-1", {"total_shot_seconds": 27.5, "target_range_seconds": (25.0, 32.0)})
+            comparison = storage.compare_previous_shots("user-1", {"total_shot_seconds": 27})
+
+        self.assertEqual(saved["status"], "saved")
+        self.assertEqual(saved["storage_mode"], "dynamodb")
+        self.assertEqual(fake_resource.table_name, "dialedin-test-shot-results")
+        self.assertEqual(saved_items[0]["user_id"], "user-1")
+        self.assertEqual(str(saved_items[0]["result"]["total_shot_seconds"]), "27.5")
+        self.assertEqual([str(value) for value in saved_items[0]["result"]["target_range_seconds"]], ["25.0", "32.0"])
+        self.assertTrue(comparison["has_previous"])
+        self.assertEqual(comparison["total_shot_delta_seconds"], 5.0)
+
+    def test_s3_media_key_downloads_to_local_temp_file(self):
+        class FakeS3Client:
+            def download_file(self, bucket, key, target):
+                self.bucket = bucket
+                self.key = key
+                Path(target).write_bytes(b"media")
+
+        class FakeSession:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            def client(self, service_name):
+                self.service_name = service_name
+                return fake_client
+
+        fake_client = FakeS3Client()
+        with patch.dict(
+            "os.environ",
+            {
+                "DIALEDIN_MEDIA_STORAGE_MODE": "s3",
+                "DIALEDIN_MEDIA_UPLOAD_BUCKET": "dialedin-test-bucket",
+                "AWS_REGION": "us-east-1",
+            },
+        ), patch("boto3.Session", FakeSession):
+            resolved = storage.resolve_media_key_to_local_path("dialchat-media/user/shot_video/shot.mov")
+
+        self.assertTrue(resolved.exists())
+        self.assertEqual(resolved.read_bytes(), b"media")
+        self.assertEqual(fake_client.bucket, "dialedin-test-bucket")
+        self.assertEqual(fake_client.key, "dialchat-media/user/shot_video/shot.mov")
 
     def test_audio_tools_from_wav(self):
         with TemporaryDirectory() as tmp:

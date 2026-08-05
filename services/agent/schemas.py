@@ -66,6 +66,37 @@ class ChatResponse(BaseModel):
 
 
 
+class MediaUploadUrlRequest(BaseModel):
+    filename: str
+    content_type: str = "application/octet-stream"
+    media_kind: str = Field(pattern="^(shot_video|machine_photo|grinder_photo)$")
+    user_id: str = "demo-user"
+
+
+class MediaUploadUrlResponse(BaseModel):
+    media_key: str
+    upload_url: str
+    method: str = "PUT"
+    headers: dict[str, str] = Field(default_factory=dict)
+    storage_mode: str
+    expires_in_seconds: int
+
+
+class MediaRegisterRequest(BaseModel):
+    media_key: str
+    media_kind: str = Field(pattern="^(shot_video|machine_photo|grinder_photo)$")
+    storage_mode: str = Field(pattern="^(local|s3)$")
+    content_type: str | None = None
+
+
+class MediaRegisterResponse(BaseModel):
+    media_key: str
+    video_s3_key: str | None = None
+    media_kind: str
+    storage_mode: str
+    content_type: str | None = None
+
+
 
 class ProfileCandidateUpdateRequest(BaseModel):
     draft_profile: dict[str, Any] | None = None

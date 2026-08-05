@@ -67,6 +67,24 @@ export type AnalyzeShotResponse = {
   message: string;
 };
 
+
+export type MediaUploadTarget = {
+  media_key: string;
+  upload_url: string;
+  method: string;
+  headers: Record<string, string>;
+  storage_mode: "local" | "s3" | string;
+  expires_in_seconds: number;
+};
+
+export type MediaRegisterResponse = {
+  media_key: string;
+  video_s3_key?: string | null;
+  media_kind: string;
+  storage_mode: string;
+  content_type?: string | null;
+};
+
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
@@ -227,6 +245,58 @@ function defaultApiBaseUrl() {
     }
   }
   return "http://127.0.0.1:8000";
+}
+
+export async function createMediaUploadUrl(payload: {
+  filename: string;
+  content_type: string;
+  media_kind: "shot_video" | "machine_photo" | "grinder_photo";
+  user_id: string;
+}): Promise<MediaUploadTarget> {
+  const response = await fetch(`${API_BASE_URL}/media/upload-url`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Could not prepare media upload" }));
+    throw new Error(error.detail ?? "Could not prepare media upload");
+  }
+
+  return response.json();
+}
+
+export async function uploadFileToMediaTarget(file: File, target: MediaUploadTarget): Promise<void> {
+  const response = await fetch(target.upload_url, {
+    method: target.method || "PUT",
+    headers: target.headers,
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not upload the video. Check S3/local upload permissions and try again.");
+  }
+}
+
+export async function registerMediaUpload(payload: {
+  media_key: string;
+  media_kind: "shot_video" | "machine_photo" | "grinder_photo";
+  storage_mode: string;
+  content_type?: string | null;
+}): Promise<MediaRegisterResponse> {
+  const response = await fetch(`${API_BASE_URL}/media/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Could not register uploaded media" }));
+    throw new Error(error.detail ?? "Could not register uploaded media");
+  }
+
+  return response.json();
 }
 
 export async function analyzeShot(payload: ShotFormValues): Promise<AnalyzeShotResponse> {

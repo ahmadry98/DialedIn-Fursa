@@ -83,6 +83,8 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
     if is_small_talk(text):
         return
 
+    _apply_compact_setup_message(context, text, previous_missing)
+
     if is_built_in_grinder_reply(text):
         context.uses_built_in_grinder = True
         if context.machine and not context.grinder:
@@ -99,33 +101,32 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
             context.timing_confidence = 1
             context.requires_manual_confirmation = False
 
-    if context.dose_g is None:
-        dose = _extract_labeled_number(text, ["dose", "in"])
-        if dose is None and previous_missing[:1] == ["dose_g"]:
-            dose = _first_number(text)
-        if dose is not None:
-            context.dose_g = dose
+    dose = _extract_labeled_number(text, ["dose", "in"])
+    if dose is None:
+        dose = _extract_dose_value(text)
+    if dose is None and context.dose_g is None and previous_missing[:1] == ["dose_g"]:
+        dose = _first_number(text)
+    if dose is not None:
+        context.dose_g = dose
 
-    if context.yield_g is None:
-        yield_value = _extract_labeled_number(text, ["yield", "out", "output"])
-        if yield_value is not None:
-            context.yield_g = yield_value
+    yield_value = _extract_labeled_number(text, ["yield", "out", "output"])
+    if yield_value is not None:
+        context.yield_g = yield_value
 
-    if not context.grind_setting:
-        grind = _extract_grind_setting(text)
-        if grind is None and previous_missing[:1] == ["grind_setting"]:
-            grind = _first_tokenish_value(text)
-        if grind:
-            context.grind_setting = grind
+    grind = _extract_grind_setting(text)
+    if grind is None and not context.grind_setting and previous_missing[:1] == ["grind_setting"]:
+        grind = _first_tokenish_value(text)
+    if grind:
+        context.grind_setting = grind
 
     if not context.roast_level:
-        roast = next((level for level in ROAST_LEVELS if re.search(rf"\b{level}\b", lowered)), None)
+        roast = _extract_roast_level(text)
         if roast:
             context.roast_level = roast
         elif previous_missing[:1] == ["roast_level"] and lowered in ROAST_LEVELS:
             context.roast_level = lowered
 
-    if not context.taste and not video and context.total_shot_seconds is None:
+    if not context.taste and not video and context.total_shot_seconds is None and not is_structured_field_correction(text):
         taste_words = [word for word in TASTE_WORDS if re.search(rf"\b{word}\b", lowered)]
         if taste_words:
             context.taste = ", ".join(sorted(taste_words))
@@ -143,6 +144,89 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
         grinder = _clean_equipment_reply(text)
         if looks_like_equipment_name(grinder, "grinder"):
             context.grinder = canonical_gear_name(grinder, "grinder")
+
+
+def is_compact_setup_message(text: str) -> bool:
+    parts = [part.strip() for part in re.split(r"[,;\n]+", text) if part.strip()]
+    return len(parts) >= 4 and any(_extract_dose_value(part) is not None for part in parts)
+
+
+def _apply_compact_setup_message(context: ShotContext, text: str, previous_missing: list[str]) -> None:
+    """Parse natural comma-separated setup replies.
+
+    Example: "Lelit Anita, builtin, 18g, 2.1, medium, dark". This keeps the
+    chat pleasant when the user gives the whole setup in one message instead of
+    answering one field at a time.
+    """
+    parts = [part.strip() for part in re.split(r"[,;\n]+", text) if part.strip()]
+    if len(parts) < 3:
+        return
+
+    available_fields = previous_missing[:] or missing_chat_fields(context)
+    if "machine" in available_fields and not context.machine and parts:
+        first = parts[0]
+        if looks_like_equipment_name(first, "machine"):
+            context.machine = canonical_gear_name(first, "machine")
+            parts = parts[1:]
+
+    if parts and "grinder" in available_fields and not context.grinder:
+        if is_built_in_grinder_reply(parts[0]):
+            context.uses_built_in_grinder = True
+            if context.machine:
+                context.grinder = f"{context.machine} built-in grinder"
+            parts = parts[1:]
+        elif looks_like_equipment_name(parts[0], "grinder"):
+            context.grinder = canonical_gear_name(parts[0], "grinder")
+            parts = parts[1:]
+
+    for part in parts[:]:
+        dose = _extract_dose_value(part)
+        if dose is not None:
+            context.dose_g = dose
+            parts.remove(part)
+            break
+
+    for part in parts[:]:
+        if not context.grind_setting:
+            grind = _extract_grind_setting(part) or _numeric_tokenish_value(part)
+            if grind is not None:
+                context.grind_setting = grind
+                parts.remove(part)
+                break
+
+    for part in parts[:]:
+        roast = _extract_roast_level(part)
+        if roast and not context.roast_level:
+            context.roast_level = roast
+            parts.remove(part)
+            break
+
+    for part in parts:
+        if not context.taste and not is_structured_field_correction(part) and not _looks_like_skip(_normalize_text(part)):
+            context.taste = part
+            break
+
+
+
+def is_structured_field_correction(text: str) -> bool:
+    """Return true when a message clearly updates a non-taste field."""
+    lowered = text.strip().lower()
+    if VIDEO_PATTERN.search(text) or _extract_seconds(text) is not None:
+        return True
+    return bool(
+        _extract_labeled_number(text, ["dose", "in", "yield", "out", "output"]) is not None
+        or _extract_grind_setting(text) is not None
+        or re.search(r"\broast\b", lowered)
+    )
+
+
+def has_labeled_dose(text: str) -> bool:
+    return _extract_labeled_number(text, ["dose", "in"]) is not None
+
+
+def has_labeled_taste(text: str) -> bool:
+    lowered = text.strip().lower()
+    return bool(re.search(r"\b(?:taste|tasted|flavor|flavour)\b", lowered))
 
 
 def _reply(response: str, context: ShotContext, missing: list[str]) -> ChatResponse:
@@ -481,6 +565,23 @@ def _first_number(text: str) -> float | None:
 def _extract_grind_setting(text: str) -> str | None:
     match = re.search(r"\bgrind(?:\s+setting)?\b\D{0,12}([a-z0-9.\-]+)", text, re.IGNORECASE)
     return match.group(1).rstrip(".,") if match else None
+
+
+def _extract_dose_value(text: str) -> float | None:
+    match = re.search(r"(?<![a-z0-9.])(\d+(?:\.\d+)?)\s*g\b", text, re.IGNORECASE)
+    return float(match.group(1)) if match else None
+
+
+def _extract_roast_level(text: str) -> str | None:
+    lowered = text.lower()
+    return next((level for level in ROAST_LEVELS if re.search(rf"\b{level}\b", lowered)), None)
+
+
+def _numeric_tokenish_value(text: str) -> str | None:
+    cleaned = text.strip().rstrip(".,")
+    if re.fullmatch(r"-?\d+(?:\.\d+)?", cleaned):
+        return cleaned
+    return None
 
 
 def _first_tokenish_value(text: str) -> str | None:

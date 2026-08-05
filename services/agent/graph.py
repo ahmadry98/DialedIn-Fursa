@@ -139,6 +139,8 @@ def _llm_extract(state: CoachGraphState) -> dict[str, Any]:
     message = state.get("message", "")
     if not message:
         return {}
+    if conversation.is_compact_setup_message(message):
+        return {}
 
     settings = get_settings()
     if not settings.chat_llm_extraction_enabled:
@@ -165,6 +167,10 @@ def _filter_extracted_context(extracted: dict[str, Any], message: str, previous_
     if expected_field != "timing" and not conversation.has_explicit_timing(message):
         filtered.pop("total_shot_seconds", None)
         filtered.pop("video_s3_key", None)
+    if expected_field == "grind_setting" and not conversation.has_labeled_dose(message):
+        filtered.pop("dose_g", None)
+    if expected_field == "taste" and conversation.is_structured_field_correction(message) and not conversation.has_labeled_taste(message):
+        filtered.pop("taste", None)
     if filtered.get("machine"):
         filtered["machine"] = conversation.canonical_gear_name(str(filtered["machine"]), "machine")
     if filtered.get("grinder"):

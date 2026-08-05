@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.agent import agent_runner
+from services.agent import agent_runner, storage
 from services.agent.config import get_settings
 from services.agent.schemas import (
     AnalyzeShotRequest,
@@ -13,6 +13,10 @@ from services.agent.schemas import (
     ChatRequest,
     ChatResponse,
     HealthResponse,
+    MediaRegisterRequest,
+    MediaRegisterResponse,
+    MediaUploadUrlRequest,
+    MediaUploadUrlResponse,
     MetricsResponse,
     ProfileCandidateUpdateRequest,
 )
@@ -48,6 +52,45 @@ def health() -> HealthResponse:
 @app.get("/metrics", response_model=MetricsResponse)
 def metrics() -> MetricsResponse:
     return MetricsResponse(**agent_runner.metrics())
+
+
+@app.post("/media/upload-url", response_model=MediaUploadUrlResponse)
+def create_media_upload_url(request_body: MediaUploadUrlRequest, request: Request) -> MediaUploadUrlResponse:
+    try:
+        target = storage.create_upload_target(
+            settings=settings,
+            base_url=str(request.base_url),
+            user_id=request_body.user_id,
+            filename=request_body.filename,
+            content_type=request_body.content_type,
+            media_kind=request_body.media_kind,
+        )
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return MediaUploadUrlResponse(**target.__dict__)
+
+
+@app.put("/media/local-upload/{media_key:path}")
+async def upload_local_media(media_key: str, request: Request) -> dict[str, object]:
+    try:
+        payload = await request.body()
+        return storage.write_local_upload(settings=settings, media_key=media_key, payload=payload)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@app.post("/media/register", response_model=MediaRegisterResponse)
+def register_media_upload(request_body: MediaRegisterRequest) -> MediaRegisterResponse:
+    try:
+        metadata = storage.register_uploaded_media(
+            media_key=request_body.media_key,
+            media_kind=request_body.media_kind,
+            storage_mode=request_body.storage_mode,
+            content_type=request_body.content_type,
+        )
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return MediaRegisterResponse(**metadata)
 
 
 @app.get("/profile-research/status")
@@ -147,7 +190,11 @@ def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks)
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatResponse:
-    response = agent_runner.chat(request)
+    try:
+        response = agent_runner.chat(request)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
     analysis = response.analysis_result
     if settings.profile_research_autorun and analysis and analysis.profile_candidates:
         print(
