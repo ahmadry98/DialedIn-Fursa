@@ -337,14 +337,14 @@ def _timing_gap_adjustment_text(direction: str, total: float, target_min: float,
 
 
 def _keep_fixed(shot_context: dict[str, Any]) -> list[str]:
-    tracked = ["dose_g", "yield_g", "puck_prep"]
-    present = [field for field in tracked if shot_context.get(field) not in (None, "")]
-    return present or ["dose_g", "puck_prep"]
+    present = [field for field in ["dose_g", "yield_g"] if shot_context.get(field) not in (None, "")]
+    return [*present, "puck_prep"]
 
 
 def _missing_context(shot_context: dict[str, Any]) -> list[str]:
-    important = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste"]
-    return [field for field in important if shot_context.get(field) in (None, "")]
+    required = ["machine", "grinder", "grind_setting", "roast_level", "taste"]
+    optional = ["dose_g"]
+    return [field for field in [*required, *optional] if shot_context.get(field) in (None, "")]
 
 
 def _normalize_text(value: Any) -> str:

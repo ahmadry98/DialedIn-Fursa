@@ -196,6 +196,14 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
 
     context = state["context"]
     if expected_field == "grinder" and context.uses_built_in_grinder:
+        if _machine_disallows_built_in_grinder(context):
+            return {
+                "context": context.model_copy(update={"uses_built_in_grinder": False, "grinder": None}),
+                "invalid_field": {
+                    "field": "grinder",
+                    "reason": f"{context.machine} does not have a built-in grinder, so I need the separate grinder model.",
+                },
+            }
         return {}
 
     name = getattr(context, expected_field)
@@ -244,7 +252,7 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
 
 def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
     expected_field = (state.get("previous_missing") or [None])[0]
-    if expected_field not in {"dose_g", "grind_setting", "roast_level", "timing"}:
+    if expected_field not in {"grind_setting", "roast_level", "timing"}:
         return {}
 
     message = state.get("message", "")
@@ -255,9 +263,7 @@ def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     reason: str | None = None
 
-    if expected_field == "dose_g" and context.dose_g is None:
-        reason = "Dose should be a number in grams, like 18g."
-    elif expected_field == "grind_setting":
+    if expected_field == "grind_setting":
         if not context.grind_setting or not _looks_numeric(context.grind_setting):
             updates["grind_setting"] = None
             reason = "Grind setting should be the number or mark on your grinder, like 12 or 2.1."
@@ -288,6 +294,14 @@ def _looks_numeric(value: str | None) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _machine_disallows_built_in_grinder(context: ShotContext) -> bool:
+    if not context.machine:
+        return False
+    profile = conversation.machine_profiles.get_machine_profile(context.machine)
+    specs = profile.get("specs") or {}
+    return specs.get("has_built_in_grinder") is False
 
 
 

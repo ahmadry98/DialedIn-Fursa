@@ -80,8 +80,9 @@ class ConversationApiTest(unittest.TestCase):
         payload = self.post_chat("built-in", context)
 
         self.assertTrue(payload["shot_context"]["uses_built_in_grinder"])
-        self.assertEqual(payload["next_field"], "dose_g")
+        self.assertEqual(payload["next_field"], "grind_setting")
         self.assertNotIn("grinder", payload["missing_fields"])
+        self.assertNotIn("dose_g", payload["missing_fields"])
 
     def test_chat_accepts_video_path_as_timing_source(self):
         context = {
