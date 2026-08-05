@@ -2,7 +2,7 @@
 
 ## 1. Problem Statement
 
-Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN acts as a guided espresso coach: it asks for the machine, grinder, dose, grind setting, roast, taste, and shot video or manual timing, estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment. Local file paths are only a development bridge; production/mobile video input should upload media and analyze a stored object key.
+Home espresso users struggle to understand why a shot runs too fast, too slow, sour, bitter, watery, or inconsistent. A key diagnostic signal is total shot time, but users often measure it manually and inconsistently. DialedIN acts as a guided espresso coach: it asks for the machine, grinder, grind setting, roast, taste, and shot video or manual timing, with optional dose/yield when the user has a scale. It estimates the machine/pump start and stop from audio, combines that timing with espresso context, and recommends the next grind adjustment. Local file paths are only a development bridge; production/mobile video input should upload media and analyze a stored object key.
 
 The product also learns from unknown equipment. When the user enters a machine or grinder that is not in the curated profiles, DialedIN captures it as a research candidate, gathers source evidence, asks Bedrock to draft a profile, and keeps that draft pending human review before it becomes trusted data.
 
@@ -11,7 +11,7 @@ The product also learns from unknown equipment. When the user enters a machine o
 The MVP proves this core flow:
 
 1. User chats with DialedIN instead of filling a large form.
-2. The coach asks for missing context one step at a time: machine, grinder or built-in grinder choice, dose, optional yield, grind setting, roast level, taste notes, and shot video or manual timing.
+2. The coach asks for missing context one step at a time: machine, grinder or built-in grinder choice, grind setting, roast level, taste notes, and shot video or manual timing. Dose and yield can be added when known, but they do not block analysis.
 3. The system extracts/analyzes audio to detect machine start and stop when a shot video is provided. In local development this may be a file path; in production/mobile it should be an uploaded S3 object key.
 4. Timing logic calculates total shot time and confidence.
 5. The backend uses curated machine and grinder profiles when available.
@@ -76,7 +76,7 @@ The current MVP processes videos synchronously. A separate async worker/SQS flow
 
 1. User opens the frontend chat.
 2. User can greet or ask general espresso questions.
-3. Coach keeps a conversation state for machine, grinder, built-in grinder choice, dose, optional yield, grind setting, roast, taste, timing/video, and confirmations.
+3. Coach keeps a conversation state for machine, grinder, built-in grinder choice, optional dose/yield, grind setting, roast, taste, timing/video, and confirmations.
 4. Coach asks the next missing question naturally.
 5. User enters typed values, chooses known gear, attaches/uploads a shot video, or provides manual timing.
 6. Frontend sends the accumulated shot context to the FastAPI agent when enough data exists.
@@ -120,7 +120,7 @@ Conversation state includes:
 - `machine`
 - `grinder`
 - `uses_built_in_grinder`
-- `dose_g`
+- `dose_g` optional
 - `yield_g`
 - `grind_setting`
 - `roast_level`
@@ -129,7 +129,7 @@ Conversation state includes:
 - manual timing fields when the user does not want video/audio
 - confirmation state for guessed gear or low-confidence timing
 
-The chat layer may use an LLM for normal replies, extracting values from messy text, and eventually interpreting images. It must not invent shot timing, grinder math, or verified machine facts. The first implementation uses LangGraph with deterministic extraction plus optional Claude Haiku/Bedrock nodes for natural multi-field messages and machine/grinder photo guesses. If Bedrock is disabled or denied by IAM, the graph falls back to deterministic extraction. Image guesses are stored as pending gear and require user confirmation before becoming machine or grinder context. When enough structured context is collected, the graph calls the existing `/analyze-shot` flow and renders the result conversationally.
+The chat layer may use an LLM for normal replies, extracting values from messy text, and eventually interpreting images. It must not invent shot timing, grinder math, or verified machine facts. The first implementation uses LangGraph with deterministic extraction plus optional Claude Haiku/Bedrock nodes for natural multi-field messages and machine/grinder photo guesses. If Bedrock is disabled or denied by IAM, the graph falls back to deterministic extraction. Image guesses are stored as pending gear and require user confirmation before becoming machine or grinder context. In the native Expo app, machine/grinder photos can be attached before S3 because small images are sent as base64; shot videos should use S3 upload in the storage checkpoint. When enough structured context is collected, the graph calls the existing `/analyze-shot` flow and renders the result conversationally.
 
 
 ## 9. Machine Profiles
@@ -243,7 +243,7 @@ The recommendation engine is deterministic and explainable:
 - Bitter, harsh, dry: usually over-extraction.
 - Channeling/spraying: fix puck prep before changing grind.
 
-The app recommends one primary next change and lists what to keep fixed. When it calculates an exact grinder setting, it also explains the timing gap, grinder sensitivity estimate, estimated number of small steps, and recommendation confidence reasons. Yield is optional because many users do not weigh output, but recommendations improve when yield is available.
+The app recommends one primary next change and lists what to keep fixed. When it calculates an exact grinder setting, it also explains the timing gap, grinder sensitivity estimate, estimated number of small steps, and recommendation confidence reasons. Dose and yield are optional because many users do not use a scale, but recommendations improve when either value is available.
 
 ## 14. Agent System Prompt
 
@@ -358,7 +358,7 @@ The system handles:
 - Local development video path pointing to a directory.
 - Missing audio track.
 - Noisy audio or low confidence.
-- Missing machine/grinder/dose/grind setting/roast/taste.
+- Missing machine/grinder/grind setting/roast/taste, plus optional dose/yield quality notes.
 - Invalid known grinder setting.
 - Bedrock or AWS failure during background research.
 - Web evidence failure.

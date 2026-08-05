@@ -19,7 +19,7 @@
 - Bedrock is used for profile research drafts only.
 - Profile drafts require human review before promotion to trusted JSON.
 - Built-in grinders must not create fake separate grinder candidates.
-- Yield is optional.
+- Dose and yield are optional because many users do not use a scale; recommendations improve when provided.
 - Do not push changes unless the user explicitly asks.
 
 ---
@@ -176,7 +176,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Add `/metrics`.
 - [x] Add CORS for local frontend.
 - [x] Add missing-field handling.
-- [x] Add optional yield handling.
+- [x] Add optional dose/yield handling.
 - [x] Add background profile research autorun.
 - [x] Protect shot analysis from background research failures.
 
@@ -195,7 +195,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Add video/path input.
 - [x] Add machine and grinder datalist inputs.
 - [x] Add built-in grinder checkbox.
-- [x] Add dose, optional yield, grind setting, roast, and taste inputs.
+- [x] Add optional dose/yield, grind setting, roast, and taste inputs.
 - [x] Validate known grinder settings client-side.
 - [x] Submit to agent.
 - [x] Show timing, confidence, warnings, recommendation, exact setting, missing fields, and unknown gear candidates.
@@ -269,7 +269,7 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Guided chat experience that uses the existing analysis engine instead of a large form.
 
-- [x] Add a conversation state object for machine, grinder, built-in grinder, dose, yield, grind setting, roast, taste, timing/video, and confirmation state.
+- [x] Add a conversation state object for machine, grinder, built-in grinder, optional dose/yield, grind setting, roast, taste, timing/video, and confirmation state.
 - [x] Use LangGraph to orchestrate context loading, parsing, missing-field routing, analysis, and response assembly.
 - [x] Let users send normal messages such as greetings and questions.
 - [x] Ask the next missing espresso question naturally.
@@ -396,13 +396,15 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** AI Shot Analysis runs inside the DialedIn Expo app instead of opening the Next.js site.
 
-- [ ] Replace the temporary open-browser/WebView bridge with native React Native chat components.
-- [ ] Render assistant/user bubbles, photo/video previews, loading state, and errors natively.
-- [ ] Call FastAPI `/chat` directly from the Expo app.
-- [ ] Keep conversation state in the Expo screen.
-- [ ] Show timing/recommendation as a native full-screen or bottom-sheet analysis view.
-- [ ] Support low-confidence timing confirmation inside the native screen.
-- [ ] Keep Next.js frontend available for desktop/admin/local demos.
+- [x] Replace the temporary open-browser/WebView bridge with native React Native chat components.
+- [x] Render assistant/user bubbles, loading state, and errors natively. Photo/video upload previews move to Checkpoint 18 with S3 upload.
+- [x] Call FastAPI `/chat` directly from the Expo app.
+- [x] Keep conversation state in the Expo screen.
+- [x] Show timing/recommendation as a native full-screen or bottom-sheet analysis view.
+- [x] Support low-confidence timing confirmation inside the native screen through the chat response and analysis view.
+- [x] Keep Next.js frontend available for desktop/admin/local demos.
+- [x] Add native photo attachment for machine/grinder recognition using base64.
+- [x] Link DialedIN mobile machine slugs to DialChat machine profiles where available.
 - [ ] Test on iPhone simulator and a real phone using LAN or deployed API URLs.
 
 ## Checkpoint 18: Storage And S3 Video Upload
@@ -418,7 +420,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add S3 bucket for raw videos, extracted audio, and analysis outputs.
 - [ ] Add backend endpoint to create presigned upload URLs.
 - [ ] Add backend endpoint/helper to register uploaded video metadata and return `video_s3_key`.
-- [ ] Update Expo native chat to upload selected/recorded videos to S3 before calling `/chat`.
+- [ ] Update Expo native chat to upload selected/recorded videos to S3 before calling `/chat`; photo recognition already works with base64 for small images.
 - [ ] Update Next.js local demo to support either local paths or uploaded S3 keys.
 - [ ] Add DynamoDB table for shot results/history.
 - [ ] Store timing result, recommendation, confirmed corrections, and media key for compare/history.

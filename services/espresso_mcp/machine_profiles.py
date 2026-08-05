@@ -43,6 +43,20 @@ def get_machine_profile(machine_name: str | None) -> dict[str, Any]:
     return generic.copy()
 
 
+def get_machine_profile_by_slug(dialedin_slug: str | None) -> dict[str, Any]:
+    """Return a machine profile linked to a DialedIN mobile machine slug."""
+    profiles = load_machine_profiles()
+    generic = _generic_profile(profiles)
+    if not dialedin_slug:
+        return generic.copy()
+
+    query = _normalize_slug(dialedin_slug)
+    for profile in profiles:
+        if _normalize_slug(str(profile.get("dialedin_slug") or "")) == query:
+            return profile.copy()
+    return generic.copy()
+
+
 def _best_fuzzy_profile_match(query: str, profiles: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Return a likely typo match while avoiding weak guesses."""
     query_value = query
@@ -98,3 +112,7 @@ def _normalize(value: str) -> str:
     value = value.lower().replace("de'longhi", "delonghi")
     value = re.sub(r"[^a-z0-9]+", " ", value)
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _normalize_slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")

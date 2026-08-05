@@ -50,8 +50,10 @@
       "has_preinfusion": [
         "https://www.breville.com/en-us/product/bes870",
         "https://www.breville.com/en-us/product/sp0024799"
-      ]
-    }
+      ],
+      "has_built_in_grinder": []
+    },
+    "dialedin_slug": "breville-barista-express"
   },
   {
     "machine_name": "Breville Bambino / Bambino Plus",
@@ -69,7 +71,8 @@
       "portafilter_mm": 54,
       "pump_type": "vibration",
       "pressure_type": "15 bar pump with low-pressure pre-infusion followed by 9 bar extraction behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -106,7 +109,8 @@
       "has_preinfusion": [
         "https://www.breville.com/en-us/product/BES500",
         "https://www.breville.com/en-us/product/sp0024799"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -122,7 +126,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "15 bar vibration pump with 9 bar OPV calibration on newer E24 references",
-      "has_preinfusion": false
+      "has_preinfusion": false,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -159,8 +164,10 @@
       "has_preinfusion": [
         "https://www.gaggia-na.com/products/gaggia-classic-pro",
         "https://www.gaggia.com/manual-machines/classic-e24-color-vibes/"
-      ]
-    }
+      ],
+      "has_built_in_grinder": []
+    },
+    "dialedin_slug": "gaggia-classic-pro"
   },
   {
     "machine_name": "Rancilio Silvia",
@@ -174,7 +181,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "single-boiler vibration pump home machine",
-      "has_preinfusion": false
+      "has_preinfusion": false,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -211,8 +219,10 @@
       "has_preinfusion": [
         "https://www.ranciliogroupna.com/equipment/rancilio-silvia/",
         "https://www.ranciliogroup.com/rancilio/silvia/silvia/"
-      ]
-    }
+      ],
+      "has_built_in_grinder": []
+    },
+    "dialedin_slug": "rancilio-silvia"
   },
   {
     "machine_name": "DeLonghi Dedica",
@@ -229,7 +239,8 @@
       "portafilter_mm": 51,
       "pump_type": "vibration",
       "pressure_type": "15 bar thermoblock compact espresso machine, commonly used with pressurized baskets stock",
-      "has_preinfusion": false
+      "has_preinfusion": false,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -271,7 +282,8 @@
         "https://support.delonghi.com/en/dedica",
         "https://id.delonghi.com/product/dedica-style-ec-685-m/",
         "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -302,7 +314,8 @@
       "pressure_gauge": true,
       "boiler_material": "brass",
       "boiler_ml": 250,
-      "water_tank_l": 2.7
+      "water_tank_l": 2.7,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -336,7 +349,8 @@
       ],
       "technical_features": [
         "LELIT Anna technical features page provided by user"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -364,7 +378,8 @@
           14,
           17
         ]
-      }
+      },
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -408,7 +423,8 @@
       ],
       "included_accessories": [
         "La Marzocco Linea Micra startup guide provided by user"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -426,7 +442,8 @@
       "portafilter_mm": 53,
       "pump_type": "vibration",
       "pressure_type": "vibratory-pump, reservoir-fed dual-boiler machine; exact rated pump pressure is unknown from the cited sources",
-      "has_preinfusion": null
+      "has_preinfusion": null,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -459,7 +476,8 @@
       "has_preinfusion": [
         "https://www.s1cafe.com/s1v2/MiniV2Manual/Mini_V2_Owners_Manual_RevB.pdf",
         "https://www.baritaliaclub.com/catalog/product/view/_ignore_category/1/id/186/s/la-spaziale-s1-mini-vivaldi-ii-black/"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -475,7 +493,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "15 bar Italian pump with low-pressure pre-infusion followed by 9 bar extraction behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -507,7 +526,8 @@
       ],
       "has_preinfusion": [
         "https://www.breville.com/en-us/product/bes920"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -521,7 +541,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "single-boiler ring brew group with vibration pump, adjustable expansion valve, and programmable preinfusion",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -553,7 +574,8 @@
       ],
       "has_preinfusion": [
         "https://www.profitec-espresso.com/produkte/go"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -566,7 +588,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "heat exchanger E61-style machine with vibration pump, adjustable expansion valve, and switchable preinfusion",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -598,7 +621,8 @@
       ],
       "has_preinfusion": [
         "https://www.profitec-espresso.com/en/products/pro-400"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -611,7 +635,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "dual-boiler saturated/ring brew group home machine with vibration pump",
-      "has_preinfusion": false
+      "has_preinfusion": false,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -648,7 +673,8 @@
       "has_preinfusion": [
         "https://www.profitec-espresso.com/en/products/pro-300",
         "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -663,7 +689,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "PID heat exchanger E61 machine with vibration pump and passive/mechanical preinfusion behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -700,7 +727,8 @@
       "has_preinfusion": [
         "https://www.profitec-espresso.com/en/products/pro-500",
         "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -716,7 +744,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "heat exchanger L58E/E61-style group with silent vibration pump and mechanical pre-infusion compatibility",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -753,7 +782,8 @@
       "has_preinfusion": [
         "https://www.lelit.com/en-us/product/pesmx02",
         "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -769,7 +799,8 @@
       "portafilter_mm": 58,
       "pump_type": "rotary",
       "pressure_type": "dual-boiler L58E paddle machine with rotary pump, adjustable low flow and pre-infusion time",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -801,7 +832,8 @@
       ],
       "has_preinfusion": [
         "https://www.lelit.com/en-us/product/bianca-pesbn03"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -816,7 +848,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "heat exchanger E61 machine with vibration pump and manual/E61 pre-brew behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -853,7 +886,8 @@
       "has_preinfusion": [
         "https://www.rocket-espresso.co.uk/products/rocket-espresso-appartamento-black-2-0-espresso-machine",
         "https://faema.ca/products/rocket-apartamento-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -868,7 +902,8 @@
       "portafilter_mm": 58,
       "pump_type": "rotary",
       "pressure_type": "dual-boiler E61 machine with rotary pump and E61/manual preinfusion behavior",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -905,7 +940,8 @@
       "has_preinfusion": [
         "https://www.wholelattelove.com/products/rocket-espresso-r58-cinquantotto-espresso-machine",
         "https://www.rocket-espresso.com/"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -918,7 +954,8 @@
       "portafilter_mm": 58,
       "pump_type": "rotary",
       "pressure_type": "dual-boiler E61 machine with rotary pump and active/passive preinfusion support",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -950,7 +987,8 @@
       ],
       "has_preinfusion": [
         "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -967,7 +1005,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "thermoblock machine with vibration pump, OPV, volumetric control, and programmable pre-infusion on PID models",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1009,7 +1048,8 @@
         "https://ascaso.com/en/steel/",
         "https://ascaso-canada.ca/collections/residential-espresso-machines/products/steel-uno-pid",
         "https://ascaso.com/en/design/portafilters-filters-and-handles/"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -1023,7 +1063,8 @@
       "portafilter_mm": 58,
       "pump_type": "rotary",
       "pressure_type": "dual-boiler saturated/integrated group home machine with internal pump and electronic or two-valve pre-infusion depending on version",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1060,7 +1101,8 @@
       "has_preinfusion": [
         "https://www.lamarzocco.com/mktcenter/machine/linea-mini/",
         "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -1104,7 +1146,8 @@
       ],
       "has_preinfusion": [
         "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -1329,7 +1372,8 @@
       "portafilter_mm": null,
       "pump_type": "unknown",
       "pressure_type": "unknown",
-      "has_preinfusion": null
+      "has_preinfusion": null,
+      "has_built_in_grinder": null
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1351,7 +1395,8 @@
       "portafilter_mm": [],
       "pump_type": [],
       "pressure_type": [],
-      "has_preinfusion": []
+      "has_preinfusion": [],
+      "has_built_in_grinder": []
     }
   },
   {
@@ -1366,7 +1411,8 @@
       "portafilter_mm": 58,
       "pump_type": "vibration",
       "pressure_type": "Vibration pump with a nominal 15 bar pump rating, brew-pressure manometer, and approximately 9 bar espresso extraction target",
-      "has_preinfusion": true
+      "has_preinfusion": true,
+      "has_built_in_grinder": false
     },
     "brew_defaults": {
       "target_total_shot_seconds": [
@@ -1398,7 +1444,8 @@
       "has_preinfusion": [
         "https://www.lelit.com/l3t1l/uploads/pdf/LELIT-victoria-pl91t-en.pdf",
         "https://www.wholelattelove.com/products/lelit-victoria-espresso-machine"
-      ]
+      ],
+      "has_built_in_grinder": []
     }
   }
 ]
