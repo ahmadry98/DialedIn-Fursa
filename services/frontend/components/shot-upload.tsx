@@ -1,7 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { analyzeShot, AnalyzeShotResponse, ShotFormValues } from "../lib/api";
+import {
+  analyzeShot,
+  AnalyzeShotResponse,
+  createMediaUploadUrl,
+  registerMediaUpload,
+  ShotFormValues,
+  uploadFileToMediaTarget,
+} from "../lib/api";
 import { ShotResult } from "./shot-result";
 import {
   getGrinderProfile,
@@ -47,7 +54,7 @@ const initialForm: FormState = {
 
 export function ShotUpload() {
   const [form, setForm] = useState<FormState>(initialForm);
-  const [selectedFile, setSelectedFile] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [result, setResult] = useState<AnalyzeShotResponse | null>(null);
   const [manualStart, setManualStart] = useState("");
   const [manualStop, setManualStop] = useState("");
@@ -65,8 +72,13 @@ export function ShotUpload() {
     event.preventDefault();
     const payload = buildPayload({ ...form, uses_built_in_grinder: effectiveUsesBuiltInGrinder });
 
-    if (form.timing_mode === "video" && payload.video_s3_key?.endsWith("/")) {
+    if (form.timing_mode === "video" && !selectedFile && payload.video_s3_key?.endsWith("/")) {
       setError("Choose a video file or enter the full video path, for example data/raw-videos/shot_007.mp4.");
+      return;
+    }
+
+    if (form.timing_mode === "video" && !selectedFile && !payload.video_s3_key) {
+      setError("Choose a video file, or enter the total shot time manually.");
       return;
     }
 
@@ -81,7 +93,7 @@ export function ShotUpload() {
       return;
     }
 
-    await runAnalysis(payload);
+    await runAnalysis(payload, selectedFile);
   }
 
   async function handleApplyTiming() {
@@ -102,12 +114,13 @@ export function ShotUpload() {
     });
   }
 
-  async function runAnalysis(payload: ShotFormValues) {
+  async function runAnalysis(payload: ShotFormValues, videoFile?: File | null) {
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await analyzeShot(payload);
+      const analysisPayload = videoFile ? await uploadSelectedVideo(payload, videoFile) : payload;
+      const response = await analyzeShot(analysisPayload);
       setResult(response);
       setManualStart(formatInputTime(response.timing.machine_start_time));
       setManualStop(formatInputTime(response.timing.machine_stop_time));
@@ -150,14 +163,14 @@ export function ShotUpload() {
                   type="file"
                   accept="video/mp4,video/quicktime,video/*"
                   onChange={(event) => {
-                    const fileName = event.target.files?.[0]?.name ?? "";
-                    setSelectedFile(fileName);
-                    if (fileName) {
-                      updateField("video_s3_key", "data/raw-videos/" + fileName);
+                    const file = event.target.files?.[0] ?? null;
+                    setSelectedFile(file);
+                    if (file) {
+                      updateField("video_s3_key", "");
                     }
                   }}
                 />
-                <span className="file-name">{selectedFile || "No local file selected"}</span>
+                <span className="file-name">{selectedFile?.name || "No local file selected"}</span>
               </label>
 
               <label className="field full">
@@ -317,6 +330,27 @@ export function ShotUpload() {
       )}
     </div>
   );
+
+  async function uploadSelectedVideo(payload: ShotFormValues, videoFile: File): Promise<ShotFormValues> {
+    const target = await createMediaUploadUrl({
+      filename: videoFile.name,
+      content_type: videoFile.type || "application/octet-stream",
+      media_kind: "shot_video",
+      user_id: payload.user_id,
+    });
+    await uploadFileToMediaTarget(videoFile, target);
+    const registered = await registerMediaUpload({
+      media_key: target.media_key,
+      media_kind: "shot_video",
+      storage_mode: target.storage_mode,
+      content_type: videoFile.type || "application/octet-stream",
+    });
+
+    return {
+      ...payload,
+      video_s3_key: registered.video_s3_key || registered.media_key,
+    };
+  }
 
   function updateField(field: keyof FormState, value: string) {
     setForm((current) => {

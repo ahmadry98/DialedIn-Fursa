@@ -25,6 +25,7 @@ from services.espresso_mcp import machine_profiles
 from services.espresso_mcp import profile_candidates
 from services.espresso_mcp import profile_research
 from services.espresso_mcp import recommendations
+from services.espresso_mcp import storage as result_storage
 
 TOOL_NAMES = [
     "extract_audio_track",
@@ -131,7 +132,7 @@ TOOL_DESCRIPTIONS = {
     "attach_draft_profile": "Attach a sourced draft profile to a candidate for human review.",
 }
 
-SHOT_HISTORY: dict[str, list[dict[str, Any]]] = {}
+SHOT_HISTORY = result_storage.SHOT_HISTORY
 
 mcp = None
 
@@ -196,55 +197,17 @@ def attach_draft_profile(candidate_key: str, draft_profile: dict[str, Any], sour
 
 def save_shot_result(user_id: str, result: dict[str, Any]) -> dict[str, Any]:
     """Save a shot result in local in-memory history for the MVP."""
-    if not user_id:
-        raise ValueError("user_id is required")
-    stored_result = dict(result)
-    SHOT_HISTORY.setdefault(user_id, []).append(stored_result)
-    return {
-        "status": "saved",
-        "user_id": user_id,
-        "shot_count": len(SHOT_HISTORY[user_id]),
-        "result": stored_result,
-    }
+    return result_storage.save_shot_result(user_id, result)
 
 
 def compare_previous_shots(user_id: str, current_result: dict[str, Any]) -> dict[str, Any]:
     """Compare current shot timing with the user's previous saved shot."""
-    previous_shots = SHOT_HISTORY.get(user_id, [])
-    if not previous_shots:
-        return {
-            "has_previous": False,
-            "message": "No previous shots saved for this user.",
-            "current_result": current_result,
-        }
-
-    previous = previous_shots[-1]
-    previous_total = _float_or_none(previous.get("total_shot_seconds"))
-    current_total = _float_or_none(current_result.get("total_shot_seconds"))
-    total_delta = None
-    if previous_total is not None and current_total is not None:
-        total_delta = round(current_total - previous_total, 2)
-
-    return {
-        "has_previous": True,
-        "previous_result": previous,
-        "current_result": current_result,
-        "total_shot_delta_seconds": total_delta,
-    }
+    return result_storage.compare_previous_shots(user_id, current_result)
 
 
 def get_registered_tool_names() -> list[str]:
     """Return tool names exposed by this service."""
     return list(TOOL_NAMES)
-
-
-def _float_or_none(value: Any) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 TOOL_FUNCTIONS = {

@@ -412,22 +412,103 @@ attach_draft_profile(candidate_key, draft_profile)
 **Files:**
 - `services/agent/storage.py`
 - `services/espresso_mcp/storage.py`
+- `infra/terraform/versions.tf`
+- `infra/terraform/locals.tf`
+- `infra/terraform/variables.tf`
 - `infra/terraform/s3.tf`
 - `infra/terraform/database.tf`
+- `infra/terraform/outputs.tf`
+- `infra/terraform/dev.tfvars`
+- `infra/terraform/prod.tfvars`
+- `infra/terraform/tfvars/us-east-1.tfvars`
 
 **Deliverable:** Persistent upload/result storage and a phone-safe way to send shot videos.
 
-- [ ] Add S3 bucket for raw videos, extracted audio, and analysis outputs.
-- [ ] Add backend endpoint to create presigned upload URLs.
-- [ ] Add backend endpoint/helper to register uploaded video metadata and return `video_s3_key`.
-- [ ] Update Expo native chat to upload selected/recorded videos to S3 before calling `/chat`; photo recognition already works with base64 for small images.
-- [ ] Update Next.js local demo to support either local paths or uploaded S3 keys.
-- [ ] Add DynamoDB table for shot results/history.
-- [ ] Store timing result, recommendation, confirmed corrections, and media key for compare/history.
-- [ ] Keep local development fallback for `data/raw-videos/...`.
-- [ ] Add mocked storage tests for S3 upload registration and result persistence.
+- [x] Add S3 bucket Terraform for raw videos, extracted audio, and analysis outputs.
+- [x] Add backend endpoint to create presigned/local upload URLs.
+- [x] Add backend endpoint/helper to register uploaded video metadata and return `video_s3_key`.
+- [x] Update Expo native chat to upload selected videos before calling `/chat`; local mode uses FastAPI storage and S3 mode uses presigned PUT URLs.
+- [x] Update Next.js local demo to support either local paths or uploaded S3 keys.
+- [x] Add DynamoDB table Terraform for shot results/history.
+- [x] Align Terraform layout with PolyAIFursa conventions: versions, locals, tags, outputs, and tfvars.
+- [x] Store timing result, recommendation, confirmed corrections, and media key for compare/history when `DIALEDIN_SHOT_RESULTS_TABLE` is configured; memory remains the local fallback.
+- [x] Keep local development fallback for `data/raw-videos/...` and add local uploaded media fallback under `data/uploads/`.
+- [x] Add mocked storage tests for local upload/register, S3 presigned URL generation, S3 media download, and DynamoDB shot history.
+- [x] Return user-readable S3 upload/download permission errors instead of generic 500 responses.
+- [x] Configure narrow S3 CORS origins for browser/mobile presigned uploads.
 
-## Checkpoint 19: Docker Compose
+## Checkpoint 19: Equipment Profile API
+
+**Files:**
+- `services/agent/app.py`
+- `services/agent/schemas.py`
+- `services/espresso_mcp/machine_profiles.py`
+- `services/espresso_mcp/grinder_profiles.py`
+- `services/agent/tests/test_profile_api.py`
+
+**Deliverable:** Mobile and web can read trusted equipment profiles from the backend instead of duplicating profile data.
+
+- [ ] Add `GET /machines` and `GET /machines/{slug}`.
+- [ ] Add `GET /grinders` and `GET /grinders/{slug}`.
+- [ ] Return profile data plus UI-safe fields: `slug`, `display_name`, `image_url`, `image_source`, `has_image`, and short summary.
+- [ ] Keep JSON profile files as the source of truth for now.
+- [ ] Keep mobile local image fallback for existing Gaggia/Rancilio/Breville assets.
+- [ ] Add tests for list, slug lookup, alias lookup, and generic fallback behavior.
+
+## Checkpoint 20: Mobile Machines And Grinders Pages
+
+**Files:**
+- Modify in sibling app: `DialedIn/dialedin-mobile/lib/api.ts`
+- Modify in sibling app: `DialedIn/dialedin-mobile/app/select-machine.tsx`
+- Create in sibling app: `DialedIn/dialedin-mobile/app/select-grinder.tsx`
+- Modify/create in sibling app: machine/grinder profile components
+
+**Deliverable:** DialedIn mobile equipment pages use backend profiles and expose grinders as first-class equipment.
+
+- [ ] Connect the machines page to `GET /machines`.
+- [ ] Add a grinders page connected to `GET /grinders`.
+- [ ] Sort machines and grinders alphabetically.
+- [ ] Show machine image when available, otherwise a clean placeholder.
+- [ ] Show grinder setting type, espresso range, finer direction, and confidence when available.
+- [ ] Let AI Shot Analysis launch with selected machine and optionally selected grinder.
+- [ ] Keep offline/local fallback from `data/machines.tsx` until database/API is stable.
+
+## Checkpoint 21: Profile Image Curation
+
+**Files:**
+- `services/espresso_mcp/machine_profiles.json`
+- `services/espresso_mcp/grinder_profiles.json`
+- `services/espresso_mcp/profile_image_candidates.py`
+- `services/agent/tests/test_profile_images.py`
+- Modify in sibling app: `DialedIn/dialedin-mobile/assets/images/machines/*` as curated local assets are added
+
+**Deliverable:** Every profile can expose a reviewed image reference without guessing or hotlinking unreliable images.
+
+- [ ] Add optional `image` metadata to profile JSON: `url`, `local_asset_key`, `source_url`, `license_or_source_type`, `status`, and `review_notes`.
+- [ ] Use existing local images for Gaggia Classic Pro, Rancilio Silvia, and Breville Barista Express.
+- [ ] Add admin/research workflow for missing images: find manufacturer/official product image first, then reputable retailer image if needed.
+- [ ] Store candidate image URLs as `status: needs_review`; only reviewed images become app-visible.
+- [ ] Prefer downloading/curating images into mobile assets or S3 instead of relying on remote hotlinks in production.
+- [ ] Add tests that profile API exposes image metadata and marks missing images cleanly.
+
+## Checkpoint 22: Profile Database Migration
+
+**Files:**
+- `services/agent/profile_repository.py`
+- `services/espresso_mcp/profile_repository.py`
+- `infra/terraform/database.tf`
+- migration/import scripts
+
+**Deliverable:** Move trusted machine/grinder/profile image data from JSON into persistent storage after the API and UI shape are stable.
+
+- [ ] Choose DynamoDB or Postgres based on admin/search needs.
+- [ ] Import existing machine and grinder JSON into the database.
+- [ ] Keep JSON seed/export scripts for reproducibility.
+- [ ] Update profile promoter to write to the database or produce reviewed migration changes.
+- [ ] Add indexes for slug, aliases, profile type, and review status.
+- [ ] Keep tests able to run without AWS by using local fixtures/mocks.
+
+## Checkpoint 23: Docker Compose
 
 **Files:**
 - `compose.yaml`
@@ -441,13 +522,15 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add Prometheus/Grafana.
 - [ ] Verify frontend can call agent in compose.
 
-## Checkpoint 20: Kubernetes On AWS EC2
+## Checkpoint 24: Kubernetes On AWS EC2
 
 **Files:**
 - `infra/k8s/*.yaml`
+- `infra/terraform/*.tf`
 
-**Deliverable:** Kubernetes manifests for course deployment.
+**Deliverable:** Kubernetes manifests and AWS infrastructure adapted from PolyAIFursa.
 
+- [ ] Use PolyAIFursa VPC/Kubernetes Terraform as the base and adapt naming, tags, IAM, ports, and services.
 - [ ] Add namespaces according to chosen branch/environment workflow.
 - [ ] Add deployments/services for frontend, agent, and espresso MCP.
 - [ ] Add readiness/liveness probes.
@@ -455,20 +538,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add HPA if required.
 - [ ] Test with `kubectl port-forward` or ingress.
 
-## Checkpoint 21: Terraform
-
-**Files:**
-- `infra/terraform/*.tf`
-
-**Deliverable:** AWS infrastructure as code.
-
-- [ ] Provision EC2 for Kubernetes.
-- [ ] Provision S3.
-- [ ] Provision DynamoDB.
-- [ ] Provision IAM permissions for Bedrock/S3/DynamoDB.
-- [ ] Document apply/destroy commands.
-
-## Checkpoint 22: Observability
+## Checkpoint 25: Observability
 
 **Files:**
 - `monitoring/prometheus.yml`
@@ -483,7 +553,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add MCP/tool error metrics.
 - [ ] Build Grafana dashboard.
 
-## Checkpoint 23: Deployment Automation
+## Checkpoint 26: Deployment Automation
 
 **Files:**
 - `.github/workflows/ci.yml`

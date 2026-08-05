@@ -86,6 +86,45 @@ cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
 EXPO_PUBLIC_AI_SHOT_ANALYSIS_URL=http://YOUR_MAC_IP:3000 npm run ios
 ```
 
+## Media Upload Storage
+
+For local simulator testing, leave storage in local mode. Uploaded shot videos are saved under `data/uploads/` and the analyzer receives that local path.
+
+```bash
+DIALEDIN_MEDIA_STORAGE_MODE=local
+DIALEDIN_LOCAL_MEDIA_UPLOAD_DIR=data/uploads
+```
+
+For AWS/S3 mode, apply the Terraform in `infra/terraform`, then set the bucket output in the backend env:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+terraform init
+terraform workspace new dev || terraform workspace select dev
+terraform apply -var-file=dev.tfvars
+terraform output dialchat_media_bucket
+```
+
+The dev Terraform config also adds S3 CORS for `localhost`, `127.0.0.1`, and your current LAN dev origin so browser/mobile presigned uploads can use `PUT`. Re-run `terraform apply -var-file=dev.tfvars` after changing those origins.
+
+```bash
+DIALEDIN_MEDIA_STORAGE_MODE=s3
+DIALEDIN_MEDIA_UPLOAD_BUCKET=<terraform output dialchat_media_bucket>
+DIALEDIN_MEDIA_UPLOAD_PREFIX=dialchat-media
+AWS_REGION=us-east-1
+```
+
+To persist shot history in DynamoDB instead of memory, also set the table output:
+
+```bash
+terraform output shot_results_table
+DIALEDIN_SHOT_RESULTS_TABLE=<terraform output shot_results_table>
+# Optional strict mode; setting the table is enough to enable DynamoDB persistence.
+DIALEDIN_SHOT_HISTORY_STORAGE=dynamodb
+```
+
+The mobile app and Next.js local demo use `/media/upload-url`, upload the video with `PUT`, call `/media/register`, then send the returned `video_s3_key` to `/chat` or `/analyze-shot`.
+
 ## Useful Checks
 
 Agent graph tests:
