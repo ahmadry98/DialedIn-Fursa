@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.agent import agent_runner, storage
+from services.agent import agent_runner, equipment_profiles, storage
 from services.agent.config import get_settings
 from services.agent.schemas import (
     AnalyzeShotRequest,
@@ -17,10 +17,12 @@ from services.agent.schemas import (
     MediaRegisterResponse,
     MediaUploadUrlRequest,
     MediaUploadUrlResponse,
+    MachineImageAttachRequest,
     MetricsResponse,
     ProfileCandidateUpdateRequest,
 )
 from services.espresso_mcp import app as espresso_tools
+from services.espresso_mcp import machine_profiles
 from services.espresso_mcp import profile_candidates
 from services.espresso_mcp import profile_promoter
 from services.espresso_mcp import profile_research_worker
@@ -52,6 +54,72 @@ def health() -> HealthResponse:
 @app.get("/metrics", response_model=MetricsResponse)
 def metrics() -> MetricsResponse:
     return MetricsResponse(**agent_runner.metrics())
+
+
+@app.get("/machines")
+def list_machines() -> dict[str, object]:
+    machines = equipment_profiles.list_machines()
+    return {"count": len(machines), "machines": machines}
+
+
+@app.get("/machines/{slug_or_alias:path}")
+def get_machine(slug_or_alias: str) -> dict[str, object]:
+    try:
+        return equipment_profiles.get_machine(slug_or_alias)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.post("/machines/{slug_or_alias:path}/image")
+def attach_machine_image(slug_or_alias: str, request_body: MachineImageAttachRequest) -> dict[str, object]:
+    try:
+        image = {
+            "media_key": request_body.media_key,
+            "storage_mode": request_body.storage_mode,
+            "content_type": request_body.content_type,
+            "source_url": request_body.source_url or "admin upload",
+            "license_or_source_type": request_body.license_or_source_type,
+            "status": request_body.status,
+            "review_notes": request_body.review_notes,
+        }
+        profile = machine_profiles.update_machine_profile_image(slug_or_alias, image)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"machine": equipment_profiles.get_machine(str(profile.get("dialedin_slug") or profile.get("machine_name")))}
+
+
+@app.get("/grinders")
+def list_grinders() -> dict[str, object]:
+    grinders = equipment_profiles.list_grinders()
+    return {"count": len(grinders), "grinders": grinders}
+
+
+@app.get("/grinders/{slug_or_alias:path}")
+def get_grinder(slug_or_alias: str) -> dict[str, object]:
+    try:
+        return equipment_profiles.get_grinder(slug_or_alias)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/api/machines/")
+def list_machines_compat() -> list[dict[str, object]]:
+    return equipment_profiles.list_machines()
+
+
+@app.get("/api/machines/{slug_or_alias:path}/")
+def get_machine_compat(slug_or_alias: str) -> dict[str, object]:
+    return get_machine(slug_or_alias)
+
+
+@app.get("/api/grinders/")
+def list_grinders_compat() -> list[dict[str, object]]:
+    return equipment_profiles.list_grinders()
+
+
+@app.get("/api/grinders/{slug_or_alias:path}/")
+def get_grinder_compat(slug_or_alias: str) -> dict[str, object]:
+    return get_grinder(slug_or_alias)
 
 
 @app.post("/media/upload-url", response_model=MediaUploadUrlResponse)

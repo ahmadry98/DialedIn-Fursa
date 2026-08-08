@@ -30,6 +30,11 @@ def get_grinder_profile(grinder_name: str | None) -> dict[str, Any]:
     return deepcopy(_generic_profile(profiles))
 
 
+def list_grinder_profiles() -> list[dict[str, Any]]:
+    """Return all curated grinder profiles."""
+    return [deepcopy(profile) for profile in _load_profiles()]
+
+
 def validate_grind_setting(grinder_name: str | None, current_setting: Any) -> str | None:
     """Return an error message when a grind setting is invalid for a known grinder."""
     if current_setting in (None, ""):

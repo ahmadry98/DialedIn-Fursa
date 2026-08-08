@@ -448,12 +448,12 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Mobile and web can read trusted equipment profiles from the backend instead of duplicating profile data.
 
-- [ ] Add `GET /machines` and `GET /machines/{slug}`.
-- [ ] Add `GET /grinders` and `GET /grinders/{slug}`.
-- [ ] Return profile data plus UI-safe fields: `slug`, `display_name`, `image_url`, `image_source`, `has_image`, and short summary.
-- [ ] Keep JSON profile files as the source of truth for now.
-- [ ] Keep mobile local image fallback for existing Gaggia/Rancilio/Breville assets.
-- [ ] Add tests for list, slug lookup, alias lookup, and generic fallback behavior.
+- [x] Add `GET /machines` and `GET /machines/{slug}`.
+- [x] Add `GET /grinders` and `GET /grinders/{slug}`.
+- [x] Return profile data plus UI-safe fields: `slug`, `display_name`, `image_url`, `has_image`, compact tags, specs, and short summary.
+- [x] Keep JSON profile files as the source of truth for now.
+- [x] Keep mobile local image fallback for existing Gaggia/Rancilio/Breville assets.
+- [x] Add tests for list, slug lookup, alias lookup, and generic fallback behavior.
 
 ## Checkpoint 20: Mobile Machines And Grinders Pages
 
@@ -465,13 +465,13 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** DialedIn mobile equipment pages use backend profiles and expose grinders as first-class equipment.
 
-- [ ] Connect the machines page to `GET /machines`.
-- [ ] Add a grinders page connected to `GET /grinders`.
-- [ ] Sort machines and grinders alphabetically.
-- [ ] Show machine image when available, otherwise a clean placeholder.
-- [ ] Show grinder setting type, espresso range, finer direction, and confidence when available.
-- [ ] Let AI Shot Analysis launch with selected machine and optionally selected grinder.
-- [ ] Keep offline/local fallback from `data/machines.tsx` until database/API is stable.
+- [x] Connect the machines page to `GET /machines` with local fallback and compact cards.
+- [x] Add a grinders page connected to `GET /grinders`.
+- [x] Sort machines and grinders alphabetically.
+- [x] Show machine image when available, otherwise a clean placeholder.
+- [x] Show grinder setting type, espresso range, finer direction, and confidence when available.
+- [x] Let AI Shot Analysis launch with selected machine and optionally selected grinder.
+- [x] Keep offline/local fallback from `data/machines.tsx` until database/API is stable for machines; grinder fallback can be added when we have local grinder fixtures.
 
 ## Checkpoint 21: Profile Image Curation
 
@@ -488,7 +488,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Use existing local images for Gaggia Classic Pro, Rancilio Silvia, and Breville Barista Express.
 - [ ] Add admin/research workflow for missing images: find manufacturer/official product image first, then reputable retailer image if needed.
 - [ ] Store candidate image URLs as `status: needs_review`; only reviewed images become app-visible.
-- [ ] Prefer downloading/curating images into mobile assets or S3 instead of relying on remote hotlinks in production.
+- [ ] Prefer curated local mobile assets for core machines now, and S3-hosted reviewed images for expanded/admin-added profiles later; do not hotlink unreliable images in production.
 - [ ] Add tests that profile API exposes image metadata and marks missing images cleanly.
 
 ## Checkpoint 22: Profile Database Migration

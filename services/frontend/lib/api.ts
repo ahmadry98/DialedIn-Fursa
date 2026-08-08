@@ -109,6 +109,19 @@ export type ChatResponse = {
   } | null;
 };
 
+export type MachineSummary = {
+  slug: string;
+  display_name: string;
+  name?: string;
+  has_image?: boolean;
+  image?: Record<string, unknown> | null;
+  image_url?: string | null;
+};
+
+export type MachinesResponse = {
+  count: number;
+  machines: MachineSummary[];
+};
 
 export type ProfileCandidate = {
   candidate_key: string;
@@ -145,6 +158,42 @@ export type ProfileCandidatesResponse = {
   count: number;
   candidates: ProfileCandidate[];
 };
+export async function listMachines(): Promise<MachinesResponse> {
+  const response = await fetch(`${API_BASE_URL}/machines`, { cache: "no-store" });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Machine request failed" }));
+    throw new Error(error.detail ?? "Machine request failed");
+  }
+
+  return response.json();
+}
+
+export async function attachMachineProfileImage(
+  machineSlug: string,
+  payload: {
+    media_key: string;
+    storage_mode: string;
+    content_type?: string | null;
+    source_url?: string | null;
+    license_or_source_type?: string;
+    status?: string;
+    review_notes?: string | null;
+  }
+): Promise<{ machine: MachineSummary }> {
+  const response = await fetch(`${API_BASE_URL}/machines/${encodeURIComponent(machineSlug)}/image`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Machine image update failed" }));
+    throw new Error(error.detail ?? "Machine image update failed");
+  }
+
+  return response.json();
+}
 
 export async function listProfileCandidates(): Promise<ProfileCandidatesResponse> {
   const response = await fetch(`${API_BASE_URL}/profile-candidates`, { cache: "no-store" });

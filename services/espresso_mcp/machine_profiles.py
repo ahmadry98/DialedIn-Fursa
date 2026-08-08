@@ -101,6 +101,27 @@ def list_machine_profiles() -> list[dict[str, Any]]:
     return [profile.copy() for profile in load_machine_profiles()]
 
 
+def update_machine_profile_image(slug_or_alias: str, image: dict[str, Any]) -> dict[str, Any]:
+    """Attach reviewed image metadata to a curated machine profile."""
+    query_slug = _normalize_slug(slug_or_alias)
+    profiles = load_machine_profiles()
+    updated: dict[str, Any] | None = None
+
+    for profile in profiles:
+        names = [profile.get("machine_name", ""), str(profile.get("dialedin_slug") or ""), *profile.get("aliases", [])]
+        if query_slug in {_normalize_slug(str(name)) for name in names if name}:
+            profile["image"] = {key: value for key, value in image.items() if value is not None and value != ""}
+            updated = profile.copy()
+            break
+
+    if updated is None or updated.get("machine_name") == GENERIC_PROFILE_NAME:
+        raise ValueError(f"Machine profile not found: {slug_or_alias}")
+
+    PROFILE_PATH.write_text(json.dumps(profiles, indent=2) + "\n", encoding="utf-8")
+    load_machine_profiles.cache_clear()
+    return updated
+
+
 def _generic_profile(profiles: list[dict[str, Any]]) -> dict[str, Any]:
     for profile in profiles:
         if profile.get("machine_name") == GENERIC_PROFILE_NAME:

@@ -98,6 +98,41 @@ def register_uploaded_media(*, media_key: str, media_kind: str, storage_mode: st
     }
 
 
+def create_media_read_url(*, settings: AgentSettings, media_key: str) -> str | None:
+    """Create a temporary read URL for a private S3 media object."""
+    if not media_key or not settings.media_upload_bucket:
+        return None
+
+    try:
+        import boto3
+        from botocore.exceptions import ClientError, NoCredentialsError
+    except ImportError as error:  # pragma: no cover - dependency exists only for S3 mode.
+        raise RuntimeError("Install boto3 to read S3 media uploads.") from error
+
+    session_kwargs: dict[str, str] = {"region_name": settings.aws_region}
+    if os.getenv("AWS_PROFILE"):
+        session_kwargs["profile_name"] = os.environ["AWS_PROFILE"]
+    try:
+        session = boto3.Session(**session_kwargs)
+        client = session.client("s3")
+        return client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": settings.media_upload_bucket, "Key": media_key},
+            ExpiresIn=settings.media_upload_url_expires_seconds,
+        )
+    except NoCredentialsError as error:
+        raise RuntimeError("AWS credentials were not found, so I could not create an S3 image link.") from error
+    except ClientError as error:
+        code = str(error.response.get("Error", {}).get("Code", "S3Error"))
+        if code in {"AccessDenied", "403"}:
+            message = "I could not create an S3 image link. Check IAM permission for s3:GetObject on the media bucket."
+        elif code in {"NoSuchBucket", "404", "NotFound"}:
+            message = "The configured S3 media bucket was not found. Check DIALEDIN_MEDIA_UPLOAD_BUCKET."
+        else:
+            message = f"I could not create an S3 image link ({code})."
+        raise RuntimeError(message) from error
+
+
 def _media_key(prefix: str, user_id: str, media_kind: str, filename: str) -> str:
     safe_user = _safe_path_part(user_id or "demo-user")
     safe_kind = _safe_path_part(media_kind)

@@ -20,12 +20,8 @@ export function TimingCorrection({
   const isManual = timing.audio_method === "manual_total_time";
   const startConfidence = timing.start_confidence ?? 1;
   const stopConfidence = timing.stop_confidence ?? 1;
-  const showWarning =
-    !isManual &&
-    (timing.requires_manual_confirmation ||
-      Boolean(timing.warnings?.length) ||
-      startConfidence < 0.35 ||
-      stopConfidence < 0.35);
+  const timingConfidence = Math.min(startConfidence, stopConfidence);
+  const showWarning = !isManual && (timing.requires_manual_confirmation || timingConfidence < 0.7);
 
   return (
     <section className="panel timing-panel" aria-label="Timing correction">

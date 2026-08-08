@@ -510,7 +510,24 @@ def _apply_pending_gear_reply(context: ShotContext, text: str) -> None:
 
 
 def _is_confirmation_yes(text: str) -> bool:
-    return text.strip().lower() in {"yes", "y", "yeah", "yep", "correct", "right", "use it", "that's right", "that is right"}
+    return text.strip().lower() in {
+        "yes",
+        "ye",
+        "y",
+        "yeah",
+        "yep",
+        "yup",
+        "ya",
+        "correct",
+        "right",
+        "sure",
+        "ok",
+        "okay",
+        "use it",
+        "that's right",
+        "that is right",
+        "looks right",
+    }
 
 
 def is_confirmation_no(text: str) -> bool:
