@@ -98,6 +98,16 @@ class MediaRegisterResponse(BaseModel):
 
 
 
+class MachineImageAttachRequest(BaseModel):
+    media_key: str
+    storage_mode: str = Field(pattern="^(local|s3)$")
+    content_type: str | None = None
+    source_url: str | None = None
+    license_or_source_type: str = "admin_upload"
+    status: str = "reviewed"
+    review_notes: str | None = None
+
+
 class ProfileCandidateUpdateRequest(BaseModel):
     draft_profile: dict[str, Any] | None = None
     review_notes: list[str] | None = None

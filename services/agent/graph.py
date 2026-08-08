@@ -135,6 +135,8 @@ def _llm_extract(state: CoachGraphState) -> dict[str, Any]:
     latest_message = _latest_user_message_object(state["request"])
     if latest_message and latest_message.image_base64:
         return {}
+    if state["context"].pending_gear_type and state["context"].pending_gear_name:
+        return {}
 
     message = state.get("message", "")
     if not message:
