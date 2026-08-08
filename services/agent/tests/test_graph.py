@@ -620,6 +620,29 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIsNone(response.shot_context.pending_gear_name)
         self.assertEqual(response.next_field, "machine")
 
+    def test_graph_short_yes_confirms_pending_machine_guess(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="Ye")],
+            shot_context=ShotContext(
+                pending_gear_type="machine",
+                pending_gear_name="Rancilio Silvia",
+                pending_gear_confidence="high",
+            ),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock"
+        ) as fake_text_extraction:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        fake_text_extraction.assert_not_called()
+        self.assertEqual(response.shot_context.machine, "Rancilio Silvia")
+        self.assertNotEqual(response.shot_context.machine, "Ye")
+        self.assertIsNone(response.shot_context.pending_gear_name)
+        self.assertEqual(response.next_field, "grinder")
 
 
 def fake_analyze(request: AnalyzeShotRequest) -> AnalyzeShotResponse:

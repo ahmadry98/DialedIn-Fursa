@@ -2,12 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  attachMachineProfileImage,
+  createMediaUploadUrl,
   deleteProfileCandidate,
+  listMachines,
   listProfileCandidates,
   promoteProfileCandidate,
+  registerMediaUpload,
   rerunProfileCandidateResearch,
+  type MachineSummary,
   type ProfileCandidate,
   updateProfileCandidate,
+  uploadFileToMediaTarget,
 } from "../../lib/api";
 
 function formatJson(value: unknown): string {
@@ -41,17 +47,22 @@ export function ProfileCandidateReview() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [machines, setMachines] = useState<MachineSummary[]>([]);
+  const [selectedMachineSlug, setSelectedMachineSlug] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   async function refresh(nextSelectedKey?: string) {
     setLoading(true);
     setError(null);
     try {
-      const payload = await listProfileCandidates();
-      setCandidates(payload.candidates);
-      const nextKey = nextSelectedKey ?? selectedKey ?? payload.candidates[0]?.candidate_key ?? "";
-      setSelectedKey(payload.candidates.some((candidate) => candidate.candidate_key === nextKey) ? nextKey : payload.candidates[0]?.candidate_key ?? "");
+      const [candidatePayload, machinePayload] = await Promise.all([listProfileCandidates(), listMachines()]);
+      setCandidates(candidatePayload.candidates);
+      setMachines(machinePayload.machines);
+      setSelectedMachineSlug((current) => current || machinePayload.machines[0]?.slug || "");
+      const nextKey = nextSelectedKey ?? selectedKey ?? candidatePayload.candidates[0]?.candidate_key ?? "";
+      setSelectedKey(candidatePayload.candidates.some((candidate) => candidate.candidate_key === nextKey) ? nextKey : candidatePayload.candidates[0]?.candidate_key ?? "");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Could not load candidates");
+      setError(requestError instanceof Error ? requestError.message : "Could not load admin data");
     } finally {
       setLoading(false);
     }
@@ -75,6 +86,45 @@ export function ProfileCandidateReview() {
     setMessage(null);
     setError(null);
   }, [selected]);
+
+  async function uploadMachineImage() {
+    if (!selectedMachineSlug || !imageFile) return;
+    setBusy("image");
+    setError(null);
+    setMessage(null);
+    try {
+      const extension = imageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const target = await createMediaUploadUrl({
+        filename: `${selectedMachineSlug}.${extension}`,
+        content_type: imageFile.type || "image/jpeg",
+        media_kind: "machine_photo",
+        user_id: "admin",
+      });
+      await uploadFileToMediaTarget(imageFile, target);
+      const registered = await registerMediaUpload({
+        media_key: target.media_key,
+        media_kind: "machine_photo",
+        storage_mode: target.storage_mode,
+        content_type: imageFile.type || "image/jpeg",
+      });
+      await attachMachineProfileImage(selectedMachineSlug, {
+        media_key: registered.media_key,
+        storage_mode: registered.storage_mode,
+        content_type: registered.content_type,
+        source_url: `admin upload: ${imageFile.name}`,
+        license_or_source_type: "admin_upload",
+        status: "reviewed",
+        review_notes: "Uploaded from Profile Candidate Review admin.",
+      });
+      setImageFile(null);
+      setMessage("Machine image uploaded and saved.");
+      await refresh(selectedKey);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not upload machine image");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function saveCandidate() {
     if (!selected) return;
@@ -173,6 +223,43 @@ export function ProfileCandidateReview() {
           <small>Run evidence + Bedrock drafting</small>
         </div>
       </div>
+
+
+
+      <section className="panel image-admin-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Profile Images</h2>
+            <p>Upload a reviewed machine picture and attach it to the trusted profile.</p>
+          </div>
+        </div>
+
+        <div className="image-admin-grid">
+          <label className="field">
+            <span>Machine</span>
+            <select value={selectedMachineSlug} onChange={(event) => setSelectedMachineSlug(event.target.value)}>
+              {machines.map((machine) => (
+                <option key={machine.slug} value={machine.slug}>
+                  {machine.display_name}{machine.has_image ? " · has image" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Image file</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          <button className="primary-button" onClick={() => void uploadMachineImage()} disabled={Boolean(busy) || !selectedMachineSlug || !imageFile}>
+            {busy === "image" ? "Uploading" : "Upload image"}
+          </button>
+        </div>
+      </section>
 
       <section className="admin-workspace">
         <aside className="panel candidate-list-panel">

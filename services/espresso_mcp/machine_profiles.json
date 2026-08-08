@@ -53,7 +53,14 @@
       ],
       "has_built_in_grinder": []
     },
-    "dialedin_slug": "breville-barista-express"
+    "dialedin_slug": "breville-barista-express",
+    "image": {
+      "local_asset_key": "machine-breville-barista-express",
+      "source_url": "local mobile curated asset",
+      "license_or_source_type": "local_demo_asset",
+      "status": "reviewed",
+      "review_notes": "Existing DialedIn mobile machine image used as curated local fallback."
+    }
   },
   {
     "machine_name": "Breville Bambino / Bambino Plus",
@@ -111,6 +118,15 @@
         "https://www.breville.com/en-us/product/sp0024799"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/0baeefc1c29840039230bad214ca143f-breville-bambino-bambino-plus.webp",
+      "storage_mode": "s3",
+      "content_type": "image/webp",
+      "source_url": "admin upload: BVWS6yULuECzXvfdRupFFa-970-80.jpg.webp",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -167,7 +183,14 @@
       ],
       "has_built_in_grinder": []
     },
-    "dialedin_slug": "gaggia-classic-pro"
+    "dialedin_slug": "gaggia-classic-pro",
+    "image": {
+      "local_asset_key": "machine-gaggia-classic-pro",
+      "source_url": "local mobile curated asset",
+      "license_or_source_type": "local_demo_asset",
+      "status": "reviewed",
+      "review_notes": "Existing DialedIn mobile machine image used as curated local fallback."
+    }
   },
   {
     "machine_name": "Rancilio Silvia",
@@ -222,7 +245,14 @@
       ],
       "has_built_in_grinder": []
     },
-    "dialedin_slug": "rancilio-silvia"
+    "dialedin_slug": "rancilio-silvia",
+    "image": {
+      "local_asset_key": "machine-rancilio-silvia",
+      "source_url": "local mobile curated asset",
+      "license_or_source_type": "local_demo_asset",
+      "status": "reviewed",
+      "review_notes": "Existing DialedIn mobile machine image used as curated local fallback."
+    }
   },
   {
     "machine_name": "DeLonghi Dedica",
@@ -284,6 +314,15 @@
         "https://www.delonghi.com/en-us/p/coffee-accessories-dlsc085-bottomless-portafilter/DLSC085.html"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/b198a17d3a714dce8d6a7fbbda8e0a42-delonghi-dedica.webp",
+      "storage_mode": "s3",
+      "content_type": "image/webp",
+      "source_url": "admin upload: V8mr4URJbKsiyj5xBDus9c-1200-80.jpg.webp",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -351,6 +390,15 @@
         "LELIT Anna technical features page provided by user"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/8f4a94e372a1415d9339f2dbafcf55fa-lelit-anna.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Lelit-Anna-Feature.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -425,6 +473,15 @@
         "La Marzocco Linea Micra startup guide provided by user"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/806f7b856e9f45f3a83b8a7437498fff-la-marzocco-linea-micra.jpeg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: images-2.jpeg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -478,6 +535,15 @@
         "https://www.baritaliaclub.com/catalog/product/view/_ignore_category/1/id/186/s/la-spaziale-s1-mini-vivaldi-ii-black/"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/2e104ab2ebc0463495f28d24c2f46867-la-spaziale-s1-mini-vivaldi-ii.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: IMG_7770-1024x768.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -528,6 +594,15 @@
         "https://www.breville.com/en-us/product/bes920"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/f276089511ba4802acb5d22af2fc72de-breville-dual-boiler.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Breville-Oracle-Dual-Boiler-Feature.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -576,6 +651,15 @@
         "https://www.profitec-espresso.com/produkte/go"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/c1f6be4b09c24c52958392f5c26d5e3d-profitec-go.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Profitec-Go-On-Bar-3.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -623,6 +707,15 @@
         "https://www.profitec-espresso.com/en/products/pro-400"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/6a8b8796d8074a778feb2b6bb15113a8-profitec-pro-400.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: pro-400-slider-webcopy.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -675,6 +768,15 @@
         "https://www.wholelattelove.com/products/profitec-pro-300-dual-boiler-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/d15087d827394f92979e87469a483adc-profitec-pro-300.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Profitec_PRO300_Lifestyle_1_1024x1024.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -729,6 +831,15 @@
         "https://www.wholelattelove.com/products/profitec-pro-500-pid-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/f7de3d1706b54aa49a3b363509e54a13-profitec-pro-500-pid.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Eureka-Mignon-Libra-Espresso-Grinder-Profitec-Pro-500-Machine-Clive-Coffee-02.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -784,6 +895,15 @@
         "https://www.wholelattelove.com/products/lelit-marax-heat-exchanger-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/bb855a3c3b4340b7ae15abd0f7927d43-lelit-mara-x.webp",
+      "storage_mode": "s3",
+      "content_type": "image/webp",
+      "source_url": "admin upload: masch-lel-mars3-2-51156.jpg.webp",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -834,6 +954,15 @@
         "https://www.lelit.com/en-us/product/bianca-pesbn03"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/3b2eba09193a47708438d132ba70efd9-lelit-bianca-v3.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: DNA-Bianca.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -888,6 +1017,15 @@
         "https://faema.ca/products/rocket-apartamento-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/ce89561564604e51a61db5776fe48816-rocket-appartamento.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: rocket-appartamento-overview.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -942,6 +1080,15 @@
         "https://www.rocket-espresso.com/"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/da573e488ebe4495bdbf1bc02612fceb-rocket-r58-cinquantotto.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: s-l1200.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -989,6 +1136,15 @@
         "https://clivecoffee.zendesk.com/hc/en-us/articles/115003113968-ECM-Synchronika-User-Manual"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/326638cadad643049787b31f027040fd-ecm-synchronika.jpeg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: images.jpeg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1050,6 +1206,15 @@
         "https://ascaso.com/en/design/portafilters-filters-and-handles/"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/2b24f48fb91d43f5b778b9c551d0a339-ascaso-steel-uno-pid-duo-pid.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: FOTO-MEDIA-PAG-STEEL-2.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1103,6 +1268,15 @@
         "https://www.lamarzocco.com/uk/en/home-products/espresso-machines/linea%20-mini-r/"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/6ef8c37668644cb099eed83a30932093-la-marzocco-linea-mini.png",
+      "storage_mode": "s3",
+      "content_type": "image/png",
+      "source_url": "admin upload: la_marzocco_linea_mini_r_vs_rocket_r58_tune.png",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1148,6 +1322,15 @@
         "https://www.merakitech.com/en-ca/products/meraki-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/461cc9b2ca2d4e259055fd3f62128d59-meraki.webp",
+      "storage_mode": "s3",
+      "content_type": "image/webp",
+      "source_url": "admin upload: 20250122_143641.jpeg.webp",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1226,6 +1409,15 @@
         "https://www.lelit.com/product/anita-pl042temd/",
         "https://dipacciusa.com/products/lelit-anita-pl42-coffee-machine"
       ]
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/652e6c15bbfb405f9bf702cebcbd3932-lelit-anita-pl042temd.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: lelit_anita_buy_online.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1271,6 +1463,15 @@
       "has_built_in_grinder": [
         "https://www.breville.com/products/breville-barista-touch-impress-espresso-machine"
       ]
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/f2259d48afa44e0cadf481e896bb34af-breville-barista-touch-impress-espresso-machine.jpeg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: sea-product-breville-barista-touch-impress-espresso-machine-nsimpson-3370-f33afaef93bf49439a2d15ee416114bf.jpeg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1322,6 +1523,15 @@
       ],
       "has_preinfusion": [],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/9c02ccb6c8cc4fd199d5627f67791881-la-pavoni-new-casa-bar.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: WEB_LPMCBS02EU_S01_1800x1800.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1358,6 +1568,15 @@
         "https://lelit.com/manuals/elizabeth"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/8a3f576072d74d8abe7ed949afa9013b-lelit-elizabeth-pl92t.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: PESEL01BSS1BXX1_Lifestyle.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   },
   {
@@ -1446,6 +1665,15 @@
         "https://www.wholelattelove.com/products/lelit-victoria-espresso-machine"
       ],
       "has_built_in_grinder": []
+    },
+    "image": {
+      "media_key": "dialchat-media/admin/machine_photo/c025637190d6407d8553a916a5efef7c-lelit-victoria-pl91t.jpg",
+      "storage_mode": "s3",
+      "content_type": "image/jpeg",
+      "source_url": "admin upload: Victoria-on-Counter-4.jpg",
+      "license_or_source_type": "admin_upload",
+      "status": "reviewed",
+      "review_notes": "Uploaded from Profile Candidate Review admin."
     }
   }
 ]
