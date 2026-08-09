@@ -18,9 +18,9 @@ def load_local_env() -> None:
     if load_dotenv is None:
         return
 
-    load_dotenv(PROJECT_ROOT / ".env", override=True)
-    load_dotenv(PROJECT_ROOT / "services" / "agent" / ".env", override=True)
-    load_dotenv(PROJECT_ROOT / "services" / "espresso_mcp" / ".env", override=True)
+    load_dotenv(PROJECT_ROOT / ".env", override=False)
+    load_dotenv(PROJECT_ROOT / "services" / "agent" / ".env", override=False)
+    load_dotenv(PROJECT_ROOT / "services" / "espresso_mcp" / ".env", override=False)
 
 
 @dataclass(frozen=True)
