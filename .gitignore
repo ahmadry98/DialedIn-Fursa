@@ -31,3 +31,4 @@ npm-debug.log*
 terraform.tfstate
 terraform.tfstate.*
 terraform.tfstate.d/
+.env.compose

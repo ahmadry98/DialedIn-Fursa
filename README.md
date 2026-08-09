@@ -137,6 +137,76 @@ Without `DIALEDIN_PROFILE_TABLE`, profile data falls back to the checked-in JSON
 
 The mobile app and Next.js local demo use `/media/upload-url`, upload the video with `PUT`, call `/media/register`, then send the returned `video_s3_key` to `/chat` or `/analyze-shot`.
 
+## Run With Docker Compose
+
+Checkpoint 24 is the local DialedIn stack. It runs the backend/web services and monitoring together; the Expo iPhone app still runs natively outside Docker.
+
+Services included:
+
+```text
+DialChat agent API      http://localhost:8000
+Espresso MCP health    http://localhost:9000/health
+AI/admin web frontend  http://localhost:3000
+DialedIn Django API    http://localhost:8010/api/machines/
+DialedIn landing       http://localhost:3002
+Prometheus             http://localhost:9090
+Grafana                http://localhost:3001
+```
+
+First time only, copy the Compose env file:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+cp .env.compose.example .env.compose
+```
+
+Start Docker Desktop, then run the local stack:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+docker compose up --build
+```
+
+Then run the phone app in a second terminal:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
+npm run ios
+```
+
+For the simplest local compose run, keep `DIALEDIN_MEDIA_STORAGE_MODE=local`, `DIALEDIN_PROFILE_STORAGE=json`, and `PROFILE_RESEARCH_AUTORUN=false`. Use S3/DynamoDB/Bedrock env vars only when you want the compose stack to talk to AWS.
+
+Grafana starts with Prometheus already configured as the default data source. Default local login is `admin` / `admin`, unless changed in `.env.compose`.
+
+### Monitoring Checks
+
+Prometheus queries you can paste into `http://localhost:9090`:
+
+```promql
+up
+up{job="dialedin-agent"}
+up{job="espresso-mcp-health"}
+dialedin_chat_requests_total
+increase(dialedin_chat_requests_total[5m])
+dialedin_shot_analysis_requests_total
+dialedin_last_missing_fields_count
+dialedin_espresso_mcp_tool_count
+scrape_duration_seconds{job=~"dialedin-agent|espresso-mcp-health"}
+```
+
+Grafana opens at `http://localhost:3001` with `admin` / `admin` by default. Open **Dashboards -> DialedIN -> DialedIN Local Stack** to see the provisioned local dashboard.
+
+Stop the stack with:
+
+```bash
+docker compose down
+```
+
+
+Important: the mobile machine/grinder pages should use the DialChat agent API on `http://localhost:8000`. The Django API on `http://localhost:8010` is the older DialedIn backend and currently has only its small SQLite seed list.
+
+Terraform comes after this local workflow is stable. Use Terraform when you want AWS resources or deployment infrastructure: S3, DynamoDB, IAM, VPC, EC2/ECS/EKS, load balancers, and later production monitoring. Compose is for running locally; Terraform is for creating cloud infrastructure.
+
 ## Useful Checks
 
 Agent graph tests:

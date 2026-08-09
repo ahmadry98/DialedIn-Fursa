@@ -537,15 +537,26 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Files:**
 - `compose.yaml`
-- service Dockerfiles
+- `services/frontend/Dockerfile`
+- `services/agent/Dockerfile`
+- `services/espresso_mcp/Dockerfile`
+- `../backend/Dockerfile`
+- `../backend/requirements.txt`
+- `../dialedin-landing/Dockerfile`
+- `monitoring/prometheus.yml`
+- `monitoring/grafana/provisioning/datasources/prometheus.yml`
 
 **Deliverable:** Local multi-service stack.
 
-- [ ] Containerize frontend.
-- [ ] Containerize agent.
-- [ ] Containerize espresso MCP.
-- [ ] Add Prometheus/Grafana.
-- [ ] Verify frontend can call agent in compose.
+- [x] Containerize frontend.
+- [x] Containerize agent.
+- [x] Containerize espresso MCP with a health/tool metadata wrapper until MCP stdio transport is wired.
+- [x] Add DialedIn Django backend to the compose stack.
+- [x] Add DialedIn landing app to the compose stack.
+- [x] Add Prometheus/Grafana with Grafana datasource provisioning.
+- [x] Verify frontend, agent, espresso MCP, Prometheus, and Grafana run together in compose.
+- [x] Verify Django backend and landing app run in compose.
+- [ ] Run Expo mobile app against the composed backend stack.
 
 ## Checkpoint 25: Kubernetes On AWS EC2
 
