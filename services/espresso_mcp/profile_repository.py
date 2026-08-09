@@ -24,10 +24,12 @@ def load_profiles(profile_type: str, json_path: Path) -> list[dict[str, Any]]:
 
 
 def save_profiles(profile_type: str, profiles: list[dict[str, Any]], json_path: Path) -> None:
-    """Persist trusted profiles to the configured backend."""
+    """Persist trusted profiles to the configured backend and optional JSON seed."""
     _validate_profile_type(profile_type)
     if _storage_mode() == "dynamodb":
         _save_profiles_dynamodb(profile_type, profiles)
+        if _sync_json_enabled():
+            save_profiles_json(json_path, profiles)
         return
     save_profiles_json(json_path, profiles)
 
@@ -153,8 +155,14 @@ def _storage_mode() -> str:
 
 def _storage_target(json_path: Path) -> str:
     if _storage_mode() == "dynamodb":
-        return os.getenv("DIALEDIN_PROFILE_TABLE") or os.getenv("DIALEDIN_PROFILE_TABLE_NAME") or "dynamodb"
+        table = os.getenv("DIALEDIN_PROFILE_TABLE") or os.getenv("DIALEDIN_PROFILE_TABLE_NAME") or "dynamodb"
+        return f"{table} + {json_path}" if _sync_json_enabled() else table
     return str(json_path)
+
+
+def _sync_json_enabled() -> bool:
+    value = os.getenv("DIALEDIN_PROFILE_SYNC_JSON", "true").lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def _validate_profile_type(profile_type: str) -> None:
