@@ -123,6 +123,18 @@ DIALEDIN_SHOT_RESULTS_TABLE=<terraform output shot_results_table>
 DIALEDIN_SHOT_HISTORY_STORAGE=dynamodb
 ```
 
+Trusted machine/grinder profiles use DynamoDB by default when the equipment profile table is configured. Import the reviewed JSON seed data once per environment:
+
+```bash
+terraform output equipment_profiles_table_name
+DIALEDIN_PROFILE_STORAGE=dynamodb
+DIALEDIN_PROFILE_TABLE=<terraform output equipment_profiles_table_name>
+python scripts/profile_repository_cli.py import --type machine --input services/espresso_mcp/machine_profiles.json
+python scripts/profile_repository_cli.py import --type grinder --input services/espresso_mcp/grinder_profiles.json
+```
+
+Without `DIALEDIN_PROFILE_TABLE`, profile data falls back to the checked-in JSON files. To force JSON even when a table is configured, set `DIALEDIN_PROFILE_STORAGE=json`.
+
 The mobile app and Next.js local demo use `/media/upload-url`, upload the video with `PUT`, call `/media/register`, then send the returned `video_s3_key` to `/chat` or `/analyze-shot`.
 
 ## Useful Checks

@@ -124,9 +124,6 @@ def _grinder_summary(profile: dict[str, Any]) -> dict[str, Any]:
         "medium_step": profile.get("medium_step"),
         "large_step": profile.get("large_step"),
         "notes": profile.get("notes"),
-        "has_image": _has_profile_image(profile),
-        "image": profile.get("image") or None,
-        "image_url": _profile_image_url(profile),
     }
 
 
@@ -146,8 +143,8 @@ def _grinder_detail(profile: dict[str, Any]) -> dict[str, Any]:
 
 
 def _profile_image_url(profile: dict[str, Any]) -> str | None:
-    image = profile.get("image")
-    if not isinstance(image, dict):
+    image = _reviewed_profile_image(profile)
+    if image is None:
         return None
     if image.get("url"):
         return str(image["url"])
@@ -160,8 +157,17 @@ def _profile_image_url(profile: dict[str, Any]) -> str | None:
 
 
 def _has_profile_image(profile: dict[str, Any]) -> bool:
+    image = _reviewed_profile_image(profile)
+    return image is not None and bool(image.get("url") or image.get("local_asset_key") or image.get("media_key"))
+
+
+def _reviewed_profile_image(profile: dict[str, Any]) -> dict[str, Any] | None:
     image = profile.get("image")
-    return isinstance(image, dict) and bool(image.get("url") or image.get("local_asset_key") or image.get("media_key"))
+    if not isinstance(image, dict):
+        return None
+    if image.get("status") != "reviewed":
+        return None
+    return image
 
 
 def _machine_subtitle(specs: dict[str, Any]) -> str:
