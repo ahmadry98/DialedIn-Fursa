@@ -227,20 +227,32 @@ def _with_exact_setting(result: RecommendationResult, shot_context: dict[str, An
         return RecommendationResult(**{
             **asdict(result),
             "adjustment": adjustment,
+            "confidence": _cap_confidence(result.confidence, "medium"),
             "exact_grind_setting": relative_setting,
             "calculation_explanation": _exact_setting_explanation(relative_setting, result.target_range_seconds),
             "confidence_reasons": confidence_reasons,
         })
 
-    adjustment = f"try grind setting {suggested} next ({adjustment_detail})"
+    if exact_setting.get("was_clamped"):
+        adjustment = f"move as far {direction} as your grinder allows, then adjust dose or yield if the shot is still off"
+    else:
+        adjustment = f"try grind setting {suggested} next ({adjustment_detail})"
     return RecommendationResult(**{
         **asdict(result),
         "adjustment": adjustment,
+        "confidence": _cap_confidence(result.confidence, "medium") if exact_setting.get("was_clamped") else result.confidence,
         "exact_grind_setting": exact_setting,
         "calculation_explanation": _exact_setting_explanation(exact_setting, result.target_range_seconds),
         "confidence_reasons": confidence_reasons,
     })
 
+
+
+def _cap_confidence(confidence: str, cap: str) -> str:
+    order = {"low": 0, "medium": 1, "high": 2}
+    if order.get(confidence, 1) > order.get(cap, 1):
+        return cap
+    return confidence
 
 
 def _relative_adjustment_detail(exact_setting: dict[str, Any], direction: str) -> str:
@@ -281,7 +293,10 @@ def _exact_setting_explanation(exact_setting: dict[str, Any], target_range_secon
                 f"{grinder_name} is estimated at about {seconds_per_step:g}s per small grind step, so this uses about {estimated_steps} small steps."
             )
     if current not in (None, "") and suggested is not None:
-        explanation.append(f"Current setting {current} becomes suggested setting {suggested}.")
+        if exact_setting.get("was_clamped"):
+            explanation.append(f"Calculated setting would be outside the grinder range, so the suggestion is capped at {suggested}.")
+        else:
+            explanation.append(f"Current setting {current} becomes suggested setting {suggested}.")
     return explanation
 
 
@@ -298,9 +313,11 @@ def _confidence_reasons(
         profile = exact_setting.get("grinder_profile") or {}
         grinder_name = profile.get("grinder_name")
         if grinder_name == grinder_profiles.GENERIC_GRINDER_NAME:
-            reasons.append("Generic grinder profile used, so the exact setting is a conservative estimate.")
+            reasons.append("No verified grinder profile was found, so DialedIN gives a relative step move instead of an exact setting.")
         elif grinder_name:
             reasons.append(f"Known grinder profile used: {grinder_name}.")
+        if exact_setting.get("was_clamped"):
+            reasons.append("Suggested setting is capped by the grinder profile range.")
         if exact_setting.get("seconds_per_small_step_estimate") is not None:
             reasons.append("Adjustment size uses estimated grinder sensitivity, not personal shot history yet.")
 

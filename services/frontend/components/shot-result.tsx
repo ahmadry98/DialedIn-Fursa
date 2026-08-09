@@ -19,6 +19,7 @@ export function ShotResult({
   onApplyTiming,
 }: ShotResultProps) {
   const profileName = String(result.machine_profile.machine_name ?? "Generic Espresso Machine");
+  const needsTimingConfirmation = result.recommendation.recommendation === "confirm_timing";
 
   return (
     <div className="result-layout">
@@ -31,18 +32,28 @@ export function ShotResult({
         onApply={onApplyTiming}
       />
 
-      <section className="panel recommendation-panel" aria-label="Recommendation">
+      <section className={needsTimingConfirmation ? "panel recommendation-panel timing-decision-panel" : "panel recommendation-panel"} aria-label="Recommendation">
         <div className="panel-heading">
           <div>
-            <h2>Recommendation</h2>
+            <h2>{needsTimingConfirmation ? "Timing check" : "Recommendation"}</h2>
             <p>{profileName}</p>
           </div>
-          <span className="status ok">{result.recommendation.confidence}</span>
+          <span className={needsTimingConfirmation ? "status warning" : "status ok"}>
+            {needsTimingConfirmation ? "Confirm" : result.recommendation.confidence}
+          </span>
         </div>
 
-        <div className="recommendation-action">{humanize(result.recommendation.recommendation)}</div>
+        <div className="recommendation-action">
+          {needsTimingConfirmation ? "Confirm timing" : humanize(result.recommendation.recommendation)}
+        </div>
         <p className="recommendation-adjustment">{result.recommendation.adjustment}</p>
-        {result.recommendation.exact_grind_setting?.setting_label ? (
+        {needsTimingConfirmation ? (
+          <div className="explanation-block timing-hold-block" aria-label="Timing confirmation hold">
+            <h3>Before changing grind</h3>
+            <p>Confirm the detected start and stop times, or send another quieter shot video. Once timing is trusted, DialedIN will give the grind adjustment.</p>
+          </div>
+        ) : null}
+        {!needsTimingConfirmation && result.recommendation.exact_grind_setting?.setting_label ? (
           <div className="exact-setting">
             <span>Next setting</span>
             <strong>{result.recommendation.exact_grind_setting.setting_label}</strong>
@@ -50,7 +61,7 @@ export function ShotResult({
         ) : null}
         <p className="reason">{result.recommendation.reason}</p>
 
-        {result.recommendation.calculation_explanation?.length ? (
+        {!needsTimingConfirmation && result.recommendation.calculation_explanation?.length ? (
           <div className="explanation-block" aria-label="Calculation explanation">
             <h3>Why this setting</h3>
             <ul>

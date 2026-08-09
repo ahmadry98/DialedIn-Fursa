@@ -90,14 +90,17 @@ def suggest_grind_setting(
     if recommendation == "grind_coarser":
         direction_multiplier *= -1
 
-    suggested = current + (direction_multiplier * step)
-    suggested = _clamp(suggested, profile.get("min_setting"), profile.get("max_setting"))
-    suggested = _format_for_type(suggested, profile.get("setting_type"))
+    raw_suggested = current + (direction_multiplier * step)
+    clamped_suggested = _clamp(raw_suggested, profile.get("min_setting"), profile.get("max_setting"))
+    was_clamped = clamped_suggested != raw_suggested
+    suggested = _format_for_type(clamped_suggested, profile.get("setting_type"))
 
     result.update(
         {
             "suggested_setting": suggested,
             "setting_label": str(suggested),
+            "raw_suggested_setting": _format_for_type(raw_suggested, profile.get("setting_type")),
+            "was_clamped": was_clamped,
             "adjustment_size": step_info["adjustment_size"],
             "seconds_gap": step_info.get("seconds_gap"),
             "estimated_small_steps": step_info.get("estimated_small_steps"),
