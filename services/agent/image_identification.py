@@ -9,6 +9,10 @@ from typing import Any
 
 SYSTEM_PROMPT = """You identify espresso equipment from a user photo.
 Return ONLY valid JSON. No markdown. No commentary.
+Classify the actual object in the image as either an espresso machine or a coffee grinder.
+The user may have attached the wrong photo for the current chat step; do not force the requested type if the object is clearly the other type.
+If you can only see a brand/company logo but not the exact model, return the brand as name with confidence "low" and explain that the exact model is needed.
+For Varia grinders, valid model names include Varia VS3, Varia VS4, and Varia VS6. Do not return Varia VS2. If you only know the brand, return "Varia" with confidence "low".
 If the image is unclear, return null for name and confidence "low".
 Do not invent technical specifications.
 Return this exact shape:
@@ -44,7 +48,7 @@ def identify_gear_image_with_bedrock(
             {
                 "role": "user",
                 "content": [
-                    {"text": f"Identify this espresso {gear_type}. Return only the JSON object."},
+                    {"text": f"The chat currently expects a {gear_type}, but classify the actual object in the image. Return only the JSON object."},
                     {
                         "image": {
                             "format": media_format(media_type),

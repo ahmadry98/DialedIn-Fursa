@@ -90,9 +90,29 @@ class RecommendationRulesTest(unittest.TestCase):
 
         self.assertEqual(result["recommendation"], "grind_coarser")
         self.assertEqual(result["adjustment"], "move about 6 small steps coarser from your current setting")
+        self.assertEqual(result["confidence"], "medium")
         self.assertIsNone(result["exact_grind_setting"]["suggested_setting"])
         self.assertIsNone(result["exact_grind_setting"]["setting_label"])
         self.assertTrue(any("exact scale is unknown" in item for item in result["calculation_explanation"]))
+        self.assertTrue(any("relative step move instead of an exact setting" in item for item in result["confidence_reasons"]))
+
+    def test_known_grinder_limit_uses_safe_capped_message(self):
+        result = recommend_grind_adjustment(
+            {
+                "total_shot_seconds": 12,
+                "taste": "sour",
+                "timing_confidence": 0.9,
+                "grinder": "Varia VS6",
+                "grind_setting": "0.1",
+                "machine_profile": {"target_total_shot_seconds": [25, 32]},
+            }
+        )
+
+        self.assertEqual(result["recommendation"], "grind_finer")
+        self.assertEqual(result["confidence"], "medium")
+        self.assertTrue(result["exact_grind_setting"]["was_clamped"])
+        self.assertIn("as far finer as your grinder allows", result["adjustment"])
+        self.assertTrue(any("capped" in item for item in result["calculation_explanation"]))
 
     def test_normal_sour_shot_recommends_more_extraction(self):
         result = recommend_grind_adjustment(

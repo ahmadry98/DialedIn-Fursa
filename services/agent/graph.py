@@ -110,15 +110,28 @@ def _image_identify(state: CoachGraphState) -> dict[str, Any]:
     gear_type = guess.get("gear_type") or message.image_kind
     gear_name = guess.get("name")
     confidence = str(guess.get("confidence") or "low").lower()
+    if gear_name:
+        known_type = conversation.known_equipment_type(str(gear_name))
+        if known_type and known_type != gear_type:
+            gear_type = known_type
+            guess = {**guess, "gear_type": known_type, "reason": f"Known {known_type} profile matched the image guess."}
     updates: dict[str, Any] = {}
     if gear_name and str(gear_name).lower() != "unknown" and confidence in {"medium", "high"}:
-        canonical_name = conversation.canonical_gear_name(str(gear_name), gear_type)
-        updates = {
-            "pending_gear_type": gear_type,
-            "pending_gear_name": canonical_name,
-            "pending_gear_confidence": confidence,
-        }
-        guess = {**guess, "name": canonical_name, "confidence": confidence}
+        if conversation.is_brand_only_equipment_name(str(gear_name)):
+            guess = {
+                **guess,
+                "name": str(gear_name).strip(),
+                "confidence": "low",
+                "reason": "The photo identified a brand, but not the exact model.",
+            }
+        else:
+            canonical_name = conversation.canonical_gear_name(str(gear_name), gear_type)
+            updates = {
+                "pending_gear_type": gear_type,
+                "pending_gear_name": canonical_name,
+                "pending_gear_confidence": confidence,
+            }
+            guess = {**guess, "name": canonical_name, "confidence": confidence}
 
     context = state["context"].model_copy(update=updates) if updates else state["context"]
     return {"context": context, "image_guess": guess}
@@ -169,6 +182,11 @@ def _filter_extracted_context(extracted: dict[str, Any], message: str, previous_
     if expected_field != "timing" and not conversation.has_explicit_timing(message):
         filtered.pop("total_shot_seconds", None)
         filtered.pop("video_s3_key", None)
+    if expected_field in {"machine", "grinder"} and conversation.is_vague_equipment_reply(message):
+        filtered.pop(expected_field, None)
+        if expected_field == "machine":
+            filtered.pop("grinder", None)
+            filtered.pop("uses_built_in_grinder", None)
     if expected_field == "grind_setting" and not conversation.has_labeled_dose(message):
         filtered.pop("dose_g", None)
     if expected_field == "taste" and conversation.is_structured_field_correction(message) and not conversation.has_labeled_taste(message):
@@ -195,7 +213,10 @@ def _parse_message(state: CoachGraphState) -> dict[str, Any]:
 
 def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
     latest_message = _latest_user_message_object(state["request"])
+    message = state.get("message", "")
     if latest_message and latest_message.image_base64:
+        return {}
+    if conversation.is_media_attachment_message(message):
         return {}
 
     expected_field = (state.get("previous_missing") or [None])[0]
@@ -215,9 +236,9 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
         return {}
 
     name = getattr(context, expected_field)
-    if not name:
-        message = state.get("message", "")
-        if _should_reject_missing_equipment_reply(message):
+    settings = get_settings()
+    if not settings.chat_llm_extraction_enabled:
+        if not name and _should_reject_missing_equipment_reply(message):
             return {
                 "invalid_gear": {
                     "gear_type": expected_field,
@@ -227,18 +248,21 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
             }
         return {}
 
-    settings = get_settings()
-    if not settings.chat_llm_extraction_enabled:
+    if not name and not _should_reject_missing_equipment_reply(message):
+        return {}
+
+    validation_name = name or message.strip()
+    if not validation_name:
         return {}
 
     validation = equipment_validation.validate_equipment_name(
-        name=name,
+        name=validation_name,
         gear_type=expected_field,
         model_id=settings.chat_llm_model_id,
         region=settings.aws_region,
     )
     if validation.get("is_equipment"):
-        corrected_name = validation.get("corrected_name") or name
+        corrected_name = validation.get("corrected_name") or validation_name
         updates = {expected_field: conversation.canonical_gear_name(str(corrected_name), expected_field)}
         if expected_field == "machine" and context.uses_built_in_grinder and not context.grinder:
             updates["grinder"] = f"{updates['machine']} built-in grinder"
@@ -251,7 +275,7 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
         "context": context.model_copy(update=updates),
         "invalid_gear": {
             "gear_type": expected_field,
-            "name": name,
+            "name": validation_name,
             "reason": validation.get("reason") or "That does not look like espresso equipment.",
         },
     }
@@ -264,7 +288,7 @@ def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
         return {}
 
     message = state.get("message", "")
-    if not message or conversation.is_small_talk(message):
+    if not message or conversation.is_small_talk(message) or conversation.is_media_attachment_message(message):
         return {}
 
     context = state["context"]
@@ -346,6 +370,8 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
         response = invalid_field_prompt
     elif image_prompt := _low_confidence_image_prompt(state):
         response = image_prompt
+    elif missing and str(missing[0]).startswith("confirm_"):
+        response = conversation.question_for(missing[0], context)
     elif not message:
         response = "Hey, I can help dial in your espresso. What machine are you using?"
     elif previous_missing[:1] == ["confirm_machine"] and conversation.is_confirmation_no(message):
@@ -358,6 +384,8 @@ def _ask_next(state: CoachGraphState) -> dict[str, Any]:
         response = small_talk_response
     else:
         response = conversation.question_for(missing[0], context)
+    if notice := _generic_machine_notice(state, context):
+        response = f"{notice} {response}"
     return {"response": response, "analysis_result": None}
 
 
@@ -395,6 +423,21 @@ def _low_confidence_image_prompt(state: CoachGraphState) -> str | None:
     return "I could not identify the machine confidently from the photo. What machine is it?"
 
 
+def _generic_machine_notice(state: CoachGraphState, context: ShotContext) -> str | None:
+    if (state.get("previous_missing") or [None])[0] != "machine":
+        return None
+    if not context.machine:
+        return None
+    profile = conversation.machine_profiles.get_machine_profile(context.machine)
+    if profile.get("machine_name") != conversation.machine_profiles.GENERIC_PROFILE_NAME:
+        return None
+    return (
+        f"I do not have a trusted profile for {context.machine} yet, so I will treat it as a generic "
+        "espresso machine for this shot. When we analyze the shot, I will queue it for review so it can "
+        "be added to the known machines."
+    )
+
+
 def _make_analyze_node(analyze_callback: AnalyzeCallback):
     def _analyze(state: CoachGraphState) -> dict[str, Any]:
         context = state["context"]
@@ -413,9 +456,16 @@ def _make_analyze_node(analyze_callback: AnalyzeCallback):
             raise
         return {
             "analysis_result": analysis,
-            "response": conversation.analysis_reply(analysis),
+            "response": _analysis_reply_with_profile_notice(analysis),
             "missing_fields": [],
             "next_field": None,
         }
 
     return _analyze
+
+
+def _analysis_reply_with_profile_notice(analysis: AnalyzeShotResponse) -> str:
+    response = conversation.analysis_reply(analysis)
+    if any(candidate.get("type") == "machine" for candidate in analysis.profile_candidates):
+        response += " I used a generic machine profile for this shot and queued the machine for review so it can become a known profile."
+    return response

@@ -38,6 +38,22 @@ function statusClass(status: string): string {
   return "neutral";
 }
 
+function qualityClass(score?: number): string {
+  if (score === undefined) return "unknown";
+  if (score >= 75) return "strong";
+  if (score >= 55) return "ok";
+  return "weak";
+}
+
+function sourceHost(url?: string): string {
+  if (!url) return "source";
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 export function ProfileCandidateReview() {
   const [candidates, setCandidates] = useState<ProfileCandidate[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>("");
@@ -50,6 +66,7 @@ export function ProfileCandidateReview() {
   const [machines, setMachines] = useState<MachineSummary[]>([]);
   const [selectedMachineSlug, setSelectedMachineSlug] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function refresh(nextSelectedKey?: string) {
     setLoading(true);
@@ -78,13 +95,20 @@ export function ProfileCandidateReview() {
   );
   const readyCount = candidates.filter((candidate) => candidate.status === "draft_ready").length;
   const researchCount = candidates.filter((candidate) => candidate.status === "needs_research").length;
-  const evidenceCount = selected?.research_evidence?.sources?.length ?? 0;
+  const evidenceSources = selected?.research_evidence?.sources ?? [];
+  const evidenceCount = evidenceSources.length;
+  const qualityScore = selected?.research_quality?.score;
+  const qualityThreshold = selected?.research_quality?.threshold ?? 55;
+  const isPromotable = Boolean(selected?.draft_profile) && (qualityScore === undefined || qualityScore >= qualityThreshold);
+  const validationWarnings = selected?.draft_validation?.warnings ?? [];
+  const validationMissing = selected?.draft_validation?.missing_fields ?? [];
 
   useEffect(() => {
     setDraftText(formatJson(selected?.draft_profile));
     setNotesText((selected?.review_notes ?? []).join("\n"));
     setMessage(null);
     setError(null);
+    setCopied(false);
   }, [selected]);
 
   async function uploadMachineImage() {
@@ -204,6 +228,24 @@ export function ProfileCandidateReview() {
     }
   }
 
+  async function copyDraftJson() {
+    try {
+      await navigator.clipboard.writeText(draftText);
+      setCopied(true);
+      setMessage("Draft JSON copied.");
+    } catch {
+      setError("Could not copy draft JSON from this browser.");
+    }
+  }
+
+  function openAllEvidence() {
+    evidenceSources
+      .map((source) => source.url)
+      .filter((url): url is string => Boolean(url))
+      .slice(0, 6)
+      .forEach((url) => window.open(url, "_blank", "noopener,noreferrer"));
+  }
+
   return (
     <section className="admin-shell">
       <div className="admin-summary-grid" aria-label="Candidate review summary">
@@ -223,43 +265,6 @@ export function ProfileCandidateReview() {
           <small>Run evidence + Bedrock drafting</small>
         </div>
       </div>
-
-
-
-      <section className="panel image-admin-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Profile Images</h2>
-            <p>Upload a reviewed machine picture and attach it to the trusted profile.</p>
-          </div>
-        </div>
-
-        <div className="image-admin-grid">
-          <label className="field">
-            <span>Machine</span>
-            <select value={selectedMachineSlug} onChange={(event) => setSelectedMachineSlug(event.target.value)}>
-              {machines.map((machine) => (
-                <option key={machine.slug} value={machine.slug}>
-                  {machine.display_name}{machine.has_image ? " · has image" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>Image file</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-
-          <button className="primary-button" onClick={() => void uploadMachineImage()} disabled={Boolean(busy) || !selectedMachineSlug || !imageFile}>
-            {busy === "image" ? "Uploading" : "Upload image"}
-          </button>
-        </div>
-      </section>
 
       <section className="admin-workspace">
         <aside className="panel candidate-list-panel">
@@ -321,38 +326,56 @@ export function ProfileCandidateReview() {
                 </div>
               </div>
 
-              {selected.draft_validation ? (
-                <div className="explanation-block">
-                  <h3>Validation</h3>
-                  <ul>
-                    <li>{selected.draft_validation.is_valid ? "Draft shape is valid." : "Draft needs review."}</li>
-                    {(selected.draft_validation.missing_fields ?? []).map((field) => <li key={field}>Missing: {field}</li>)}
-                    {(selected.draft_validation.warnings ?? []).map((warning) => <li key={warning}>{warning}</li>)}
-                  </ul>
-                </div>
-              ) : null}
-
-              {selected.research_quality ? (
-                <div className="quality-block">
+              <div className="admin-review-grid">
+                <div className={`quality-block ${qualityClass(qualityScore)}`}>
                   <div>
                     <span>Research quality</span>
-                    <strong>{selected.research_quality.score ?? 0}/100</strong>
-                    <small>Ready when score is above {selected.research_quality.threshold ?? 55}</small>
+                    <strong>{qualityScore ?? "--"}<small>/100</small></strong>
+                    <small>Promote target: {qualityThreshold}+</small>
                   </div>
-                  <div>
-                    <h3>{statusLabel(selected.research_quality.status ?? selected.status)}</h3>
+                  <div className="quality-meter" aria-label="Research quality score">
+                    <span style={{ width: `${Math.min(Math.max(qualityScore ?? 0, 0), 100)}%` }} />
+                  </div>
+                  <p>{isPromotable ? "Looks ready for human review and promotion." : "Needs better evidence or manual edits before promotion."}</p>
+                </div>
+
+                <div className="validation-card">
+                  <h3>Validation</h3>
+                  {selected.draft_validation ? (
                     <ul>
-                      {(selected.research_quality.reasons ?? []).map((reason) => <li key={reason}>{reason}</li>)}
-                      {(selected.research_quality.warnings ?? []).map((warning) => <li key={warning}>Warning: {warning}</li>)}
+                      <li>{selected.draft_validation.is_valid ? "Draft shape is valid." : "Draft needs review."}</li>
+                      {validationMissing.map((field) => <li key={field}>Missing: {field}</li>)}
+                      {validationWarnings.map((warning) => <li key={warning}>{warning}</li>)}
                     </ul>
-                  </div>
+                  ) : (
+                    <p>No validation has run yet.</p>
+                  )}
+                </div>
+              </div>
+
+              {selected.research_quality ? (
+                <div className="quality-reasons">
+                  <h3>{statusLabel(selected.research_quality.status ?? selected.status)}</h3>
+                  <ul>
+                    {(selected.research_quality.reasons ?? []).map((reason) => <li key={reason}>{reason}</li>)}
+                    {(selected.research_quality.warnings ?? []).map((warning) => <li key={warning}>Warning: {warning}</li>)}
+                  </ul>
                 </div>
               ) : null}
             </section>
 
             <section className="panel admin-editor-panel">
+              <div className="editor-toolbar">
+                <div>
+                  <h2>Draft profile JSON</h2>
+                  <p>Edit only fields you verified, then save or promote.</p>
+                </div>
+                <button className="secondary-button compact-button" onClick={() => void copyDraftJson()} disabled={!selected.draft_profile}>
+                  {copied ? "Copied" : "Copy JSON"}
+                </button>
+              </div>
               <div className="field">
-                <label htmlFor="draft-json">Draft profile JSON</label>
+                <label htmlFor="draft-json" className="sr-only">Draft profile JSON</label>
                 <textarea id="draft-json" className="json-editor" value={draftText} onChange={(event) => setDraftText(event.target.value)} />
               </div>
               <div className="field">
@@ -375,7 +398,7 @@ export function ProfileCandidateReview() {
                 <button className="danger-button" onClick={deleteCandidate} disabled={Boolean(busy)}>
                   {busy === "delete" ? "Deleting" : "Delete candidate"}
                 </button>
-                <button className="primary-button" onClick={promoteCandidate} disabled={Boolean(busy) || !selected.draft_profile}>
+                <button className="primary-button" onClick={promoteCandidate} disabled={Boolean(busy) || !isPromotable}>
                   {busy === "promote" ? "Promoting" : "Promote profile"}
                 </button>
               </div>
@@ -385,20 +408,32 @@ export function ProfileCandidateReview() {
             </section>
 
             <section className="panel evidence-panel">
-              <div className="panel-heading">
+              <div className="panel-heading evidence-heading">
                 <div>
                   <h2>Source Evidence</h2>
                   <p>Use these links and snippets before trusting the draft.</p>
                 </div>
+                <button className="secondary-button compact-button" onClick={openAllEvidence} disabled={evidenceCount === 0}>
+                  Open sources
+                </button>
               </div>
+              {evidenceCount > 0 ? (
+                <div className="source-chip-row" aria-label="Evidence source domains">
+                  {evidenceSources.slice(0, 8).map((source, index) => (
+                    <a key={`${source.url ?? "source"}-${index}`} href={source.url} target="_blank" rel="noreferrer">
+                      {sourceHost(source.url)}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
               <div className="evidence-list">
-                {(selected.research_evidence?.sources ?? []).map((source, index) => (
+                {evidenceSources.map((source, index) => (
                   <article className="evidence-item" key={`${source.url ?? "source"}-${index}`}>
                     <a href={source.url} target="_blank" rel="noreferrer">{source.title || source.url || `Source ${index + 1}`}</a>
                     <p>{source.snippet || source.text || "No snippet stored."}</p>
                   </article>
                 ))}
-                {(selected.research_evidence?.sources ?? []).length === 0 ? (
+                {evidenceCount === 0 ? (
                   <p className="empty-copy">No web evidence stored yet. Rerun research to collect sources.</p>
                 ) : null}
               </div>
@@ -409,6 +444,41 @@ export function ProfileCandidateReview() {
             <p>{loading ? "Loading candidates" : "No candidate selected."}</p>
           </section>
         )}
+        </div>
+      </section>
+
+      <section className="panel image-admin-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Profile Images</h2>
+            <p>Upload a reviewed machine picture and attach it to the trusted profile.</p>
+          </div>
+        </div>
+
+        <div className="image-admin-grid">
+          <label className="field">
+            <span>Machine</span>
+            <select value={selectedMachineSlug} onChange={(event) => setSelectedMachineSlug(event.target.value)}>
+              {machines.map((machine) => (
+                <option key={machine.slug} value={machine.slug}>
+                  {machine.display_name}{machine.has_image ? " · has image" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Image file</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+            />
+          </label>
+
+          <button className="primary-button" onClick={() => void uploadMachineImage()} disabled={Boolean(busy) || !selectedMachineSlug || !imageFile}>
+            {busy === "image" ? "Uploading" : "Upload image"}
+          </button>
         </div>
       </section>
     </section>

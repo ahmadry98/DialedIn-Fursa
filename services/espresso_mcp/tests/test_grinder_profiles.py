@@ -76,6 +76,13 @@ class GrinderProfilesTest(unittest.TestCase):
 
         self.assertIsNone(result["suggested_setting"])
 
+    def test_suggestion_reports_when_setting_is_clamped(self):
+        result = suggest_grind_setting("Varia VS6", "0.1", "grind_finer", 12, (25, 35))
+
+        self.assertEqual(result["suggested_setting"], 0.0)
+        self.assertTrue(result["was_clamped"])
+        self.assertLess(result["raw_suggested_setting"], result["suggested_setting"])
+
 
 if __name__ == "__main__":
     unittest.main()

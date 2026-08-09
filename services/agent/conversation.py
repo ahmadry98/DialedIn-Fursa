@@ -19,6 +19,34 @@ TASTE_WORDS = {"sour", "bitter", "balanced", "thin", "watery", "harsh", "dry", "
 ROAST_LEVELS = {"light", "medium", "dark"}
 VIDEO_PATTERN = re.compile(r"(?:data/[^\s]+|[^\s]+\.(?:mp4|mov|m4v|wav))", re.IGNORECASE)
 NUMBER_PATTERN = re.compile(r"-?\d+(?:\.\d+)?")
+BRAND_ONLY_NAMES = {
+    "ascaso",
+    "baratza",
+    "bezzera",
+    "breville",
+    "comandante",
+    "delonghi",
+    "df",
+    "ecm",
+    "eureka",
+    "flair",
+    "gaggia",
+    "gevi",
+    "illy",
+    "kingrinder",
+    "kinu",
+    "la marzocco",
+    "la pavoni",
+    "lelit",
+    "niche",
+    "profitec",
+    "quick mill",
+    "rancilio",
+    "rocket",
+    "sage",
+    "turin",
+    "varia",
+}
 
 
 def handle_chat(request: ChatRequest, analyze_callback) -> ChatResponse:
@@ -80,7 +108,7 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
         _apply_pending_gear_reply(context, text)
         return
 
-    if is_small_talk(text):
+    if is_small_talk(text) or is_media_attachment_message(text):
         return
 
     _apply_compact_setup_message(context, text, previous_missing)
@@ -229,6 +257,44 @@ def has_labeled_taste(text: str) -> bool:
     return bool(re.search(r"\b(?:taste|tasted|flavor|flavour)\b", lowered))
 
 
+def is_vague_equipment_reply(text: str) -> bool:
+    normalized = _normalize_text(text)
+    if not normalized:
+        return True
+    if is_small_talk(text):
+        return True
+    return _is_generic_non_equipment_reply(normalized)
+
+
+def is_media_attachment_message(text: str) -> bool:
+    normalized = _normalize_text(text)
+    return normalized in {
+        "photo attached",
+        "image attached",
+        "picture attached",
+        "shot video attached",
+        "video attached",
+    }
+
+
+def is_brand_only_equipment_name(name: str) -> bool:
+    """Return true for brand/company names that still need a model name."""
+    normalized = _normalize_text(_clean_equipment_reply(name))
+    return normalized in BRAND_ONLY_NAMES
+
+
+def known_equipment_type(name: str) -> str | None:
+    """Return the trusted profile type when a name clearly matches one side."""
+    cleaned = _clean_equipment_reply(name)
+    is_machine = _is_known_machine(cleaned)
+    is_grinder = _is_known_grinder(cleaned)
+    if is_machine and not is_grinder:
+        return "machine"
+    if is_grinder and not is_machine:
+        return "grinder"
+    return None
+
+
 def _reply(response: str, context: ShotContext, missing: list[str]) -> ChatResponse:
     return ChatResponse(
         response=response,
@@ -365,6 +431,8 @@ def looks_like_equipment_name(name: str, gear_type: str) -> bool:
         return False
     if _is_generic_non_equipment_reply(normalized):
         return False
+    if is_brand_only_equipment_name(cleaned):
+        return False
     if gear_type == "machine" and _is_known_machine(cleaned):
         return True
     if gear_type == "grinder" and _is_known_grinder(cleaned):
@@ -450,8 +518,20 @@ def _is_generic_non_equipment_reply(normalized: str) -> bool:
         "height",
         "weight",
         "yes",
+        "ye",
+        "y",
+        "yeah",
+        "yep",
+        "yup",
+        "ya",
         "no",
+        "n",
+        "nope",
+        "wrong",
         "maybe",
+        "sure",
+        "correct",
+        "right",
         "fine",
         "good",
         "bad",
@@ -459,6 +539,10 @@ def _is_generic_non_equipment_reply(normalized: str) -> bool:
         "okay",
         "cool",
         "test",
+        "skip",
+        "unknown",
+        "none",
+        "nothing",
         "photo",
         "picture",
         "video",
