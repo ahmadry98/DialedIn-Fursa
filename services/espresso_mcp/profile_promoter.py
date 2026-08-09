@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from services.espresso_mcp import grinder_profiles, machine_profiles, profile_candidates
+from services.espresso_mcp import grinder_profiles, machine_profiles, profile_candidates, profile_repository
 
 
 def promote_candidate(candidate_key: str) -> dict[str, Any]:
@@ -59,27 +59,15 @@ def _find_candidate(candidates: list[dict[str, Any]], candidate_key: str) -> dic
 
 
 def _upsert_profile(path: Path, draft: dict[str, Any], name_field: str, generic_name: str) -> dict[str, Any]:
-    profiles = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(profiles, list):
-        raise ValueError(f"{path.name} must contain a list")
-
-    draft_names = _profile_names(draft, name_field)
-    for index, profile in enumerate(profiles):
-        if not _profile_names(profile, name_field).isdisjoint(draft_names):
-            profiles[index] = draft
-            path.write_text(json.dumps(profiles, indent=2) + "\n", encoding="utf-8")
-            return {"status": "updated", "path": str(path), "profile_name": draft.get(name_field)}
-
-    insert_at = next((index for index, profile in enumerate(profiles) if profile.get(name_field) == generic_name), len(profiles))
-    profiles.insert(insert_at, draft)
-    path.write_text(json.dumps(profiles, indent=2) + "\n", encoding="utf-8")
-    return {"status": "inserted", "path": str(path), "profile_name": draft.get(name_field)}
-
-
-def _profile_names(profile: dict[str, Any], name_field: str) -> set[str]:
-    names = {_normalize(profile.get(name_field, ""))}
-    names.update(_normalize(alias) for alias in profile.get("aliases", []))
-    return {name for name in names if name}
+    profile_type = "machine" if name_field == "machine_name" else "grinder"
+    return profile_repository.upsert_profile(
+        profile_type=profile_type,
+        json_path=path,
+        draft=draft,
+        name_field=name_field,
+        generic_name=generic_name,
+        normalize=_normalize,
+    )
 
 
 def _normalize(value: Any) -> str:

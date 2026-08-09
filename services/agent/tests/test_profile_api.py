@@ -1,8 +1,10 @@
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -15,7 +17,14 @@ from services.espresso_mcp import machine_profiles
 
 class ProfileApiTest(unittest.TestCase):
     def setUp(self):
+        self.env_patch = patch.dict(os.environ, {"DIALEDIN_PROFILE_STORAGE": "json"})
+        self.env_patch.start()
+        machine_profiles.load_machine_profiles.cache_clear()
         self.client = TestClient(agent_app.app)
+
+    def tearDown(self):
+        self.env_patch.stop()
+        machine_profiles.load_machine_profiles.cache_clear()
 
     def test_list_machines_returns_mobile_safe_shape(self):
         response = self.client.get("/machines")

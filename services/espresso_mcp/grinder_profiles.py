@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from copy import deepcopy
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
+
+from services.espresso_mcp import profile_repository
 
 PROFILE_PATH = Path(__file__).with_name("grinder_profiles.json")
 GENERIC_GRINDER_NAME = "Generic Numeric Grinder"
@@ -143,8 +144,7 @@ def _best_fuzzy_profile_match(normalized_query: str, profiles: list[dict[str, An
     return None
 
 def _load_profiles() -> list[dict[str, Any]]:
-    with PROFILE_PATH.open(encoding="utf-8") as profile_file:
-        return json.load(profile_file)
+    return profile_repository.load_profiles("grinder", PROFILE_PATH)
 
 
 def _generic_profile(profiles: list[dict[str, Any]]) -> dict[str, Any]:

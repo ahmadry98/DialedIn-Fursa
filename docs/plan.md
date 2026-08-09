@@ -495,19 +495,20 @@ attach_draft_profile(candidate_key, draft_profile)
 ## Checkpoint 22: Profile Database Migration
 
 **Files:**
-- `services/agent/profile_repository.py`
 - `services/espresso_mcp/profile_repository.py`
+- `scripts/profile_repository_cli.py`
 - `infra/terraform/database.tf`
-- migration/import scripts
+- `infra/terraform/outputs.tf`
+- `services/espresso_mcp/tests/test_profile_repository.py`
 
-**Deliverable:** Move trusted machine/grinder/profile image data from JSON into persistent storage after the API and UI shape are stable.
+**Deliverable:** Move trusted machine/grinder/profile image data toward persistent storage after the API and UI shape are stable, while keeping JSON as the safe local default.
 
-- [ ] Choose DynamoDB or Postgres based on admin/search needs.
-- [ ] Import existing machine and grinder JSON into the database.
-- [ ] Keep JSON seed/export scripts for reproducibility.
-- [ ] Update profile promoter to write to the database or produce reviewed migration changes.
-- [ ] Add indexes for slug, aliases, profile type, and review status.
-- [ ] Keep tests able to run without AWS by using local fixtures/mocks.
+- [x] Choose DynamoDB as the first persistent backend because current AWS infrastructure already uses DynamoDB/S3 and profile reads are simple key/list lookups.
+- [x] Import existing machine and grinder JSON into the dev DynamoDB equipment profiles table. Repeat the import for prod when a prod table is created.
+- [x] Keep JSON seed/export scripts for reproducibility.
+- [x] Update machine/grinder loaders and profile promoter to go through a repository abstraction with DynamoDB default when a profile table is configured and explicit JSON fallback for local fixtures.
+- [x] Add indexes for profile type and slug in Terraform. Alias/review-status search can stay application-side until admin search needs grow.
+- [x] Keep tests able to run without AWS by using local fixtures/mocks.
 
 ## Checkpoint 23: Docker Compose
 

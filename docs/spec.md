@@ -355,7 +355,7 @@ Machine profiles may include optional image metadata. Grinder profiles intention
 
 Images are product-display data, not verified machine specifications. A new machine candidate cannot be promoted into trusted profiles until the admin adds a reviewed image. The app should only show reviewed machine images. For missing or unreviewed machine images, the profile API returns `has_image=false` and the mobile UI shows a neutral placeholder. Image discovery should prefer manufacturer/official product pages first, then reputable retailers if official images are not usable. Production should avoid fragile hotlinks by curating images into mobile assets or S3 after review.
 
-The database migration should wait until profile API, machine image metadata, and mobile machine/grinder pages are stable. Until then, JSON plus tests is simpler and easier to review.
+The database migration should wait until profile API, machine image metadata, and mobile machine/grinder pages are stable. Until then, JSON plus tests is simpler and easier to review. Checkpoint 22 adds a repository abstraction so trusted machines and grinders use DynamoDB by default when `DIALEDIN_PROFILE_TABLE=<table-name>` is configured. Set `DIALEDIN_PROFILE_STORAGE=json` to force checked-in JSON files for local fixture work. The import/export CLI keeps JSON as a reproducible seed and lets deployed environments load the same reviewed profiles into DynamoDB when ready.
 
 ## 20. Video Upload And Storage Direction
 

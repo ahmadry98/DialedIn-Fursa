@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import re
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from services.espresso_mcp import profile_repository
 
 PROFILE_PATH = Path(__file__).with_name("machine_profiles.json")
 GENERIC_PROFILE_NAME = "Generic Espresso Machine"
@@ -87,8 +88,7 @@ def _best_fuzzy_profile_match(query: str, profiles: list[dict[str, Any]]) -> dic
 @lru_cache(maxsize=1)
 def load_machine_profiles() -> list[dict[str, Any]]:
     """Load curated machine profiles from JSON."""
-    with PROFILE_PATH.open(encoding="utf-8") as profile_file:
-        profiles = json.load(profile_file)
+    profiles = profile_repository.load_profiles("machine", PROFILE_PATH)
     if not isinstance(profiles, list):
         raise ValueError("machine_profiles.json must contain a list of profiles")
     if not profiles:
@@ -117,7 +117,7 @@ def update_machine_profile_image(slug_or_alias: str, image: dict[str, Any]) -> d
     if updated is None or updated.get("machine_name") == GENERIC_PROFILE_NAME:
         raise ValueError(f"Machine profile not found: {slug_or_alias}")
 
-    PROFILE_PATH.write_text(json.dumps(profiles, indent=2) + "\n", encoding="utf-8")
+    profile_repository.save_profiles("machine", profiles, PROFILE_PATH)
     load_machine_profiles.cache_clear()
     return updated
 
