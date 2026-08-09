@@ -482,14 +482,15 @@ attach_draft_profile(candidate_key, draft_profile)
 - `services/agent/tests/test_profile_images.py`
 - Modify in sibling app: `DialedIn/dialedin-mobile/assets/images/machines/*` as curated local assets are added
 
-**Deliverable:** Every profile can expose a reviewed image reference without guessing or hotlinking unreliable images.
+**Deliverable:** Every machine profile can expose a reviewed image reference without guessing or hotlinking unreliable images. Grinder profiles remain image-free for now.
 
-- [ ] Add optional `image` metadata to profile JSON: `url`, `local_asset_key`, `source_url`, `license_or_source_type`, `status`, and `review_notes`.
+- [x] Add optional machine `image` metadata to profile JSON: `url`, `local_asset_key`, `source_url`, `license_or_source_type`, `status`, and `review_notes`.
 - [ ] Use existing local images for Gaggia Classic Pro, Rancilio Silvia, and Breville Barista Express.
 - [ ] Add admin/research workflow for missing images: find manufacturer/official product image first, then reputable retailer image if needed.
-- [ ] Store candidate image URLs as `status: needs_review`; only reviewed images become app-visible.
+- [x] Only reviewed machine images become app-visible; missing/unreviewed images return `has_image=false`.
 - [ ] Prefer curated local mobile assets for core machines now, and S3-hosted reviewed images for expanded/admin-added profiles later; do not hotlink unreliable images in production.
-- [ ] Add tests that profile API exposes image metadata and marks missing images cleanly.
+- [x] Require a reviewed image before an admin can promote a new machine profile.
+- [x] Add tests that profile API exposes reviewed machine image metadata and hides unreviewed/missing images cleanly.
 
 ## Checkpoint 22: Profile Database Migration
 

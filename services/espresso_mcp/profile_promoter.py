@@ -22,6 +22,7 @@ def promote_candidate(candidate_key: str) -> dict[str, Any]:
         raise ValueError(f"Candidate {candidate_key} is not ready for promotion")
 
     if candidate.get("type") == "machine":
+        _require_reviewed_machine_image(draft, candidate_key)
         result = _upsert_profile(machine_profiles.PROFILE_PATH, draft, "machine_name", machine_profiles.GENERIC_PROFILE_NAME)
     elif candidate.get("type") == "grinder":
         result = _upsert_profile(grinder_profiles.PROFILE_PATH, draft, "grinder_name", grinder_profiles.GENERIC_GRINDER_NAME)
@@ -38,6 +39,16 @@ def main() -> None:
     parser.add_argument("candidate_key", help="Candidate key such as machine:meraki or grinder:kingrinder k6")
     args = parser.parse_args()
     print(json.dumps(promote_candidate(args.candidate_key), indent=2))
+
+
+def _require_reviewed_machine_image(draft: dict[str, Any], candidate_key: str) -> None:
+    image = draft.get("image")
+    if not isinstance(image, dict):
+        raise ValueError(f"Machine candidate {candidate_key} needs a reviewed image before promotion")
+    if image.get("status") != "reviewed":
+        raise ValueError(f"Machine candidate {candidate_key} image must be reviewed before promotion")
+    if not any(image.get(key) for key in ("media_key", "url", "local_asset_key")):
+        raise ValueError(f"Machine candidate {candidate_key} image needs media_key, url, or local_asset_key before promotion")
 
 
 def _find_candidate(candidates: list[dict[str, Any]], candidate_key: str) -> dict[str, Any]:

@@ -53,12 +53,46 @@ class ProfileApiTest(unittest.TestCase):
         self.assertEqual(payload["image"]["local_asset_key"], "machine-rancilio-silvia")
         self.assertEqual(payload["image"]["status"], "reviewed")
 
+    def test_unreviewed_machine_image_is_hidden(self):
+        original_path = machine_profiles.PROFILE_PATH
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                machine_profiles.PROFILE_PATH = Path(tmp) / "machine_profiles.json"
+                machine_profiles.PROFILE_PATH.write_text(
+                    json.dumps([
+                        {
+                            "machine_name": "Draft Image Machine",
+                            "dialedin_slug": "draft-image-machine",
+                            "aliases": [],
+                            "specs": {"portafilter_mm": 58},
+                            "brew_defaults": {},
+                            "image": {
+                                "url": "https://example.com/draft.jpg",
+                                "status": "needs_review",
+                            },
+                        },
+                        {"machine_name": "Generic Espresso Machine", "aliases": [], "specs": {}, "brew_defaults": {}},
+                    ]) + "\n",
+                    encoding="utf-8",
+                )
+                machine_profiles.load_machine_profiles.cache_clear()
+
+                response = self.client.get("/machines/draft-image-machine")
+
+                self.assertEqual(response.status_code, 200)
+                payload = response.json()
+                self.assertFalse(payload["has_image"])
+                self.assertIsNone(payload["image_url"])
+        finally:
+            machine_profiles.PROFILE_PATH = original_path
+            machine_profiles.load_machine_profiles.cache_clear()
+
     def test_get_machine_unknown_returns_404(self):
         response = self.client.get("/machines/not-a-real-machine")
 
         self.assertEqual(response.status_code, 404)
 
-    def test_list_grinders_returns_mobile_safe_shape(self):
+    def test_list_grinders_returns_mobile_safe_shape_without_images(self):
         response = self.client.get("/grinders")
 
         self.assertEqual(response.status_code, 200)
@@ -70,6 +104,9 @@ class ProfileApiTest(unittest.TestCase):
         self.assertIn("espresso_range", grinder)
         self.assertIn("small_step", grinder)
         self.assertIn("notes", grinder)
+        self.assertNotIn("has_image", grinder)
+        self.assertNotIn("image", grinder)
+        self.assertNotIn("image_url", grinder)
 
 
 

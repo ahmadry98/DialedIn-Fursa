@@ -45,6 +45,11 @@ class ProfilePromoterTest(unittest.TestCase):
             "brew_defaults": {},
             "grind_adjustment_notes": "Reviewed.",
             "sources": {},
+            "image": {
+                "media_key": "dialchat-media/admin/machine_photo/meraki.jpg",
+                "storage_mode": "s3",
+                "status": "reviewed",
+            },
         }
         data = profile_candidates.load_profile_candidates()
         data[0]["status"] = "draft_ready"
@@ -59,6 +64,27 @@ class ProfilePromoterTest(unittest.TestCase):
         self.assertEqual(profiles[1]["machine_name"], "Generic Espresso Machine")
         self.assertEqual(profile_candidates.load_profile_candidates(), [])
         self.assertTrue(result["candidate_removed"])
+
+    def test_promote_machine_candidate_requires_reviewed_image(self):
+        candidate = profile_candidates.save_profile_candidate("machine", "No Image Machine", "user-1", {})
+        draft = {
+            "machine_name": "No Image Machine",
+            "aliases": [],
+            "specs": {},
+            "brew_defaults": {},
+            "grind_adjustment_notes": "Reviewed.",
+            "sources": {},
+        }
+        data = profile_candidates.load_profile_candidates()
+        data[0]["status"] = "draft_ready"
+        data[0]["draft_profile"] = draft
+        profile_candidates._write_candidates(data)  # type: ignore[attr-defined]
+
+        with self.assertRaisesRegex(ValueError, "reviewed image"):
+            profile_promoter.promote_candidate(candidate["candidate_key"])
+
+        self.assertEqual(len(profile_candidates.load_profile_candidates()), 1)
+
 
 
 if __name__ == "__main__":
