@@ -54,6 +54,26 @@ function sourceHost(url?: string): string {
   }
 }
 
+function safeParseDraft(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasReviewedMachineImage(draft: Record<string, unknown> | null): boolean {
+  const image = draft?.image;
+  if (!image || typeof image !== "object" || Array.isArray(image)) return false;
+  const data = image as Record<string, unknown>;
+  return data.status === "reviewed" && Boolean(data.media_key || data.url || data.local_asset_key);
+}
+
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "machine";
+}
+
 export function ProfileCandidateReview() {
   const [candidates, setCandidates] = useState<ProfileCandidate[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>("");
@@ -66,6 +86,7 @@ export function ProfileCandidateReview() {
   const [machines, setMachines] = useState<MachineSummary[]>([]);
   const [selectedMachineSlug, setSelectedMachineSlug] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [candidateImageFile, setCandidateImageFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
 
   async function refresh(nextSelectedKey?: string) {
@@ -102,6 +123,13 @@ export function ProfileCandidateReview() {
   const isPromotable = Boolean(selected?.draft_profile) && (qualityScore === undefined || qualityScore >= qualityThreshold);
   const validationWarnings = selected?.draft_validation?.warnings ?? [];
   const validationMissing = selected?.draft_validation?.missing_fields ?? [];
+  const parsedDraft = useMemo(() => safeParseDraft(draftText), [draftText]);
+  const selectedIsMachine = selected?.type === "machine";
+  const machineDraftHasReviewedImage = hasReviewedMachineImage(parsedDraft);
+  const canPromoteSelected = isPromotable && (!selectedIsMachine || machineDraftHasReviewedImage);
+  const machineImageRequirementText = selectedIsMachine && !machineDraftHasReviewedImage
+    ? "Machine candidates need a reviewed image before promotion."
+    : null;
 
   useEffect(() => {
     setDraftText(formatJson(selected?.draft_profile));
@@ -109,7 +137,63 @@ export function ProfileCandidateReview() {
     setMessage(null);
     setError(null);
     setCopied(false);
+    setCandidateImageFile(null);
   }, [selected]);
+
+  async function uploadCandidateMachineImage() {
+    if (!selected || selected.type !== "machine" || !candidateImageFile) return;
+    const draft = safeParseDraft(draftText);
+    if (!draft) {
+      setError("Fix the draft JSON before attaching an image.");
+      return;
+    }
+    setBusy("candidate-image");
+    setError(null);
+    setMessage(null);
+    try {
+      const machineName = String(draft.machine_name || selected.name_entered || "machine");
+      const extension = candidateImageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const target = await createMediaUploadUrl({
+        filename: `${slugify(machineName)}.${extension}`,
+        content_type: candidateImageFile.type || "image/jpeg",
+        media_kind: "machine_photo",
+        user_id: "admin",
+      });
+      await uploadFileToMediaTarget(candidateImageFile, target);
+      const registered = await registerMediaUpload({
+        media_key: target.media_key,
+        media_kind: "machine_photo",
+        storage_mode: target.storage_mode,
+        content_type: candidateImageFile.type || "image/jpeg",
+      });
+      const nextDraft = {
+        ...draft,
+        image: {
+          media_key: registered.media_key,
+          storage_mode: registered.storage_mode,
+          content_type: registered.content_type,
+          source_url: `admin upload: ${candidateImageFile.name}`,
+          license_or_source_type: "admin_upload",
+          status: "reviewed",
+          review_notes: "Required approval image uploaded from Profile Candidate Review admin.",
+        },
+      };
+      const nextDraftText = formatJson(nextDraft);
+      setDraftText(nextDraftText);
+      setCandidateImageFile(null);
+      await updateProfileCandidate(selected.candidate_key, {
+        draft_profile: nextDraft,
+        review_notes: parseNotes(notesText),
+        status: selected.status === "needs_research" ? "draft_needs_review" : selected.status,
+      });
+      setMessage("Approval image uploaded and saved into the machine draft.");
+      await refresh(selected.candidate_key);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not upload approval image");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function uploadMachineImage() {
     if (!selectedMachineSlug || !imageFile) return;
@@ -189,6 +273,10 @@ export function ProfileCandidateReview() {
 
   async function promoteCandidate() {
     if (!selected) return;
+    if (selected.type === "machine" && !hasReviewedMachineImage(safeParseDraft(draftText))) {
+      setError("Add and save a reviewed machine image before promoting this machine.");
+      return;
+    }
     setBusy("promote");
     setError(null);
     setMessage(null);
@@ -378,6 +466,33 @@ export function ProfileCandidateReview() {
                 <label htmlFor="draft-json" className="sr-only">Draft profile JSON</label>
                 <textarea id="draft-json" className="json-editor" value={draftText} onChange={(event) => setDraftText(event.target.value)} />
               </div>
+              {selectedIsMachine ? (
+                <div className="image-admin-panel candidate-image-panel">
+                  <div className="panel-heading compact-heading">
+                    <div>
+                      <h3>Approval image</h3>
+                      <p>{machineDraftHasReviewedImage ? "Reviewed image is saved in this machine draft." : "Add a reviewed machine picture before promoting."}</p>
+                    </div>
+                    <span className={`candidate-status ${machineDraftHasReviewedImage ? "ready" : "review"}`}>
+                      {machineDraftHasReviewedImage ? "Image ready" : "Image required"}
+                    </span>
+                  </div>
+                  <div className="image-admin-grid">
+                    <label className="field">
+                      <span>Machine image</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(event) => setCandidateImageFile(event.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <button className="secondary-button" onClick={() => void uploadCandidateMachineImage()} disabled={Boolean(busy) || !candidateImageFile}>
+                      {busy === "candidate-image" ? "Uploading" : "Save approval image"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="field">
                 <label htmlFor="review-notes">Review notes</label>
                 <textarea
@@ -398,11 +513,12 @@ export function ProfileCandidateReview() {
                 <button className="danger-button" onClick={deleteCandidate} disabled={Boolean(busy)}>
                   {busy === "delete" ? "Deleting" : "Delete candidate"}
                 </button>
-                <button className="primary-button" onClick={promoteCandidate} disabled={Boolean(busy) || !isPromotable}>
+                <button className="primary-button" onClick={promoteCandidate} disabled={Boolean(busy) || !canPromoteSelected} title={machineImageRequirementText ?? undefined}>
                   {busy === "promote" ? "Promoting" : "Promote profile"}
                 </button>
               </div>
 
+              {machineImageRequirementText ? <div className="notice warning-notice">{machineImageRequirementText}</div> : null}
               {message ? <div className="notice">{message}</div> : null}
               {error ? <div className="alert">{error}</div> : null}
             </section>
@@ -450,8 +566,8 @@ export function ProfileCandidateReview() {
       <section className="panel image-admin-panel">
         <div className="panel-heading">
           <div>
-            <h2>Profile Images</h2>
-            <p>Upload a reviewed machine picture and attach it to the trusted profile.</p>
+            <h2>Existing Machine Images</h2>
+            <p>Replace a reviewed picture for a machine that is already trusted.</p>
           </div>
         </div>
 

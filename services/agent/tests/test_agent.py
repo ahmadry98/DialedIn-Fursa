@@ -158,7 +158,15 @@ class AgentApiTest(unittest.TestCase):
                 self.client.patch(
                     f"/profile-candidates/{candidate['candidate_key']}",
                     json={
-                        "draft_profile": {"machine_name": "Admin Promote", "aliases": ["admin promote"]},
+                        "draft_profile": {
+                            "machine_name": "Admin Promote",
+                            "aliases": ["admin promote"],
+                            "image": {
+                                "media_key": "dialchat-media/admin/machine_photo/admin-promote.jpg",
+                                "storage_mode": "s3",
+                                "status": "reviewed",
+                            },
+                        },
                         "review_notes": ["ready"],
                         "status": "draft_ready",
                     },
