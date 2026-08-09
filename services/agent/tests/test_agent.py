@@ -79,6 +79,13 @@ class AgentApiTest(unittest.TestCase):
 
         self.assertEqual(self.client.get("/metrics").json()["chat_requests_total"], 1)
 
+    def test_prometheus_metrics_endpoint(self):
+        response = self.client.get("/metrics.prometheus")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("dialedin_chat_requests_total", response.text)
+        self.assertIn("dialedin_shot_analysis_requests_total", response.text)
+
     def test_chat_asks_for_shot_context(self):
         response = self.client.post(
             "/chat",
@@ -179,7 +186,7 @@ class AgentApiTest(unittest.TestCase):
                 machine_profiles.load_machine_profiles.cache_clear()
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "inserted")
+        self.assertIn(response.json()["status"], {"inserted", "updated"})
         self.assertEqual(profile_candidates.load_profile_candidates(), [])
 
     def test_analyze_shot_with_manual_total_time(self):

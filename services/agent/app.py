@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.agent import agent_runner, equipment_profiles, storage
@@ -55,6 +55,16 @@ def health() -> HealthResponse:
 @app.get("/metrics", response_model=MetricsResponse)
 def metrics() -> MetricsResponse:
     return MetricsResponse(**agent_runner.metrics())
+
+
+@app.get("/metrics.prometheus", response_class=PlainTextResponse)
+def prometheus_metrics() -> str:
+    values = agent_runner.metrics()
+    lines = []
+    for name, value in values.items():
+        lines.append(f"# TYPE dialedin_{name} counter")
+        lines.append(f"dialedin_{name} {value}")
+    return "\n".join(lines) + "\n"
 
 
 @app.get("/machines")
