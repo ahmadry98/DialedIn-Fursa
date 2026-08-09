@@ -77,14 +77,55 @@ class ProfileRepositoryTest(unittest.TestCase):
                 return self.batch
 
         fake_table = FakeTable()
-        with patch.dict(os.environ, {"DIALEDIN_PROFILE_STORAGE": "dynamodb", "DIALEDIN_PROFILE_TABLE": "profiles"}), patch.object(
-            profile_repository, "_dynamodb_table", return_value=fake_table
-        ):
+        with patch.dict(
+            os.environ,
+            {"DIALEDIN_PROFILE_STORAGE": "dynamodb", "DIALEDIN_PROFILE_TABLE": "profiles", "DIALEDIN_PROFILE_SYNC_JSON": "false"},
+        ), patch.object(profile_repository, "_dynamodb_table", return_value=fake_table):
             profile_repository.save_profiles("grinder", [{"grinder_name": "Varia VS3", "aliases": ["vs3"]}], Path("unused.json"))
 
         self.assertEqual(fake_table.batch.items[0]["profile_type"], "grinder")
         self.assertEqual(fake_table.batch.items[0]["profile_id"], "varia-vs3")
         self.assertEqual(json.loads(fake_table.batch.items[0]["profile_json"])["grinder_name"], "Varia VS3")
+
+    def test_dynamodb_backend_syncs_json_seed_by_default(self):
+        class FakeBatch:
+            def __init__(self):
+                self.items = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def put_item(self, Item):
+                self.items.append(Item)
+
+        class FakeTable:
+            def __init__(self):
+                self.batch = FakeBatch()
+
+            def batch_writer(self):
+                return self.batch
+
+        fake_table = FakeTable()
+        with TemporaryDirectory() as tmp, patch.dict(
+            os.environ,
+            {"DIALEDIN_PROFILE_STORAGE": "dynamodb", "DIALEDIN_PROFILE_TABLE": "profiles"},
+            clear=True,
+        ), patch.object(profile_repository, "_dynamodb_table", return_value=fake_table):
+            path = Path(tmp) / "machine_profiles.json"
+            profiles = [
+                {"machine_name": "LELIT Elizabeth PL92T", "aliases": ["elizabeth"]},
+                {"machine_name": "Generic Espresso Machine", "aliases": []},
+            ]
+
+            profile_repository.save_profiles("machine", profiles, path)
+
+            self.assertEqual(fake_table.batch.items[0]["profile_type"], "machine")
+            self.assertEqual(json.loads(path.read_text())[0]["machine_name"], "LELIT Elizabeth PL92T")
+            self.assertEqual(profile_repository._storage_target(path), f"profiles + {path}")
+
 
 
 if __name__ == "__main__":

@@ -5,8 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from services.agent import storage
-from services.agent.config import get_settings
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
 
@@ -149,10 +147,8 @@ def _profile_image_url(profile: dict[str, Any]) -> str | None:
     if image.get("url"):
         return str(image["url"])
     if image.get("storage_mode") == "s3" and image.get("media_key"):
-        try:
-            return storage.create_media_read_url(settings=get_settings(), media_key=str(image["media_key"]))
-        except Exception:
-            return None
+        slug = str(profile.get("dialedin_slug") or _slug(str(profile.get("machine_name") or "")))
+        return f"/machines/{slug}/image"
     return None
 
 
