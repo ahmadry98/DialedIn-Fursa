@@ -119,9 +119,8 @@ class ProfileApiTest(unittest.TestCase):
 
 
 
-    def test_s3_machine_image_returns_signed_image_url(self):
+    def test_s3_machine_image_returns_stable_machine_image_url(self):
         original_path = machine_profiles.PROFILE_PATH
-        original_signer = equipment_profiles.storage.create_media_read_url
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 machine_profiles.PROFILE_PATH = Path(tmp) / "machine_profiles.json"
@@ -144,16 +143,61 @@ class ProfileApiTest(unittest.TestCase):
                     encoding="utf-8",
                 )
                 machine_profiles.load_machine_profiles.cache_clear()
-                equipment_profiles.storage.create_media_read_url = lambda **_: "https://signed.example/ascaso.jpg"
 
                 response = self.client.get("/machines/ascaso-steel-duo-pid")
 
                 self.assertEqual(response.status_code, 200)
                 payload = response.json()
                 self.assertTrue(payload["has_image"])
-                self.assertEqual(payload["image_url"], "https://signed.example/ascaso.jpg")
+                self.assertEqual(payload["image_url"], "/machines/ascaso-steel-uno-pid-duo-pid/image")
         finally:
-            equipment_profiles.storage.create_media_read_url = original_signer
+            machine_profiles.PROFILE_PATH = original_path
+            machine_profiles.load_machine_profiles.cache_clear()
+
+    def test_machine_image_route_serves_reviewed_s3_image(self):
+        original_path = machine_profiles.PROFILE_PATH
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                machine_profiles.PROFILE_PATH = Path(tmp) / "machine_profiles.json"
+                machine_profiles.PROFILE_PATH.write_text(
+                    json.dumps([
+                        {
+                            "machine_name": "Ascaso Steel UNO PID / DUO PID",
+                            "dialedin_slug": "ascaso-steel-uno-pid-duo-pid",
+                            "aliases": ["ascaso steel duo pid"],
+                            "specs": {"portafilter_mm": 58},
+                            "brew_defaults": {},
+                            "image": {
+                                "media_key": "dialchat-media/admin/machine_photo/ascaso.jpg",
+                                "storage_mode": "s3",
+                                "content_type": "image/jpeg",
+                                "status": "reviewed",
+                            },
+                        },
+                        {"machine_name": "Generic Espresso Machine", "aliases": [], "specs": {}, "brew_defaults": {}},
+                    ]) + "\n",
+                    encoding="utf-8",
+                )
+                machine_profiles.load_machine_profiles.cache_clear()
+
+                media = agent_app.storage.MediaObject(payload=b"\xff\xd8\xffimage-bytes", content_type="image/jpeg")
+                with patch.object(agent_app.storage, "read_s3_media_object", return_value=media) as reader:
+                    response = self.client.get("/machines/ascaso-steel-uno-pid-duo-pid/image")
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.content, b"\xff\xd8\xffimage-bytes")
+                self.assertEqual(response.headers["content-type"], "image/jpeg")
+                self.assertIn("max-age=86400", response.headers["cache-control"])
+                reader.assert_called_once()
+
+                with patch.object(agent_app.storage, "read_s3_media_object", return_value=media):
+                    head_response = self.client.head("/machines/ascaso-steel-uno-pid-duo-pid/image")
+
+                self.assertEqual(head_response.status_code, 200)
+                self.assertEqual(head_response.content, b"")
+                self.assertEqual(head_response.headers["content-type"], "image/jpeg")
+                self.assertIn("max-age=86400", head_response.headers["cache-control"])
+        finally:
             machine_profiles.PROFILE_PATH = original_path
             machine_profiles.load_machine_profiles.cache_clear()
 

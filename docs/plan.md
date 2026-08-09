@@ -506,11 +506,34 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Choose DynamoDB as the first persistent backend because current AWS infrastructure already uses DynamoDB/S3 and profile reads are simple key/list lookups.
 - [x] Import existing machine and grinder JSON into the dev DynamoDB equipment profiles table. Repeat the import for prod when a prod table is created.
 - [x] Keep JSON seed/export scripts for reproducibility.
+- [x] Sync trusted profile saves/promotions to JSON seed files when DynamoDB is enabled, unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
 - [x] Update machine/grinder loaders and profile promoter to go through a repository abstraction with DynamoDB default when a profile table is configured and explicit JSON fallback for local fixtures.
 - [x] Add indexes for profile type and slug in Terraform. Alias/review-status search can stay application-side until admin search needs grow.
 - [x] Keep tests able to run without AWS by using local fixtures/mocks.
 
-## Checkpoint 23: Docker Compose
+## Checkpoint 23: Faster Mobile Media Pipeline
+
+**Files:**
+- Modify in sibling app: `DialedIn/dialedin-mobile/components/AIShotChat.tsx`
+- Modify/create in sibling app: media compression/upload helpers as needed
+- Modify/create later: `services/agent/media_jobs.py`
+- Modify/create later: `services/espresso_mcp/audio_jobs.py`
+
+**Deliverable:** Make phone video upload and shot analysis feel fast enough for a publishable DialedIn app.
+
+- [x] Ask iOS/Expo to export selected shot videos as smaller H.264 media before upload.
+- [x] Reject very long shot videos before upload and ask the user to trim them.
+- [x] Show clearer upload/analyze stages in the chat.
+- [x] Show the attached shot video inline in the chat instead of a fake preview box.
+- [x] Use cached mobile image rendering for machine list/detail cards so S3-backed machine pictures load faster while browsing.
+- [x] Return stable reviewed-machine image URLs from the API so mobile image caching can reuse S3-backed machine photos.
+- [ ] Measure selected file size and uploaded file size so speed improvements are visible.
+- [ ] Add stronger client-side compression/trimming if Expo export is not enough.
+- [ ] Investigate uploading extracted audio instead of full video for the analysis path.
+- [ ] Add async analysis jobs: upload returns quickly, backend processes in background, app polls result.
+- [ ] Persist media-processing status/results in DynamoDB for production reliability.
+
+## Checkpoint 24: Docker Compose
 
 **Files:**
 - `compose.yaml`
@@ -524,7 +547,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add Prometheus/Grafana.
 - [ ] Verify frontend can call agent in compose.
 
-## Checkpoint 24: Kubernetes On AWS EC2
+## Checkpoint 25: Kubernetes On AWS EC2
 
 **Files:**
 - `infra/k8s/*.yaml`
@@ -540,7 +563,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add HPA if required.
 - [ ] Test with `kubectl port-forward` or ingress.
 
-## Checkpoint 25: Observability
+## Checkpoint 26: Observability
 
 **Files:**
 - `monitoring/prometheus.yml`
@@ -555,7 +578,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add MCP/tool error metrics.
 - [ ] Build Grafana dashboard.
 
-## Checkpoint 26: Deployment Automation
+## Checkpoint 27: Deployment Automation
 
 **Files:**
 - `.github/workflows/ci.yml`
@@ -571,7 +594,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Deploy to dev.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 24: Final Demo
+## Checkpoint 28: Final Demo
 
 **Files:**
 - `docs/demo-script.md`

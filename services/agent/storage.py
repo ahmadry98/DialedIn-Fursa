@@ -29,6 +29,12 @@ class UploadTarget:
     expires_in_seconds: int
 
 
+@dataclass(frozen=True)
+class MediaObject:
+    payload: bytes
+    content_type: str | None = None
+
+
 def create_upload_target(
     *,
     settings: AgentSettings,
@@ -131,6 +137,56 @@ def create_media_read_url(*, settings: AgentSettings, media_key: str) -> str | N
         else:
             message = f"I could not create an S3 image link ({code})."
         raise RuntimeError(message) from error
+
+
+def read_s3_media_object(*, settings: AgentSettings, media_key: str) -> MediaObject:
+    """Read a private S3 media object through the trusted API."""
+    if not media_key or not settings.media_upload_bucket:
+        raise RuntimeError("S3 media bucket or media key is missing.")
+
+    try:
+        import boto3
+        from botocore.exceptions import ClientError, NoCredentialsError
+    except ImportError as error:  # pragma: no cover - dependency exists only for S3 mode.
+        raise RuntimeError("Install boto3 to read S3 media uploads.") from error
+
+    session_kwargs: dict[str, str] = {"region_name": settings.aws_region}
+    if os.getenv("AWS_PROFILE"):
+        session_kwargs["profile_name"] = os.environ["AWS_PROFILE"]
+    try:
+        session = boto3.Session(**session_kwargs)
+        client = session.client("s3")
+        response = client.get_object(Bucket=settings.media_upload_bucket, Key=media_key)
+        return MediaObject(
+            payload=response["Body"].read(),
+            content_type=response.get("ContentType"),
+        )
+    except NoCredentialsError as error:
+        raise RuntimeError("AWS credentials were not found, so I could not read the S3 image.") from error
+    except ClientError as error:
+        code = str(error.response.get("Error", {}).get("Code", "S3Error"))
+        if code in {"AccessDenied", "403"}:
+            message = "I could not read the S3 image. Check IAM permission for s3:GetObject on the media bucket."
+        elif code in {"NoSuchBucket", "404", "NotFound", "NoSuchKey"}:
+            message = "The configured S3 image was not found. Check the machine image media key."
+        else:
+            message = f"I could not read the S3 image ({code})."
+        raise RuntimeError(message) from error
+
+
+def sniff_media_content_type(payload: bytes, fallback: str | None = None) -> str:
+    """Infer common image content types from bytes when uploaded metadata is wrong."""
+    if payload.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if payload.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if payload.startswith(b"GIF87a") or payload.startswith(b"GIF89a"):
+        return "image/gif"
+    if len(payload) >= 12 and payload.startswith(b"RIFF") and payload[8:12] == b"WEBP":
+        return "image/webp"
+    if len(payload) >= 16 and payload[4:8] == b"ftyp" and payload[8:12] in {b"avif", b"avis"}:
+        return "image/avif"
+    return fallback or "application/octet-stream"
 
 
 def _media_key(prefix: str, user_id: str, media_kind: str, filename: str) -> str:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.agent import agent_runner, equipment_profiles, storage
@@ -60,6 +61,34 @@ def metrics() -> MetricsResponse:
 def list_machines() -> dict[str, object]:
     machines = equipment_profiles.list_machines()
     return {"count": len(machines), "machines": machines}
+
+
+@app.get("/machines/{slug_or_alias:path}/image")
+@app.head("/machines/{slug_or_alias:path}/image")
+def get_machine_image(slug_or_alias: str, request: Request) -> Response:
+    try:
+        machine = equipment_profiles.get_machine(slug_or_alias)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+    image = machine.get("image")
+    if not isinstance(image, dict) or image.get("status") != "reviewed":
+        raise HTTPException(status_code=404, detail="Machine image is not reviewed")
+    if image.get("storage_mode") != "s3" or not image.get("media_key"):
+        raise HTTPException(status_code=404, detail="Machine image is not stored in S3")
+
+    try:
+        media = storage.read_s3_media_object(settings=settings, media_key=str(image["media_key"]))
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    headers = {"Cache-Control": "public, max-age=86400"}
+    content_type = storage.sniff_media_content_type(
+        media.payload,
+        fallback=media.content_type or str(image.get("content_type") or "application/octet-stream"),
+    )
+    content = b"" if request.method == "HEAD" else media.payload
+    return Response(content=content, media_type=content_type, headers=headers)
 
 
 @app.get("/machines/{slug_or_alias:path}")

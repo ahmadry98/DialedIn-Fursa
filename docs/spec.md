@@ -18,7 +18,7 @@ The MVP proves this core flow:
 6. Recommendation rules return one next action, including exact next grinder setting when the grinder profile supports it.
 7. Unknown gear is captured into a candidate queue.
 8. Bedrock can research unknown gear using web evidence and create a draft profile.
-9. Human review promotes approved drafts into trusted profile JSON.
+9. Human review promotes approved drafts into trusted profiles. With DynamoDB enabled, promotion writes DynamoDB and also syncs the checked-in JSON seed by default.
 10. The frontend shows timing, confidence, recommendation, missing fields, and unknown gear candidate state inside the chat.
 
 The MVP does not train a visual model. It is audio-first, rule-based for recommendation decisions, and LLM-assisted for profile research/drafting and, later, natural chat or image recognition. Chat wording must not override deterministic timing or grind-adjustment logic.
@@ -90,7 +90,7 @@ The current MVP processes videos synchronously. A separate async worker/SQS flow
 14. If profile research autorun is enabled, the agent starts a background Bedrock profile research worker.
 15. Worker collects web evidence, calls Bedrock, and attaches a draft profile to the candidate.
 16. Human reviewer edits/approves the draft.
-17. Profile promoter copies the approved draft into trusted machine/grinder profiles.
+17. Profile promoter copies the approved draft into trusted machine/grinder profiles, writing DynamoDB plus the JSON seed when profile sync is enabled.
 
 ## 7. MCP / Tool Layer
 
@@ -212,7 +212,7 @@ Unknown equipment is handled through a reviewable learning loop:
 6. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, and `research_evidence`.
 7. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed`.
 8. Human reviewer edits or approves the draft.
-9. `profile_promoter` promotes the reviewed draft into trusted profile JSON.
+9. `profile_promoter` promotes the reviewed draft into trusted profiles. With DynamoDB storage, it also updates the JSON seed unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
 
 Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile. Checkpoint 16 adds PDF/manual text extraction, source deduplication, manufacturer-prioritized evidence ranking, and the research quality score shown in admin.
 
@@ -355,7 +355,7 @@ Machine profiles may include optional image metadata. Grinder profiles intention
 
 Images are product-display data, not verified machine specifications. A new machine candidate cannot be promoted into trusted profiles until the admin adds a reviewed image. The app should only show reviewed machine images. For missing or unreviewed machine images, the profile API returns `has_image=false` and the mobile UI shows a neutral placeholder. Image discovery should prefer manufacturer/official product pages first, then reputable retailers if official images are not usable. Production should avoid fragile hotlinks by curating images into mobile assets or S3 after review.
 
-The database migration should wait until profile API, machine image metadata, and mobile machine/grinder pages are stable. Until then, JSON plus tests is simpler and easier to review. Checkpoint 22 adds a repository abstraction so trusted machines and grinders use DynamoDB by default when `DIALEDIN_PROFILE_TABLE=<table-name>` is configured. Set `DIALEDIN_PROFILE_STORAGE=json` to force checked-in JSON files for local fixture work. The import/export CLI keeps JSON as a reproducible seed and lets deployed environments load the same reviewed profiles into DynamoDB when ready.
+Checkpoint 22 adds a repository abstraction so trusted machines and grinders use DynamoDB by default when `DIALEDIN_PROFILE_TABLE=<table-name>` is configured. When DynamoDB is active, trusted profile saves and admin promotions also sync the checked-in JSON seed files by default so the live database and repo backup stay aligned. Set `DIALEDIN_PROFILE_SYNC_JSON=false` to disable that dual-write, or set `DIALEDIN_PROFILE_STORAGE=json` to force checked-in JSON files for local fixture work. The import/export CLI keeps JSON as a reproducible seed and lets deployed environments reload the same reviewed profiles into DynamoDB when ready.
 
 ## 20. Video Upload And Storage Direction
 
