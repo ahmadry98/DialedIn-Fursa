@@ -10,10 +10,11 @@ from services.espresso_mcp import grinder_profiles, machine_profiles, profile_ca
 
 SYSTEM_PROMPT = """You validate espresso equipment names.
 Return ONLY valid JSON. No markdown. No commentary.
-Decide whether the text is plausibly an actual espresso machine or coffee grinder name.
-Reject random words, gibberish, greetings, dimensions, taste notes, and generic chat.
-Accept known or plausible brand/model names, even if the exact model may need later research.
-If the text appears to be a typo of a real espresso machine or grinder, provide corrected_name.
+Decide whether the text is plausibly an actual espresso machine or coffee grinder model name.
+Reject random words, gibberish, greetings, dimensions, taste notes, generic chat, and brand/company names without a specific model.
+Accept known or plausible brand+model names, even if the exact model may need later research.
+If the text is only a brand, set is_equipment false and explain that the exact model is needed.
+If the text appears to be a typo of a real espresso machine or grinder model, provide corrected_name.
 Allowed confidence values: high, medium, low.
 JSON schema: {"is_equipment": boolean, "confidence": "high|medium|low", "corrected_name": string|null, "reason": string}
 """
@@ -37,18 +38,24 @@ def validate_equipment_name(
     if known_name:
         return {"is_equipment": True, "confidence": "high", "corrected_name": known_name, "reason": "Matched a curated profile."}
 
-    if not profile_candidates.is_plausible_gear_name(gear_type, cleaned):
+    invalid_known_model = _invalid_known_brand_model(cleaned, gear_type)
+    if invalid_known_model:
+        return _invalid(invalid_known_model)
+
+    if _too_weak_for_llm_validation(cleaned):
         return _invalid("This does not look like a machine or grinder model name.")
 
     try:
         return _validate_with_bedrock(name=cleaned, gear_type=gear_type, model_id=model_id, region=region)
     except Exception as error:  # pragma: no cover - external model failures should not break chat.
-        return {
-            "is_equipment": True,
-            "confidence": "low",
-            "corrected_name": cleaned,
-            "reason": f"Validation unavailable; keeping plausible unknown name for later research: {type(error).__name__}.",
-        }
+        if profile_candidates.is_plausible_gear_name(gear_type, cleaned):
+            return {
+                "is_equipment": True,
+                "confidence": "low",
+                "corrected_name": cleaned,
+                "reason": f"Validation unavailable; keeping plausible unknown name for later research: {type(error).__name__}.",
+            }
+        return _invalid(f"Validation unavailable and the name was too weak to keep: {type(error).__name__}.")
 
 
 def _validate_with_bedrock(*, name: str, gear_type: str, model_id: str, region: str) -> dict[str, Any]:
@@ -69,9 +76,17 @@ def _validate_with_bedrock(*, name: str, gear_type: str, model_id: str, region: 
 
 def _build_prompt(*, name: str, gear_type: str) -> str:
     label = "espresso machine" if gear_type == "machine" else "coffee grinder"
+    examples = (
+        "Examples: 'Rancilio Silvia', 'Lelit Bianca V3', and 'Breville Bambino Plus' are machine models; "
+        "'Rancilio', 'Lelit', and 'Breville' alone are only brands."
+        if gear_type == "machine"
+        else "Examples: 'Varia VS3', 'DF54', and 'Eureka Mignon Specialita' are grinder models; "
+        "'Varia', 'Eureka', and 'Niche' alone are only brands."
+    )
     return (
         f"User entered this as a {label} name: {name!r}.\n"
-        "Is this plausibly an actual espresso setup equipment name? Return JSON only."
+        f"{examples}\n"
+        "Is this an actual or plausible specific equipment model, not just a brand/company name? Return JSON only."
     )
 
 
@@ -113,6 +128,29 @@ def parse_json_object(text: str) -> dict[str, Any]:
 def _bedrock_response_text(response: dict[str, Any]) -> str:
     content = response.get("output", {}).get("message", {}).get("content", [])
     return "".join(block.get("text", "") for block in content if isinstance(block, dict))
+
+
+def _too_weak_for_llm_validation(name: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+    compact = normalized.replace(" ", "")
+    if len(compact) < 3 or len(compact) > 80:
+        return True
+    if not any(character.isalpha() for character in compact):
+        return True
+    if re.fullmatch(r"[a-z]?\d+", compact):
+        return True
+    return False
+
+
+def _invalid_known_brand_model(name: str, gear_type: str) -> str | None:
+    normalized = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+    if gear_type == "grinder":
+        varia_match = re.fullmatch(r"(?:varia\s+)?v?s(\d+)", normalized) or re.fullmatch(r"varia\s+v(\d+)", normalized)
+        if varia_match and varia_match.group(1) not in {"3", "4", "6"}:
+            return "Varia grinder models supported here are VS3, VS4, and VS6; VS2 is not a known Varia grinder model."
+        if normalized == "varia":
+            return "Varia is the brand. Please enter the exact grinder model, like Varia VS3, Varia VS4, or Varia VS6."
+    return None
 
 
 def _known_profile_name(name: str, gear_type: str) -> str | None:

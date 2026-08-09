@@ -82,6 +82,149 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIn("could not confirm", response.response.lower())
         self.assertIn("coffee grinder", response.response.lower())
 
+    def test_graph_video_attachment_does_not_become_grinder_reply(self):
+        response = graph.run_chat_graph(
+            ChatRequest(
+                messages=[ChatMessage(role="user", content="Shot video attached")],
+                shot_context=ShotContext(machine="Rancilio Silvia", video_s3_key="uploads/demo/shot.mov"),
+            ),
+            fake_analyze,
+        )
+
+        self.assertEqual(response.shot_context.video_s3_key, "uploads/demo/shot.mov")
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("what grinder", response.response.lower())
+        self.assertNotIn("could not confirm", response.response.lower())
+
+    def test_graph_video_attachment_does_not_become_grind_setting_reply(self):
+        response = graph.run_chat_graph(
+            ChatRequest(
+                messages=[ChatMessage(role="user", content="Shot video attached")],
+                shot_context=ShotContext(
+                    machine="Rancilio Silvia",
+                    grinder="Varia VS3",
+                    video_s3_key="uploads/demo/shot.mov",
+                ),
+            ),
+            fake_analyze,
+        )
+
+        self.assertEqual(response.shot_context.video_s3_key, "uploads/demo/shot.mov")
+        self.assertIsNone(response.shot_context.grind_setting)
+        self.assertEqual(response.next_field, "grind_setting")
+        self.assertIn("what grind setting", response.response.lower())
+        self.assertNotIn("grind setting should be", response.response.lower())
+
+    def test_graph_video_attachment_analyzes_when_context_is_complete(self):
+        response = graph.run_chat_graph(
+            ChatRequest(
+                messages=[ChatMessage(role="user", content="Shot video attached")],
+                shot_context=ShotContext(
+                    machine="Rancilio Silvia",
+                    grinder="Varia VS3",
+                    grind_setting="2.1",
+                    roast_level="medium",
+                    taste="balanced",
+                    video_s3_key="uploads/demo/shot.mov",
+                    total_shot_seconds=27,
+                ),
+            ),
+            fake_analyze,
+        )
+
+        self.assertIsNotNone(response.analysis_result)
+        self.assertEqual(response.next_field, None)
+        self.assertIn("measured", response.response.lower())
+
+    def test_graph_rejects_yes_as_machine_reply_even_if_llm_extracts_it(self):
+        request = ChatRequest(messages=[ChatMessage(role="user", content="Ye")], shot_context=ShotContext())
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={"machine": "Ye"}
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("could not confirm", response.response.lower())
+
+    def test_graph_rejects_yes_as_grinder_reply_even_if_llm_extracts_it(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="sure")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={"grinder": "sure"}
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("could not confirm", response.response.lower())
+
+    def test_graph_rejects_nonexistent_varia_vs2_grinder(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="varia vs2")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("could not confirm", response.response.lower())
+        self.assertIn("varia vs3", response.response.lower())
+
+    def test_graph_accepts_real_varia_vs4_grinder_as_candidate(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="varia vs4")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.equipment_validation, "_validate_with_bedrock"
+        ) as fake_validation:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            fake_validation.return_value = {
+                "is_equipment": True,
+                "confidence": "high",
+                "corrected_name": "Varia VS4",
+                "reason": "Official Varia grinder model.",
+            }
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.grinder, "Varia VS4")
+        self.assertEqual(response.next_field, "grind_setting")
+
+    def test_graph_accepts_real_varia_vs3_grinder(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="varia vs3")],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.grinder, "Varia VS3")
+        self.assertEqual(response.next_field, "grind_setting")
+
     def test_graph_rejects_non_equipment_machine_reply(self):
         response = graph.run_chat_graph(
             ChatRequest(messages=[ChatMessage(role="user", content="height")], shot_context=ShotContext()),
@@ -100,6 +243,113 @@ class CoachGraphTest(unittest.TestCase):
 
         self.assertEqual(response.shot_context.machine, "Rancilio Silvia")
         self.assertEqual(response.next_field, "grinder")
+
+
+    def test_graph_sends_unknown_single_word_machine_to_llm_validator(self):
+        request = ChatRequest(messages=[ChatMessage(role="user", content="Sanremo")], shot_context=ShotContext())
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={}
+        ), patch.object(
+            graph.equipment_validation,
+            "validate_equipment_name",
+            return_value={
+                "is_equipment": False,
+                "confidence": "high",
+                "corrected_name": None,
+                "reason": "Sanremo is a brand; the exact machine model is needed.",
+            },
+        ) as fake_validate:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        fake_validate.assert_called_once()
+        self.assertEqual(fake_validate.call_args.kwargs["name"], "Sanremo")
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("could not confirm", response.response.lower())
+
+
+    def test_graph_accepts_unknown_brand_model_from_llm_validator(self):
+        request = ChatRequest(messages=[ChatMessage(role="user", content="Sanremo YOU")], shot_context=ShotContext())
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={}
+        ), patch.object(
+            graph.equipment_validation,
+            "validate_equipment_name",
+            return_value={
+                "is_equipment": True,
+                "confidence": "high",
+                "corrected_name": "Sanremo YOU",
+                "reason": "This is a specific espresso machine model.",
+            },
+        ) as fake_validate:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        fake_validate.assert_called_once()
+        self.assertEqual(response.shot_context.machine, "Sanremo YOU")
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("generic espresso machine", response.response.lower())
+
+
+    def test_graph_accepts_unknown_machine_with_generic_notice(self):
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="Mystery Espresso X9")],
+            shot_context=ShotContext(),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.llm_extraction, "extract_context_with_bedrock", return_value={"machine": "Mystery Espresso X9"}
+        ), patch.object(
+            graph.equipment_validation,
+            "validate_equipment_name",
+            return_value={
+                "is_equipment": True,
+                "confidence": "medium",
+                "corrected_name": "Mystery Espresso X9",
+                "reason": "Looks like a plausible espresso machine model.",
+            },
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.shot_context.machine, "Mystery Espresso X9")
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("generic espresso machine", response.response.lower())
+        self.assertIn("queue it for review", response.response.lower())
+        self.assertIn("known machines", response.response.lower())
+
+
+    def test_graph_analysis_reply_mentions_generic_machine_candidate(self):
+        def analyze_with_machine_candidate(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
+            response = fake_analyze(request)
+            response.profile_candidates = [{"type": "machine", "name_entered": request.machine}]
+            return response
+
+        request = ChatRequest(
+            messages=[ChatMessage(role="user", content="27 seconds")],
+            shot_context=ShotContext(
+                machine="Mystery Espresso X9",
+                grinder="Varia VS3",
+                grind_setting="4",
+                roast_level="medium",
+                taste="balanced",
+            ),
+        )
+
+        response = graph.run_chat_graph(request, analyze_with_machine_candidate)
+
+        self.assertIsNotNone(response.analysis_result)
+        self.assertIn("generic machine profile", response.response.lower())
+        self.assertIn("queued the machine for review", response.response.lower())
 
 
     def test_graph_parses_compact_setup_message(self):
@@ -619,6 +869,109 @@ class CoachGraphTest(unittest.TestCase):
         self.assertEqual(response.shot_context.grinder, "Turin DF54")
         self.assertIsNone(response.shot_context.pending_gear_name)
         self.assertEqual(response.next_field, "machine")
+
+    def test_graph_rejects_brand_only_grinder_image_guess(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="",
+                    image_base64="abc123",
+                    image_media_type="image/jpeg",
+                    image_kind="grinder",
+                )
+            ],
+            shot_context=ShotContext(machine="Rancilio Silvia"),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock"
+        ) as fake_image_identification:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            fake_image_identification.return_value = {
+                "gear_type": "grinder",
+                "name": "Varia",
+                "confidence": "high",
+                "reason": "Brand logo visible.",
+            }
+
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.grinder)
+        self.assertIsNone(response.shot_context.pending_gear_name)
+        self.assertEqual(response.next_field, "grinder")
+        self.assertIn("could not identify the grinder confidently", response.response.lower())
+
+    def test_graph_does_not_accept_brand_only_grinder_photo_as_machine(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="",
+                    image_base64="abc123",
+                    image_media_type="image/jpeg",
+                    image_kind="machine",
+                )
+            ],
+            shot_context=ShotContext(),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock"
+        ) as fake_image_identification:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            fake_image_identification.return_value = {
+                "gear_type": "machine",
+                "name": "Varia",
+                "confidence": "high",
+                "reason": "Brand logo visible.",
+            }
+
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.machine)
+        self.assertIsNone(response.shot_context.pending_gear_name)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("could not identify the machine confidently", response.response.lower())
+
+    def test_graph_retypes_known_grinder_guess_when_photo_was_sent_as_machine(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="",
+                    image_base64="abc123",
+                    image_media_type="image/jpeg",
+                    image_kind="machine",
+                )
+            ],
+            shot_context=ShotContext(),
+        )
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock"
+        ) as fake_image_identification:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            fake_image_identification.return_value = {
+                "gear_type": "machine",
+                "name": "DF54",
+                "confidence": "high",
+                "reason": "Model label visible.",
+            }
+
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.machine)
+        self.assertEqual(response.shot_context.pending_gear_type, "grinder")
+        self.assertEqual(response.shot_context.pending_gear_name, "Turin DF54")
+        self.assertEqual(response.next_field, "confirm_grinder")
+        self.assertIn("is that your grinder", response.response.lower())
 
     def test_graph_short_yes_confirms_pending_machine_guess(self):
         request = ChatRequest(
