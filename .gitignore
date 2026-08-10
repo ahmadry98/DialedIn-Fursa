@@ -32,3 +32,6 @@ terraform.tfstate
 terraform.tfstate.*
 terraform.tfstate.d/
 .env.compose
+.kube/
+infra/terraform/k8s-*.tfvars
+!infra/terraform/k8s-dev.example.tfvars

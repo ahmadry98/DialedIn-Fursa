@@ -1,0 +1,46 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dialedin-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ai-dev.fursa.click
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-frontend-svc
+                port:
+                  number: 3000
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-agent-svc
+                port:
+                  number: 8000
+    - host: api-dev.fursa.click
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-agent-svc
+                port:
+                  number: 8000
+    - host: app-dev.fursa.click
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialedin-landing-svc
+                port:
+                  number: 3002
