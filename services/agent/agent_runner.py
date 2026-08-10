@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from services.agent import conversation
+from services.agent import conversation, observability
 from services.agent.prompts import SYSTEM_PROMPT
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse
 from services.espresso_mcp import app as espresso_tools
@@ -28,6 +28,14 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
     METRICS["shot_analysis_requests_total"] += 1
 
     timing = _timing_from_request(request)
+    observability.observe("dialedin_audio_total_shot_seconds", timing.get("total_shot_seconds"), source=timing.get("audio_method"))
+    observability.observe(
+        "dialedin_audio_timing_confidence",
+        min(float(timing.get("start_confidence") or 0), float(timing.get("stop_confidence") or 0)),
+        source=timing.get("audio_method"),
+    )
+    if timing.get("requires_manual_confirmation"):
+        observability.increment("dialedin_audio_manual_confirmation_required_total", source=timing.get("audio_method"))
     canonical_machine = _canonical_machine_name(request.machine)
     canonical_grinder = _canonical_grinder_name(None if request.uses_built_in_grinder else request.grinder)
     machine_profile = espresso_tools.get_machine_profile(canonical_machine)
@@ -41,6 +49,8 @@ def analyze_shot(request: AnalyzeShotRequest) -> AnalyzeShotResponse:
         shot_context,
     )
     METRICS["last_missing_fields_count"] = len(missing_fields)
+    observability.set_gauge("dialedin_last_missing_fields_count", len(missing_fields))
+    observability.increment("dialedin_profile_candidates_captured_total", amount=len(profile_candidates))
 
     result = {
         "timing": timing,
@@ -71,6 +81,14 @@ def chat(request: ChatRequest) -> ChatResponse:
     response.system_prompt = SYSTEM_PROMPT
     if response.shot_context:
         METRICS["last_missing_fields_count"] = len(response.missing_fields)
+        observability.set_gauge("dialedin_last_missing_fields_count", len(response.missing_fields))
+    if response.image_guess:
+        observability.increment(
+            "dialedin_image_recognition_total",
+            kind=response.image_guess.get("kind"),
+            status=response.image_guess.get("status") or "unknown",
+            confidence=response.image_guess.get("confidence") or "unknown",
+        )
     return response
 
 
@@ -80,9 +98,15 @@ def metrics() -> dict[str, int]:
 
 def _timing_from_request(request: AnalyzeShotRequest) -> dict[str, Any]:
     if request.video_s3_key:
-        return espresso_tools.analyze_audio_timing(request.video_s3_key)
+        observability.increment("dialedin_audio_analysis_requests_total", source="video")
+        return observability.time_call(
+            "dialedin_audio_analysis_duration_seconds",
+            lambda: espresso_tools.analyze_audio_timing(request.video_s3_key),
+            source="video",
+        )
 
     if request.total_shot_seconds is not None:
+        observability.increment("dialedin_audio_analysis_requests_total", source="manual")
         confidence = request.timing_confidence if request.timing_confidence is not None else 1.0
         return {
             "source_path": "manual",

@@ -191,10 +191,25 @@ increase(dialedin_chat_requests_total[5m])
 dialedin_shot_analysis_requests_total
 dialedin_last_missing_fields_count
 dialedin_espresso_mcp_tool_count
+dialedin_audio_analysis_requests_total
+dialedin_audio_timing_confidence_latest
+dialedin_audio_analysis_duration_seconds_latest
+dialedin_media_uploaded_bytes_latest
+dialedin_profile_research_runs_total
+dialedin_mcp_tool_errors_total
 scrape_duration_seconds{job=~"dialedin-agent|espresso-mcp-health"}
 ```
 
-Grafana opens at `http://localhost:3001` with `admin` / `admin` by default. Open **Dashboards -> DialedIN -> DialedIN Local Stack** to see the provisioned local dashboard.
+Alert rules live in `monitoring/alerts.yml` and are loaded by local Prometheus. Useful alert checks:
+
+```promql
+ALERTS
+increase(dialedin_mcp_tool_errors_total[10m])
+dialedin_audio_timing_confidence_latest < 0.7
+increase(dialedin_profile_research_runs_total{status="error"}[30m])
+```
+
+Grafana opens at `http://localhost:3001` with `admin` / `admin` by default. Open **Dashboards -> DialedIN -> DialedIN Local Stack** for the service overview, or **DialedIN Shot Analysis Observability** for chat/audio/upload/profile research metrics.
 
 Stop the stack with:
 
@@ -399,6 +414,63 @@ npm run ios
 ```
 
 Use local URLs only when you are running FastAPI on your Mac. Use the cloud URLs above when the app should talk to the Terraform/Kubernetes deployment.
+
+### 6. Enable New Machine Candidate Email Notifications
+
+The app can email you when a new unknown **machine** is captured as a profile candidate. The recipient defaults to `ahmadrayan1998@gmail.com`. Email is disabled unless SMTP is configured, so local tests and CI do not send messages.
+
+Set these values in the agent environment or Kubernetes secret:
+
+```bash
+PROFILE_CANDIDATE_EMAIL_ENABLED=true
+PROFILE_CANDIDATE_EMAIL_TO=ahmadrayan1998@gmail.com
+SMTP_HOST=<smtp-host>
+SMTP_PORT=587
+SMTP_USERNAME=<smtp-user>
+SMTP_PASSWORD=<smtp-password>
+SMTP_FROM=<from-address>
+SMTP_USE_TLS=true
+```
+
+In Kubernetes, edit `infra/k8s/agent.yaml`, put the SMTP values in `dialchat-agent-secrets`, apply the manifest, and restart the agent deployment.
+
+## GitHub Actions CI/CD Setup
+
+Checkpoint 27 adds GitHub Actions for tests, Docker image builds, and manual dev deployment. Configure these repository variables and secrets before using the build/deploy workflows:
+
+Repository variables:
+
+```text
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=228281126655
+```
+
+Repository secrets:
+
+```text
+AWS_ACCESS_KEY_ID=<github-actions-aws-key>
+AWS_SECRET_ACCESS_KEY=<github-actions-aws-secret>
+DIALEDIN_DEV_KUBE_CONFIG_B64=<base64 encoded .kube/dialedin-dev>
+```
+
+Create the kubeconfig secret from your machine with:
+
+```bash
+base64 -i /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/.kube/dialedin-dev | pbcopy
+```
+
+Then paste it into the `DIALEDIN_DEV_KUBE_CONFIG_B64` GitHub secret.
+
+Workflow roles:
+
+```text
+.github/workflows/ci.yml              PR/unit/frontend/monitoring checks
+.github/workflows/build-images.yaml    Build and push DialChat agent/MCP/frontend images
+.github/workflows/deploy-dev.yaml      Manually deploy a chosen image tag to dev Kubernetes
+.github/workflows/deploy-prod.yaml     Guarded production placeholder
+```
+
+Mobile and landing have their own repo-level workflows in their repositories.
 
 ## Useful Checks
 
