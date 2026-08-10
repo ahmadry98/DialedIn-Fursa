@@ -45,6 +45,29 @@ jobs:
             exit 1
           fi
 
+      - name: Show GitHub OIDC claims
+        if: env.AWS_ROLE_TO_ASSUME != ''
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          import urllib.request
+
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=sts.amazonaws.com"
+          token = os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+          req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+          oidc = json.loads(urllib.request.urlopen(req, timeout=20).read())["value"]
+          payload = oidc.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload.encode()))
+          for key in ["iss", "aud", "sub", "repository", "repository_id", "repository_owner", "ref", "ref_type", "event_name", "workflow_ref"]:
+              print(f"{key}={claims.get(key)}")
+          PY
+
       - name: Configure AWS credentials with GitHub OIDC
         if: env.AWS_ROLE_TO_ASSUME != ''
         uses: aws-actions/configure-aws-credentials@v6.1.2
