@@ -1,0 +1,30 @@
+name: Deploy Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy to production.
+        required: true
+        type: string
+      confirm:
+        description: Type deploy-prod to confirm.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Production deployment guard
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Require explicit confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "deploy-prod" ]; then
+            echo "Production deploy cancelled: confirmation text did not match."
+            exit 1
+          fi
+          echo "Production deploy workflow is intentionally guarded. Add prod manifests and secrets before enabling automatic apply."

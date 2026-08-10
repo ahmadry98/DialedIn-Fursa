@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from services.espresso_mcp import profile_candidates
+from services.espresso_mcp import notifications, profile_candidates
 
 
 class ProfileCandidatesTest(unittest.TestCase):
@@ -59,6 +59,30 @@ class ProfileCandidatesTest(unittest.TestCase):
         self.assertEqual(first["candidate_key"], second["candidate_key"])
         self.assertEqual(second["seen_count"], 2)
         self.assertEqual(second["user_ids"], ["user-1", "user-2"])
+
+    def test_new_machine_candidate_sends_optional_email_notification(self):
+        calls = []
+        original_notify = notifications.notify_new_profile_candidate
+        notifications.notify_new_profile_candidate = lambda candidate: calls.append(candidate) or True
+        try:
+            candidate = profile_candidates.save_profile_candidate("machine", "Mystery Machine X", "user-1", {})
+        finally:
+            notifications.notify_new_profile_candidate = original_notify
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["candidate_key"], candidate["candidate_key"])
+
+    def test_duplicate_machine_candidate_does_not_send_email_again(self):
+        calls = []
+        original_notify = notifications.notify_new_profile_candidate
+        notifications.notify_new_profile_candidate = lambda candidate: calls.append(candidate) or True
+        try:
+            profile_candidates.save_profile_candidate("machine", "Mystery Machine X", "user-1", {})
+            profile_candidates.save_profile_candidate("machine", "Mystery Machine X", "user-2", {})
+        finally:
+            notifications.notify_new_profile_candidate = original_notify
+
+        self.assertEqual(len(calls), 1)
 
 
 if __name__ == "__main__":

@@ -589,11 +589,11 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Metrics and dashboard.
 
-- [ ] Add request metrics.
-- [ ] Add audio processing metrics.
-- [ ] Add profile research metrics.
-- [ ] Add MCP/tool error metrics.
-- [ ] Build Grafana dashboard.
+- [x] Add request metrics.
+- [x] Add audio processing metrics.
+- [x] Add profile research metrics.
+- [x] Add MCP/tool error metrics.
+- [x] Build Grafana dashboard.
 
 ## Checkpoint 27: Deployment Automation
 
@@ -607,11 +607,34 @@ attach_draft_profile(candidate_key, draft_profile)
 
 - [x] Run unit tests on PRs.
 - [x] Run frontend build/type checks on PRs.
-- [ ] Build Docker images after merge.
-- [ ] Deploy to dev.
+- [x] Build Docker images after merge.
+- [x] Deploy to dev.
+- [x] Add email notification when new machine profile candidates are captured.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 28: Final Demo
+## Checkpoint 28: Personal AWS Account Migration
+
+**Files:**
+- `infra/terraform/*.tf`
+- `infra/terraform/personal-dev.tfvars`
+- `infra/terraform/prod.tfvars`
+- `.github/workflows/*.yaml`
+- `README.md`
+
+**Deliverable:** Recreate the working course-AWS deployment in Ahmad's own AWS account before any public App Store or Play Store release.
+
+- [ ] Keep the course AWS account as the current demo/dev environment until the cloud flow is stable.
+- [ ] Create IAM/GitHub Actions credentials in Ahmad's AWS account.
+- [ ] Enable required AWS services in Ahmad's account: S3, DynamoDB, ECR, Bedrock, SES, EC2/Kubernetes target, and monitoring.
+- [ ] Run Terraform against Ahmad's AWS account using a separate workspace/tfvars file.
+- [ ] Copy reviewed machine/grinder profiles from the course DynamoDB table into Ahmad's DynamoDB table.
+- [ ] Copy reviewed S3 machine images and any required media seed objects into Ahmad's S3 bucket.
+- [ ] Update GitHub Actions secrets and variables to deploy to Ahmad's AWS account.
+- [ ] Point mobile and web clients to the new production API URL.
+- [ ] Verify `/health`, `/machines`, media upload, Bedrock vision/chat, profile candidate capture, email notification, and metrics in Ahmad's AWS account.
+- [ ] Keep production deployment protected and manual until the App Store/Play Store release process is ready.
+
+## Checkpoint 29: Final Demo
 
 **Files:**
 - `docs/demo-script.md`

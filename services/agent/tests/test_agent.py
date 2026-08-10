@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from services.agent import app as agent_app
-from services.agent import agent_runner
+from services.agent import agent_runner, observability
 from services.espresso_mcp import app as espresso_tools
 from services.espresso_mcp import grinder_profiles, machine_profiles, profile_candidates
 
@@ -58,6 +58,7 @@ class AgentApiTest(unittest.TestCase):
                 "last_missing_fields_count": 0,
             }
         )
+        observability.reset()
         self.client = TestClient(agent_app.app)
 
     def tearDown(self):
@@ -85,6 +86,27 @@ class AgentApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("dialedin_chat_requests_total", response.text)
         self.assertIn("dialedin_shot_analysis_requests_total", response.text)
+        self.assertIn("dialedin_last_missing_fields_count", response.text)
+
+    def test_prometheus_metrics_after_manual_analysis(self):
+        response = self.client.post(
+            "/analyze-shot",
+            json={
+                "machine": "Rancilio Silvia",
+                "grinder": "Varia VS3",
+                "dose_g": 18,
+                "grind_setting": "3.4",
+                "roast_level": "medium",
+                "taste": "balanced",
+                "total_shot_seconds": 26,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+
+        metrics = self.client.get("/metrics.prometheus").text
+        self.assertIn('dialedin_audio_analysis_requests_total{source="manual"} 1', metrics)
+        self.assertIn("dialedin_audio_total_shot_seconds_latest", metrics)
+        self.assertIn("dialedin_audio_timing_confidence_latest", metrics)
 
     def test_chat_asks_for_shot_context(self):
         response = self.client.post(

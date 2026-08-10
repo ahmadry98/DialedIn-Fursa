@@ -13,6 +13,8 @@ data:
   MODEL: bedrock/openai.gpt-oss-20b-1:0
   CHAT_LLM_EXTRACTION: "true"
   CHAT_LLM_MODEL: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  PROFILE_CANDIDATE_EMAIL_ENABLED: "false"
+  PROFILE_CANDIDATE_EMAIL_TO: ahmadrayan1998@gmail.com
 ---
 apiVersion: v1
 kind: Secret
@@ -23,6 +25,11 @@ stringData:
   DIALEDIN_MEDIA_UPLOAD_BUCKET: ahmadry98-dialedin-dev-media-c5f56cb1a1cebb72d3d41d83f0
   DIALEDIN_PROFILE_TABLE: ahmadry98-dialedin-dev-equipment-profiles
   DIALEDIN_SHOT_RESULTS_TABLE: ahmadry98-dialedin-dev-shot-results
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_USERNAME: ""
+  SMTP_PASSWORD: ""
+  SMTP_FROM: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,7 +52,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: 228281126655.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-agent:checkpoint25-ingress-1f75ced-amd64
+          image: 228281126655.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-agent:checkpoint27-cicd-email-202608102006-amd64
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false

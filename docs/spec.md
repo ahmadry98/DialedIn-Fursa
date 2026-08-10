@@ -444,3 +444,10 @@ Final course deployment target:
 - S3 and DynamoDB via Terraform.
 - Prometheus/Grafana for request, audio, MCP, and failure metrics.
 - GitHub Actions for tests, build, and deployment.
+
+Production ownership direction:
+
+- The course AWS account remains a temporary demo/dev environment for teacher review and infrastructure testing.
+- Before App Store or Play Store release, the same Terraform/Kubernetes/GitHub Actions workflow should be recreated in Ahmad's own AWS account.
+- Production user media, DynamoDB profile data, shot history, Bedrock usage, SES/email, logs, and monitoring should live in Ahmad's AWS account, not the shared course account.
+- The migration should copy reviewed DynamoDB equipment profiles and reviewed S3 machine images from course AWS into Ahmad's account, then point the mobile and web clients to the new production API URL.
