@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialchat-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dialchat-frontend
+  template:
+    metadata:
+      labels:
+        app: dialchat-frontend
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull-secret
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: 228281126655.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-frontend:checkpoint25-ingress-1f75ced-amd64
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_AGENT_API_URL
+              value: /api
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dialchat-frontend-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: dialchat-frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

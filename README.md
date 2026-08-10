@@ -207,6 +207,114 @@ Important: the mobile machine/grinder pages should use the DialChat agent API on
 
 Terraform comes after this local workflow is stable. Use Terraform when you want AWS resources or deployment infrastructure: S3, DynamoDB, IAM, VPC, EC2/ECS/EKS, load balancers, and later production monitoring. Compose is for running locally; Terraform is for creating cloud infrastructure.
 
+
+## Kubernetes On AWS EC2
+
+Checkpoint 25 adds an opt-in kubeadm Kubernetes cluster adapted from PolyAIFursa. Existing S3/DynamoDB Terraform still works by default; the EC2 cluster is only created when `enable_k8s_cluster=true`.
+
+Prepare a local Kubernetes tfvars file with your SSH key and current IP before applying the cluster:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+cp k8s-dev.example.tfvars k8s-dev.tfvars
+# edit k8s-dev.tfvars with your current public IP and public SSH key
+```
+
+Then initialize and apply from the Terraform folder:
+
+```bash
+terraform init
+terraform workspace select dev || terraform workspace new dev
+terraform apply -var-file=dev.tfvars -var-file=k8s-dev.tfvars
+```
+
+After the control plane and workers are up, copy kubeconfig from the control-plane EC2 host. For this dev cluster, replace the private API server IP in kubeconfig with the `control_plane_public_ip` Terraform output, then use `--insecure-skip-tls-verify=true` unless the kubeadm cert is regenerated with the public IP as a SAN.
+
+Install Calico networking before deploying app workloads:
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.1/manifests/tigera-operator.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f /Users/ahmadrayan/Desktop/Fursa/PolyAIFursa/infra/k8s/calico/custom-resources.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get nodes -o wide
+```
+
+Install ingress-nginx when public ingress is enabled. Terraform points the ALB at NodePort `30080`, so the controller service must expose that fixed port:
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true -n ingress-nginx patch svc ingress-nginx-controller \
+  -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":"http","protocol":"TCP","nodePort":30080},{"name":"https","port":443,"targetPort":"https","protocol":"TCP","nodePort":30443}]}}'
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=240s
+```
+
+Build and push Linux/AMD64 images for the EC2 workers. Mac builds default to ARM, so keep `--platform linux/amd64`:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+TAG=checkpoint25-$(git rev-parse --short HEAD)-amd64
+REGISTRY=228281126655.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$REGISTRY"
+docker buildx build --platform linux/amd64 -f services/agent/Dockerfile -t "$REGISTRY/dialedin-fursa-agent:$TAG" --push .
+docker buildx build --platform linux/amd64 -f services/espresso_mcp/Dockerfile -t "$REGISTRY/dialedin-fursa-espresso-mcp:$TAG" --push .
+docker buildx build --platform linux/amd64 -f services/frontend/Dockerfile --build-arg NEXT_PUBLIC_AGENT_API_URL=/api -t "$REGISTRY/dialedin-fursa-frontend:$TAG" --push .
+docker buildx build --platform linux/amd64 -t "$REGISTRY/dialedin-backend:$TAG" --push /Users/ahmadrayan/Desktop/DialedIn/backend
+docker buildx build --platform linux/amd64 -t "$REGISTRY/dialedin-landing:$TAG" --push /Users/ahmadrayan/Desktop/DialedIn/dialedin-landing
+```
+
+Create the dev ECR pull secret before applying workloads. This is a manual dev credential; later CI/CD should refresh it or configure node image credentials automatically.
+
+```bash
+ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true create secret docker-registry ecr-pull-secret -n dev \
+  --docker-server=228281126655.dkr.ecr.us-east-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password="$ECR_PASSWORD" \
+  --dry-run=client -o yaml | KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f -
+```
+
+Apply the full Stage 1 manifests. DialChat reads trusted equipment profiles from DynamoDB; the older Django backend is still a separate legacy/mobile backend with its own smaller machine list.
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/dialedin-backend.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/landing.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
+```
+
+Useful smoke checks after deploy:
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialedin-backend
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialedin-landing
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get pods -n dev
+```
+
+Open the cloud services locally through port-forwarding:
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true port-forward -n dev svc/dialchat-agent-svc 8000:8000
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true port-forward -n dev svc/dialchat-frontend-svc 3000:3000
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true port-forward -n dev svc/dialedin-backend-svc 8010:8010
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true port-forward -n dev svc/dialedin-landing-svc 3002:3002
+```
+
+Then test:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/machines
+curl http://127.0.0.1:9000/health
+curl http://127.0.0.1:8010/api/machines/
+open http://127.0.0.1:3000
+open http://127.0.0.1:3002
+```
+
 ## Useful Checks
 
 Agent graph tests:

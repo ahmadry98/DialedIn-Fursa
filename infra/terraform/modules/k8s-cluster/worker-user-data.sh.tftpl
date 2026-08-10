@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+exec > >(tee -a /var/log/dialedin-worker-bootstrap.log) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+KUBERNETES_VERSION="${kubernetes_minor_version}"
+CRIO_VERSION="${kubernetes_minor_version}"
+
+swapoff -a
+sed -ri '/\sswap\s/s/^#?/#/' /etc/fstab
+
+cat >/etc/modules-load.d/kubernetes.conf <<'MODULES'
+overlay
+br_netfilter
+MODULES
+
+modprobe overlay
+modprobe br_netfilter
+
+cat >/etc/sysctl.d/99-kubernetes-cri.conf <<'SYSCTL'
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+SYSCTL
+
+sysctl --system
+
+install -m 0755 -d /etc/apt/keyrings
+apt-get update
+apt-get install -y ca-certificates curl gpg unzip
+
+if ! command -v aws >/dev/null 2>&1; then
+  AWSCLI_TMP_DIR=$(mktemp -d)
+
+  curl -fsSL \
+    "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+    -o "$${AWSCLI_TMP_DIR}/awscliv2.zip"
+
+  unzip -q \
+    "$${AWSCLI_TMP_DIR}/awscliv2.zip" \
+    -d "$${AWSCLI_TMP_DIR}"
+
+  "$${AWSCLI_TMP_DIR}/aws/install"
+fi
+curl -fsSL "https://pkgs.k8s.io/core:/stable:/$${KUBERNETES_VERSION}/deb/Release.key" \
+  | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$${KUBERNETES_VERSION}/deb/ /" \
+  >/etc/apt/sources.list.d/kubernetes.list
+
+curl -fsSL "https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$${CRIO_VERSION}/deb/Release.key" \
+  | gpg --dearmor --yes -o /etc/apt/keyrings/cri-o-apt-keyring.gpg
+
+echo "deb [signed-by=/etc/apt/keyrings/cri-o-apt-keyring.gpg] https://download.opensuse.org/repositories/isv:/cri-o:/stable:/$${CRIO_VERSION}/deb/ /" \
+  >/etc/apt/sources.list.d/cri-o.list
+
+apt-get update
+apt-get install -y cri-o kubelet kubeadm
+apt-mark hold kubelet kubeadm
+
+systemctl enable --now crio
+systemctl enable kubelet
+
+if [[ -f /etc/kubernetes/kubelet.conf ]]; then
+  exit 0
+fi
+
+JOIN_COMMAND=""
+
+for attempt in $(seq 1 120); do
+  JOIN_COMMAND=$(aws ssm get-parameter \
+    --region "${region}" \
+    --name "${join_parameter_name}" \
+    --with-decryption \
+    --query 'Parameter.Value' \
+    --output text 2>/dev/null || true)
+
+  if [[ "$${JOIN_COMMAND}" == kubeadm\ join* ]]; then
+    break
+  fi
+
+  JOIN_COMMAND=""
+  sleep 15
+done
+
+if [[ -z "$${JOIN_COMMAND}" ]]; then
+  echo "Timed out waiting for a valid kubeadm join command" >&2
+  exit 1
+fi
+
+read -r -a JOIN_ARGS <<<"$${JOIN_COMMAND}"
+"$${JOIN_ARGS[@]}"
+
+touch /var/lib/dialedin-worker-ready
