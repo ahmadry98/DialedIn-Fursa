@@ -566,13 +566,19 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Kubernetes manifests and AWS infrastructure adapted from PolyAIFursa.
 
-- [ ] Use PolyAIFursa VPC/Kubernetes Terraform as the base and adapt naming, tags, IAM, ports, and services.
-- [ ] Add namespaces according to chosen branch/environment workflow.
-- [ ] Add deployments/services for frontend, agent, and espresso MCP.
-- [ ] Add readiness/liveness probes.
-- [ ] Add resource requests/limits.
-- [ ] Add HPA if required.
-- [ ] Test with `kubectl port-forward` or ingress.
+- [x] Use PolyAIFursa VPC/Kubernetes Terraform as the base and adapt naming, tags, IAM, ports, and services.
+- [x] Add namespaces according to chosen branch/environment workflow.
+- [x] Add deployments/services for frontend, agent, espresso MCP, DialedIn backend, and landing app.
+- [x] Add readiness/liveness probes.
+- [x] Add resource requests/limits.
+- [x] Add HPA for agent and frontend.
+- [x] Add Route 53/ALB ingress as an opt-in Terraform path.
+- [x] Test with `kubectl port-forward` after the EC2 cluster is applied and kubeconfig is available.
+- [x] Build and push Linux/AMD64 ECR images for agent, espresso MCP, and frontend.
+- [x] Create ECR image pull secret for the dev namespace.
+- [x] Verify `/health`, `/machines`, `/chat`, espresso MCP health, Django backend, landing app, and the Next.js frontend through local port-forwarding.
+- [x] Set cloud chat/image extraction to a vision-capable Bedrock model for machine/grinder photo recognition.
+- [ ] Automate ECR pull auth and deployment in CI/CD instead of manual dev commands.
 
 ## Checkpoint 26: Observability
 

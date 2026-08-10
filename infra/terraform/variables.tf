@@ -36,3 +36,125 @@ variable "allowed_media_upload_origins" {
     "http://127.0.0.1:3000"
   ]
 }
+
+
+variable "enable_k8s_cluster" {
+  description = "Create the EC2 kubeadm Kubernetes cluster. Keep false for normal storage-only applies."
+  type        = bool
+  default     = false
+}
+
+variable "enable_public_ingress" {
+  description = "Create Route 53, ACM, and ALB ingress for the Kubernetes cluster. Requires enable_k8s_cluster."
+  type        = bool
+  default     = false
+}
+
+variable "domain_name" {
+  description = "Existing public Route 53 hosted zone used for public Kubernetes endpoints."
+  type        = string
+  default     = "fursa.click"
+}
+
+variable "vpc_cidr" {
+  description = "IPv4 CIDR for the optional Kubernetes VPC."
+  type        = string
+  default     = "10.20.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "Two public subnet CIDRs in separate Availability Zones for the optional Kubernetes cluster."
+  type        = list(string)
+  default     = ["10.20.1.0/24", "10.20.2.0/24"]
+
+  validation {
+    condition     = length(var.public_subnet_cidrs) == 2
+    error_message = "Exactly two public subnet CIDRs are required."
+  }
+}
+
+variable "pod_cidr" {
+  description = "Kubernetes Pod network CIDR passed to kubeadm and Calico."
+  type        = string
+  default     = "192.168.0.0/16"
+}
+
+variable "kubernetes_minor_version" {
+  description = "Pinned Kubernetes and CRI-O minor repository stream."
+  type        = string
+  default     = "v1.35"
+}
+
+variable "control_plane_instance_type" {
+  description = "EC2 instance type for the kubeadm control plane."
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "worker_instance_type" {
+  description = "EC2 instance type used by the worker launch template."
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "worker_desired_capacity" {
+  description = "Desired number of worker instances; zero enables idle mode."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.worker_desired_capacity >= 0 && var.worker_desired_capacity <= 3
+    error_message = "Worker desired capacity must be between 0 and 3."
+  }
+}
+
+variable "admin_ssh_cidr" {
+  description = "Administrator IPv4 CIDR allowed to SSH to the control plane when Kubernetes is enabled."
+  type        = string
+  default     = "127.0.0.1/32"
+
+  validation {
+    condition     = can(cidrhost(var.admin_ssh_cidr, 0))
+    error_message = "admin_ssh_cidr must be a valid IPv4 CIDR."
+  }
+}
+
+variable "ssh_public_key" {
+  description = "OpenSSH public key registered as the cluster EC2 key pair when Kubernetes is enabled."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition     = !var.enable_k8s_cluster || startswith(var.ssh_public_key, "ssh-")
+    error_message = "ssh_public_key must be an OpenSSH public key when enable_k8s_cluster is true."
+  }
+}
+
+variable "alert_email" {
+  description = "Email address subscribed to optional infrastructure alerts."
+  type        = string
+  default     = "ahmadrayan1998@gmail.com"
+
+  validation {
+    condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.alert_email))
+    error_message = "alert_email must be a valid email address."
+  }
+}
+
+variable "enable_cluster_autoscaler" {
+  description = "Whether to configure the worker ASG for the optional Cluster Autoscaler."
+  type        = bool
+  default     = false
+}
+
+variable "ingress_http_node_port" {
+  description = "Fixed ingress-nginx HTTP NodePort targeted by the ALB."
+  type        = number
+  default     = 30080
+
+  validation {
+    condition     = var.ingress_http_node_port >= 30000 && var.ingress_http_node_port <= 32767
+    error_message = "ingress_http_node_port must be within the Kubernetes NodePort range."
+  }
+}

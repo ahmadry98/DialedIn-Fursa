@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialchat-agent-config
+data:
+  AWS_REGION: us-east-1
+  DIALEDIN_MEDIA_STORAGE_MODE: s3
+  DIALEDIN_MEDIA_UPLOAD_PREFIX: dialchat-media
+  DIALEDIN_PROFILE_STORAGE: dynamodb
+  DIALEDIN_SHOT_HISTORY_STORAGE: dynamodb
+  PROFILE_RESEARCH_AUTORUN: "false"
+  PROFILE_RESEARCH_WEB_EVIDENCE: "true"
+  MODEL: bedrock/openai.gpt-oss-20b-1:0
+  CHAT_LLM_EXTRACTION: "true"
+  CHAT_LLM_MODEL: us.anthropic.claude-haiku-4-5-20251001-v1:0
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dialchat-agent-secrets
+type: Opaque
+stringData:
+  DIALEDIN_MEDIA_UPLOAD_BUCKET: ahmadry98-dialedin-dev-media-c5f56cb1a1cebb72d3d41d83f0
+  DIALEDIN_PROFILE_TABLE: ahmadry98-dialedin-dev-equipment-profiles
+  DIALEDIN_SHOT_RESULTS_TABLE: ahmadry98-dialedin-dev-shot-results
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialchat-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dialchat-agent
+  template:
+    metadata:
+      labels:
+        app: dialchat-agent
+    spec:
+      imagePullSecrets:
+        - name: ecr-pull-secret
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: 228281126655.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-agent:checkpoint25-ingress-1f75ced-amd64
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: dialchat-agent-config
+            - secretRef:
+                name: dialchat-agent-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 150m
+              memory: 384Mi
+            limits:
+              cpu: 750m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dialchat-agent-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: dialchat-agent
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
