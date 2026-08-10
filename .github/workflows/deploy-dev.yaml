@@ -22,6 +22,7 @@ jobs:
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '228281126655' }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN || secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
       KUBECONFIG: ${{ github.workspace }}/kubeconfig
+      CONTROL_PLANE_SECURITY_GROUP_NAME: ${{ vars.CONTROL_PLANE_SECURITY_GROUP_NAME || 'ahmadry98-dialedin-dev-control-plane' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,6 +62,33 @@ jobs:
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
+
+      - name: Allow runner to Kubernetes API
+        run: |
+          RUNNER_IP=$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')
+          if [ -z "$RUNNER_IP" ]; then
+            echo "Could not discover GitHub runner public IP." >&2
+            exit 1
+          fi
+
+          CONTROL_PLANE_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:Name,Values=$CONTROL_PLANE_SECURITY_GROUP_NAME" \
+            --query 'SecurityGroups[0].GroupId' \
+            --output text)
+
+          if [ -z "$CONTROL_PLANE_SECURITY_GROUP_ID" ] || [ "$CONTROL_PLANE_SECURITY_GROUP_ID" = "None" ]; then
+            echo "Could not find control-plane security group named $CONTROL_PLANE_SECURITY_GROUP_NAME." >&2
+            exit 1
+          fi
+
+          RUNNER_K8S_API_CIDR="$RUNNER_IP/32"
+          echo "CONTROL_PLANE_SECURITY_GROUP_ID=$CONTROL_PLANE_SECURITY_GROUP_ID" >> "$GITHUB_ENV"
+          echo "RUNNER_K8S_API_CIDR=$RUNNER_K8S_API_CIDR" >> "$GITHUB_ENV"
+
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$CONTROL_PLANE_SECURITY_GROUP_ID" \
+            --ip-permissions "IpProtocol=tcp,FromPort=6443,ToPort=6443,IpRanges=[{CidrIp=$RUNNER_K8S_API_CIDR,Description='GitHub Actions deploy $GITHUB_RUN_ID'}]" \
+            || echo "Ingress rule may already exist; continuing."
 
       - name: Write and validate kubeconfig
         env:
@@ -108,3 +136,13 @@ jobs:
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend --timeout=240s
+
+      - name: Revoke runner Kubernetes API access
+        if: always() && env.CONTROL_PLANE_SECURITY_GROUP_ID != '' && env.RUNNER_K8S_API_CIDR != ''
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id "$CONTROL_PLANE_SECURITY_GROUP_ID" \
+            --protocol tcp \
+            --port 6443 \
+            --cidr "$RUNNER_K8S_API_CIDR" \
+            || echo "Runner Kubernetes API ingress rule was already removed."
