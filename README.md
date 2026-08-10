@@ -443,13 +443,18 @@ Repository variables:
 ```text
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=228281126655
+AWS_GITHUB_ACTIONS_ROLE_ARN=<preferred GitHub OIDC role arn>
 ```
+
+The workflows also accept the PolyAIFursa variable name `AWS_TERRAFORM_ROLE_ARN`, so you can reuse the same OIDC role pattern from that project. If neither OIDC variable is set, the workflows fall back to static AWS access key secrets.
 
 Repository secrets:
 
 ```text
+# Only needed if you are not using the OIDC role variable above.
 AWS_ACCESS_KEY_ID=<github-actions-aws-key>
 AWS_SECRET_ACCESS_KEY=<github-actions-aws-secret>
+
 DIALEDIN_DEV_KUBE_CONFIG_B64=<base64 encoded .kube/dialedin-dev>
 ```
 
