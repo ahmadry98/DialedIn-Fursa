@@ -1,0 +1,47 @@
+groups:
+  - name: dialedin-agent
+    rules:
+      - alert: DialedINAgentDown
+        expr: up{job="dialedin-agent"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: DialedIN agent is down
+          description: Prometheus cannot scrape the DialChat agent metrics endpoint.
+
+      - alert: DialedINEspressoMcpDown
+        expr: up{job="espresso-mcp-health"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Espresso MCP health wrapper is down
+          description: Prometheus cannot scrape the espresso MCP metrics endpoint.
+
+      - alert: DialedINChatErrors
+        expr: increase(dialedin_mcp_tool_errors_total[10m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: DialChat tool/API errors increased
+          description: More than three chat/analyze errors happened in the last ten minutes.
+
+      - alert: DialedINLowTimingConfidence
+        expr: dialedin_audio_timing_confidence_latest < 0.7
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: Latest audio timing confidence is low
+          description: The last analyzed shot likely needs manual timing confirmation or a cleaner video.
+
+      - alert: DialedINProfileResearchErrors
+        expr: increase(dialedin_profile_research_runs_total{status="error"}[30m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Profile research worker failed
+          description: Bedrock or web-evidence profile research failed recently.

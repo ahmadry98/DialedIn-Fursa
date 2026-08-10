@@ -39,6 +39,15 @@ jobs:
           PROFILE_RESEARCH_AUTORUN: "false"
         run: python -m pytest modeling/tests services/espresso_mcp/tests services/agent/tests -q
 
+      - name: Validate monitoring files
+        run: |
+          python -m json.tool monitoring/grafana/dashboards/shot-analysis.json >/tmp/shot-analysis.json
+          python -m json.tool infra/grafana/dashboards/shot-analysis.json >/tmp/shot-analysis-infra.json
+          ruby -e 'require "yaml"; YAML.load_file("monitoring/prometheus.yml"); YAML.load_file("monitoring/alerts.yml")'
+
+      - name: Validate Docker Compose config
+        run: docker compose config >/tmp/dialedin-compose.yml
+
   frontend-build:
     name: Frontend typecheck and build
     runs-on: ubuntu-latest

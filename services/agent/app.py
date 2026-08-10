@@ -6,7 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.agent import agent_runner, equipment_profiles, storage
+from services.agent import agent_runner, equipment_profiles, observability, storage
 from services.agent.config import get_settings
 from services.agent.schemas import (
     AnalyzeShotRequest,
@@ -42,8 +42,11 @@ app.add_middleware(
 
 def _run_profile_research_background(*, limit: int) -> None:
     try:
+        observability.increment("dialedin_profile_research_runs_total", status="started")
         profile_research_worker.run_worker(limit=limit)
+        observability.increment("dialedin_profile_research_runs_total", status="success")
     except Exception as error:  # pragma: no cover - background failure should not break shot analysis.
+        observability.increment("dialedin_profile_research_runs_total", status="error")
         print(f"Profile research autorun failed: {error}")
 
 
@@ -59,12 +62,7 @@ def metrics() -> MetricsResponse:
 
 @app.get("/metrics.prometheus", response_class=PlainTextResponse)
 def prometheus_metrics() -> str:
-    values = agent_runner.metrics()
-    lines = []
-    for name, value in values.items():
-        lines.append(f"# TYPE dialedin_{name} counter")
-        lines.append(f"dialedin_{name} {value}")
-    return "\n".join(lines) + "\n"
+    return observability.render_prometheus(agent_runner.metrics())
 
 
 @app.get("/machines")
@@ -173,7 +171,9 @@ def create_media_upload_url(request_body: MediaUploadUrlRequest, request: Reques
             media_kind=request_body.media_kind,
         )
     except Exception as error:
+        observability.increment("dialedin_media_upload_targets_total", kind=request_body.media_kind, storage="unknown", status="error")
         raise HTTPException(status_code=400, detail=str(error)) from error
+    observability.increment("dialedin_media_upload_targets_total", kind=request_body.media_kind, storage=target.storage_mode, status="success")
     return MediaUploadUrlResponse(**target.__dict__)
 
 
@@ -181,8 +181,12 @@ def create_media_upload_url(request_body: MediaUploadUrlRequest, request: Reques
 async def upload_local_media(media_key: str, request: Request) -> dict[str, object]:
     try:
         payload = await request.body()
-        return storage.write_local_upload(settings=settings, media_key=media_key, payload=payload)
+        result = storage.write_local_upload(settings=settings, media_key=media_key, payload=payload)
+        observability.observe("dialedin_media_uploaded_bytes", result.get("size_bytes"), storage="local")
+        observability.increment("dialedin_media_local_uploads_total", status="success")
+        return result
     except Exception as error:
+        observability.increment("dialedin_media_local_uploads_total", status="error")
         raise HTTPException(status_code=400, detail=str(error)) from error
 
 
@@ -196,7 +200,9 @@ def register_media_upload(request_body: MediaRegisterRequest) -> MediaRegisterRe
             content_type=request_body.content_type,
         )
     except Exception as error:
+        observability.increment("dialedin_media_registered_total", kind=request_body.media_kind, storage=request_body.storage_mode, status="error")
         raise HTTPException(status_code=400, detail=str(error)) from error
+    observability.increment("dialedin_media_registered_total", kind=request_body.media_kind, storage=request_body.storage_mode, status="success")
     return MediaRegisterResponse(**metadata)
 
 
@@ -256,11 +262,15 @@ def delete_profile_candidate(candidate_key: str) -> dict[str, object]:
 @app.post("/profile-candidates/{candidate_key:path}/research")
 def rerun_profile_candidate_research(candidate_key: str) -> dict[str, object]:
     try:
+        observability.increment("dialedin_profile_research_runs_total", status="started", trigger="manual")
         results = profile_research_worker.run_worker(candidate_key=candidate_key)
     except ValueError as error:
+        observability.increment("dialedin_profile_research_runs_total", status="not_found", trigger="manual")
         raise HTTPException(status_code=404, detail=str(error)) from error
     except Exception as error:
+        observability.increment("dialedin_profile_research_runs_total", status="error", trigger="manual")
         raise HTTPException(status_code=400, detail=str(error)) from error
+    observability.increment("dialedin_profile_research_runs_total", status="success", trigger="manual")
     return {"results": results}
 
 
@@ -279,6 +289,7 @@ def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks)
     try:
         response = agent_runner.analyze_shot(request)
     except Exception as error:
+        observability.increment("dialedin_mcp_tool_errors_total", tool="analyze_shot")
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     if settings.profile_research_autorun and response.profile_candidates:
@@ -300,6 +311,7 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatRespons
     try:
         response = agent_runner.chat(request)
     except Exception as error:
+        observability.increment("dialedin_mcp_tool_errors_total", tool="chat")
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     analysis = response.analysis_result

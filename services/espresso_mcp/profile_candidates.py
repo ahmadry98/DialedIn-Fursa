@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from services.espresso_mcp import grinder_profiles, machine_profiles
+from services.espresso_mcp import grinder_profiles, machine_profiles, notifications
 
 CANDIDATES_PATH = Path(__file__).with_name("profile_candidates.json")
 
@@ -150,6 +150,7 @@ def save_profile_candidate(gear_type: str, name_entered: str, user_id: str, shot
     }
     candidates.append(candidate)
     _write_candidates(candidates)
+    notifications.notify_new_profile_candidate(candidate)
     return dict(candidate)
 
 
