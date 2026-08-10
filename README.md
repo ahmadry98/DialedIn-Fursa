@@ -315,6 +315,91 @@ open http://127.0.0.1:3000
 open http://127.0.0.1:3002
 ```
 
+## Run The App From Terraform / Cloud
+
+Use this flow when you want to test the real AWS dev environment instead of local Docker Compose.
+
+### 1. Start Or Update The AWS Infrastructure
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+terraform init
+terraform workspace select dev || terraform workspace new dev
+terraform apply -var-file=dev.tfvars -var-file=k8s-dev.tfvars
+```
+
+Useful outputs:
+
+```bash
+terraform output dialchat_media_bucket
+terraform output equipment_profiles_table_name
+terraform output shot_results_table_name
+terraform output control_plane_public_ip
+terraform output public_ingress_urls
+```
+
+### 2. Check Kubernetes
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get nodes -o wide
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get pods -n dev -o wide
+```
+
+If nodes are not ready after recreating EC2, install Calico again, then redeploy the app manifests. This is a manual dev step for now; CI/CD should automate it later.
+
+### 3. Deploy Or Refresh App Workloads
+
+If you changed code, build and push new images first, then update the image tags in `infra/k8s/*.yaml`.
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/dialedin-backend.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/landing.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
+```
+
+Wait for rollouts:
+
+```bash
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialedin-backend
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialedin-landing
+```
+
+### 4. Open The Cloud URLs
+
+```text
+DialChat web:   https://ai-dev.fursa.click
+DialChat API:   https://api-dev.fursa.click
+Landing site:   https://app-dev.fursa.click
+```
+
+Smoke checks:
+
+```bash
+curl -k https://api-dev.fursa.click/health
+curl -k https://api-dev.fursa.click/machines
+curl -k https://ai-dev.fursa.click/api/health
+```
+
+### 5. Run The Phone App Against Cloud
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
+EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
+EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
+npm run ios
+```
+
+Use local URLs only when you are running FastAPI on your Mac. Use the cloud URLs above when the app should talk to the Terraform/Kubernetes deployment.
+
 ## Useful Checks
 
 Agent graph tests:
