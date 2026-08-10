@@ -62,13 +62,30 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Write kubeconfig
-        run: echo "${{ secrets.DIALEDIN_DEV_KUBE_CONFIG_B64 }}" | base64 --decode > "$KUBECONFIG"
+      - name: Write and validate kubeconfig
+        env:
+          DIALEDIN_DEV_KUBE_CONFIG_B64: ${{ secrets.DIALEDIN_DEV_KUBE_CONFIG_B64 }}
+        run: |
+          if [ -z "$DIALEDIN_DEV_KUBE_CONFIG_B64" ]; then
+            echo "DIALEDIN_DEV_KUBE_CONFIG_B64 is missing. Add the base64 kubeconfig as a repository or dev environment secret." >&2
+            exit 1
+          fi
+
+          printf '%s' "$DIALEDIN_DEV_KUBE_CONFIG_B64" | base64 --decode > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+
+          if ! grep -q 'apiVersion:' "$KUBECONFIG"; then
+            echo "Decoded kubeconfig does not look valid." >&2
+            exit 1
+          fi
+
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true config current-context
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true cluster-info
 
       - name: Refresh ECR pull secret
         run: |
           ECR_PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
-          kubectl --insecure-skip-tls-verify=true create secret docker-registry ecr-pull-secret -n dev             --docker-server="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"             --docker-username=AWS             --docker-password="$ECR_PASSWORD"             --dry-run=client -o yaml | kubectl --insecure-skip-tls-verify=true apply -f -
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true create secret docker-registry ecr-pull-secret -n dev             --docker-server="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"             --docker-username=AWS             --docker-password="$ECR_PASSWORD"             --dry-run=client -o yaml | kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f -
 
       - name: Patch image tags
         run: |
@@ -80,14 +97,14 @@ jobs:
 
       - name: Apply manifests
         run: |
-          kubectl --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
-          kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
-          kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
-          kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
-          kubectl --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
 
       - name: Wait for rollout
         run: |
-          kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent --timeout=240s
-          kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp --timeout=240s
-          kubectl --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend --timeout=240s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent --timeout=240s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp --timeout=240s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend --timeout=240s
