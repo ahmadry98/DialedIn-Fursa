@@ -350,7 +350,7 @@ terraform output dialchat_media_bucket
 terraform output equipment_profiles_table_name
 terraform output shot_results_table_name
 terraform output control_plane_public_ip
-terraform output public_ingress_urls
+terraform output application_urls
 ```
 
 ### 2. Check Kubernetes
@@ -436,17 +436,18 @@ In Kubernetes, edit `infra/k8s/agent.yaml`, put the SMTP values in `dialchat-age
 
 ## GitHub Actions CI/CD Setup
 
-Checkpoint 27 adds GitHub Actions for tests, Docker image builds, and manual dev deployment. Configure these repository variables and secrets before using the build/deploy workflows:
+Checkpoint 27 adds GitHub Actions for tests, Docker image builds, and manual dev deployment. Configure these repository variables and secrets before using the build/deploy workflows.
 
 Repository variables:
 
 ```text
 AWS_REGION=us-east-1
 AWS_ACCOUNT_ID=228281126655
-AWS_GITHUB_ACTIONS_ROLE_ARN=<preferred GitHub OIDC role arn>
+AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::228281126655:role/DialedInGitHubActionsRole
+CONTROL_PLANE_SECURITY_GROUP_NAME=ahmadry98-dialedin-dev-control-plane
 ```
 
-The workflows also accept the PolyAIFursa variable name `AWS_TERRAFORM_ROLE_ARN`, so you can reuse the same OIDC role pattern from that project. If neither OIDC variable is set, the workflows fall back to static AWS access key secrets.
+If `AWS_GITHUB_ACTIONS_ROLE_ARN` is empty, the workflows fall back to static AWS access key secrets. Prefer OIDC for the course account and for your personal AWS account later.
 
 Repository secrets:
 
@@ -455,6 +456,7 @@ Repository secrets:
 AWS_ACCESS_KEY_ID=<github-actions-aws-key>
 AWS_SECRET_ACCESS_KEY=<github-actions-aws-secret>
 
+# Required by Deploy Dev.
 DIALEDIN_DEV_KUBE_CONFIG_B64=<base64 encoded .kube/dialedin-dev>
 ```
 
@@ -464,7 +466,17 @@ Create the kubeconfig secret from your machine with:
 base64 -i /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/.kube/dialedin-dev | pbcopy
 ```
 
-Then paste it into the `DIALEDIN_DEV_KUBE_CONFIG_B64` GitHub secret.
+Then paste it into the `DIALEDIN_DEV_KUBE_CONFIG_B64` GitHub secret. If the cluster is recreated, regenerate and replace this secret because the API server IP or certificate data can change.
+
+The GitHub OIDC role currently needs these permission groups:
+
+```text
+ECR push/pull for DialedIn image repositories
+EC2 DescribeSecurityGroups
+EC2 AuthorizeSecurityGroupIngress/RevokeSecurityGroupIngress only for the dev control-plane security group
+```
+
+`deploy-dev.yaml` temporarily opens Kubernetes API port `6443` for the current GitHub runner IP, deploys, then revokes that rule in an `always()` cleanup step.
 
 Workflow roles:
 
@@ -476,6 +488,62 @@ Workflow roles:
 ```
 
 Mobile and landing have their own repo-level workflows in their repositories.
+
+### Exact Dev Deploy Workflow
+
+Use this flow after code is merged to `dev` and the simulator/local smoke test passes:
+
+1. Open **Actions -> Build Images** in GitHub.
+2. Run it on the `dev` branch, or push to `dev` and let it run automatically.
+3. Copy the image tag from the workflow output. By default it is `<short-sha>-amd64`.
+4. Open **Actions -> Deploy Dev**.
+5. Run it on the `dev` branch with that exact image tag.
+6. Wait for the rollout checks to pass for `dialchat-agent`, `espresso-mcp`, and `dialchat-frontend`.
+7. Test the cloud API and app:
+
+```bash
+curl -k https://api-dev.fursa.click/health
+curl -k https://api-dev.fursa.click/machines
+```
+
+Then run the mobile app against cloud:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
+EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
+EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
+npm run ios
+```
+
+If `Deploy Dev` cannot reach Kubernetes, check these first:
+
+```text
+DIALEDIN_DEV_KUBE_CONFIG_B64 exists and was generated from the current cluster
+CONTROL_PLANE_SECURITY_GROUP_NAME matches the Terraform control-plane security group tag
+The EC2 control-plane instance is running
+The GitHub role has the narrow temporary 6443 ingress permissions
+```
+
+### Prod Readiness Checklist
+
+Do not run production deployment until these are done:
+
+```text
+[ ] Create separate prod Terraform workspace/resources, not reused dev tables/buckets.
+[ ] Create prod S3 bucket for media and machine photos.
+[ ] Create prod DynamoDB tables for equipment profiles and shot results.
+[ ] Import reviewed machine/grinder seed profiles into prod DynamoDB.
+[ ] Create prod ECR image tags from a main release commit.
+[ ] Create prod Kubernetes cluster or final hosting target.
+[ ] Create prod kubeconfig secret, separate from DIALEDIN_DEV_KUBE_CONFIG_B64.
+[ ] Configure production GitHub environment secrets and vars.
+[ ] Configure production domain/API URLs.
+[ ] Configure production Bedrock/IAM access in your own AWS account.
+[ ] Configure email/SES or SMTP for candidate notifications.
+[ ] Add rollback steps and verify health checks before exposing users.
+```
+
+`deploy-prod.yaml` is intentionally guarded. It requires typing `deploy-prod`, but it does not apply real production manifests yet. Treat it as a placeholder until the prod infrastructure checkpoint is complete.
 
 ## Useful Checks
 
