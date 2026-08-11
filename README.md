@@ -645,3 +645,17 @@ The current mobile integration opens the web AI chat as a temporary bridge. The 
 2. Call the FastAPI `/chat` endpoint directly from Expo.
 3. Upload shot videos to S3 instead of relying on local `data/raw-videos/...` paths.
 4. Show timing and recommendation conclusions in a native mobile analysis screen.
+
+## CI/CD Image Builds
+
+Pull requests to `main` run checks only: Python tests, frontend typecheck/build, monitoring validation, and Docker Compose validation. They do not push Docker images.
+
+Docker image publishing is intentionally limited:
+
+- Pushes to `dev` or `main` build images only when relevant source paths changed.
+- `agent` builds when `services/agent`, shared espresso code, modeling code, labels, or the image workflow changed.
+- `espresso-mcp` builds when `services/espresso_mcp`, modeling code, labels, or the image workflow changed.
+- `frontend` builds when `services/frontend`, copied espresso profile data, or the image workflow changed.
+- `workflow_dispatch` still builds all images manually when you explicitly choose to rebuild a tag.
+
+Docs-only, Terraform-only, and mobile-only changes should not publish new DialChat Docker images.
