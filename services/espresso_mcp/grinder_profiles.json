@@ -570,6 +570,33 @@
     "max_recommended_small_steps": 3
   },
   {
+    "aliases": [
+      "Opus Coffee Grinder",
+      "fellow opus",
+      "opus",
+      "opus coffee grinder"
+    ],
+    "data_confidence": "C",
+    "espresso_range": null,
+    "grinder_name": "Fellow Opus",
+    "large_step": 1.0,
+    "lower_is_finer": true,
+    "max_recommended_small_steps": 6,
+    "max_setting": 10.0,
+    "medium_step": 0.5,
+    "min_setting": 0.0,
+    "notes": "Fellow Opus has numbered settings from 0 to 10 with three small marks between each number, for 41 usable dial positions. Treat each small mark as 0.25 of a dial number: for example, one mark above 6 is 6.25 and one mark below 7 is 6.75. Use 0.25 as one small step; exact shot-time sensitivity should be refined with user calibration history. The 2.5 seconds per small-step estimate is conservative until calibrated by user shot history.",
+    "seconds_per_small_step_estimate": 2.5,
+    "setting_increment": 0.25,
+    "setting_type": "numeric_decimal",
+    "small_step": 0.25,
+    "source_urls": [
+      "https://fellowproducts.com/collections/gifts-under-250/products/opus-coffee-grinder",
+      "https://help.fellowproducts.com/hc/en-us/articles/12697501813403-What-are-the-differences-between-Opus-and-Ode",
+      "https://help.fellowproducts.com/hc/en-us/articles/12697812844315-What-does-the-Opus-inner-adjustment-ring-do-and-how-do-I-use-it"
+    ]
+  },
+  {
     "grinder_name": "Flair Royal",
     "aliases": [
       "flair royal",

@@ -56,6 +56,14 @@ class GrinderProfilesTest(unittest.TestCase):
     def test_validate_integer_grinder_rejects_decimal(self):
         self.assertIn("whole-number", validate_grind_setting("Baratza Encore ESP", "12.5"))
 
+    def test_validate_increment_grinder_accepts_only_profile_steps(self):
+        profile = get_grinder_profile("Fellow Opus")
+        if profile.get("grinder_name") != "Fellow Opus":
+            self.skipTest("Fellow Opus profile is not in the local JSON seed yet")
+
+        self.assertIsNone(validate_grind_setting("Fellow Opus", "6.25"))
+        self.assertIn("0.25-step", validate_grind_setting("Fellow Opus", "6.3"))
+
     def test_validate_unknown_grinder_allows_numeric(self):
         self.assertIsNone(validate_grind_setting("My Custom Grinder", "12.5"))
         self.assertEqual(validate_grind_setting("My Custom Grinder", "fine-ish"), "Use a numeric grind setting.")

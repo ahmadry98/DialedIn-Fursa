@@ -70,6 +70,32 @@ class ProfilePromoterTest(unittest.TestCase):
         self.assertEqual(profile_candidates.load_profile_candidates(), [])
         self.assertTrue(result["candidate_removed"])
 
+
+    def test_promote_machine_candidate_clears_machine_profile_cache(self):
+        machine_profiles.load_machine_profiles()
+        candidate = profile_candidates.save_profile_candidate("machine", "Cache Machine", "user-1", {})
+        draft = {
+            "machine_name": "Cache Machine",
+            "aliases": [],
+            "specs": {},
+            "brew_defaults": {},
+            "grind_adjustment_notes": "Reviewed.",
+            "sources": {},
+            "image": {
+                "media_key": "dialchat-media/admin/machine_photo/cache-machine.jpg",
+                "storage_mode": "s3",
+                "status": "reviewed",
+            },
+        }
+        data = profile_candidates.load_profile_candidates()
+        data[0]["status"] = "draft_ready"
+        data[0]["draft_profile"] = draft
+        profile_candidates._write_candidates(data)  # type: ignore[attr-defined]
+
+        profile_promoter.promote_candidate(candidate["candidate_key"])
+
+        self.assertEqual(machine_profiles.get_machine_profile("Cache Machine")["machine_name"], "Cache Machine")
+
     def test_promote_machine_candidate_requires_reviewed_image(self):
         candidate = profile_candidates.save_profile_candidate("machine", "No Image Machine", "user-1", {})
         draft = {

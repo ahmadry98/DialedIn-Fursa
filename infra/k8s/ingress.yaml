@@ -7,6 +7,43 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
+    - host: ai-dev.dialedin.me
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-frontend-svc
+                port:
+                  number: 3000
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-agent-svc
+                port:
+                  number: 8000
+    - host: api-dev.dialedin.me
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialchat-agent-svc
+                port:
+                  number: 8000
+    - host: app-dev.dialedin.me
+      http:
+        paths:
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: dialedin-landing-svc
+                port:
+                  number: 3002
     - host: ai-dev.fursa.click
       http:
         paths:

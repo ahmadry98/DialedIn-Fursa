@@ -72,6 +72,42 @@ class ProfileResearchWorkerTest(unittest.TestCase):
         self.assertEqual(updated["research_evidence"]["sources"][0]["url"], "https://example.com/lelit-victoria")
 
 
+    def test_worker_passes_source_discovery_into_web_evidence(self):
+        candidate = profile_candidates.save_profile_candidate("grinder", "Fellow Opus", "user-1", {})
+        discovery = {"official_domains": ["fellowproducts.com"], "product_urls": ["https://fellowproducts.com/products/opus"], "confidence": "high"}
+        fake_evidence = {
+            "sources": [{"url": "https://fellowproducts.com/products/opus", "title": "Opus", "snippet": "grinder"}],
+            "text": "Official Fellow page says Opus grinder.",
+        }
+        draft = {
+            "grinder_name": "Fellow Opus",
+            "aliases": ["fellow opus"],
+            "setting_type": "numeric_decimal",
+            "lower_is_finer": True,
+            "small_step": 0.25,
+            "medium_step": 0.5,
+            "large_step": 1.0,
+            "seconds_per_small_step_estimate": 2.5,
+            "max_recommended_small_steps": 6,
+            "min_setting": 0,
+            "max_setting": 10,
+            "espresso_range": None,
+            "data_confidence": "C",
+            "notes": "Official draft.",
+            "source_urls": ["https://fellowproducts.com/products/opus"],
+        }
+
+        with patch.object(profile_research_worker.profile_source_discovery, "discover_source_hints", return_value=discovery), patch.object(
+            profile_research_worker.profile_web_evidence, "collect_web_evidence", return_value=fake_evidence
+        ) as collect, patch.object(profile_research_worker, "call_bedrock_for_draft", return_value=draft):
+            results = profile_research_worker.run_worker(candidate_key=candidate["candidate_key"])
+
+        self.assertEqual(results[0]["status"], "draft_ready")
+        self.assertEqual(collect.call_args.kwargs["source_discovery"], discovery)
+        updated = profile_candidates.load_profile_candidates()[0]
+        self.assertEqual(updated["research_evidence"]["source_discovery"], discovery)
+
+
     def test_polyai_style_model_id_is_normalized(self):
         self.assertEqual(
             profile_research_worker.normalize_bedrock_model_id("bedrock/openai.gpt-oss-20b-1:0"),

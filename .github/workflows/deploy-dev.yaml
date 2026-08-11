@@ -21,8 +21,12 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '228281126655' }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN || secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      AWS_GITHUB_ACTIONS_ROLE_NAME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_NAME || 'DialedInGitHubActionsRole' }}
       KUBECONFIG: ${{ github.workspace }}/kubeconfig
       CONTROL_PLANE_SECURITY_GROUP_NAME: ${{ vars.CONTROL_PLANE_SECURITY_GROUP_NAME || 'ahmadry98-dialedin-dev-control-plane' }}
+      DIALEDIN_MEDIA_UPLOAD_BUCKET: ${{ vars.DIALEDIN_MEDIA_UPLOAD_BUCKET }}
+      DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
+      DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
       - name: Validate AWS role target
         if: env.AWS_ROLE_TO_ASSUME != ''
         run: |
-          expected="arn:aws:iam::${AWS_ACCOUNT_ID}:role/DialedInGitHubActionsRole"
+          expected="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${AWS_GITHUB_ACTIONS_ROLE_NAME}"
           if [ "$AWS_ROLE_TO_ASSUME" != "$expected" ]; then
             echo "Expected $expected but got $AWS_ROLE_TO_ASSUME" >&2
             exit 1
@@ -122,6 +126,16 @@ jobs:
           sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$TAG#" infra/k8s/agent.yaml
           sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$TAG#" infra/k8s/espresso-mcp.yaml
           sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
+
+      - name: Patch dev runtime resources
+        run: |
+          : "${DIALEDIN_MEDIA_UPLOAD_BUCKET:?DIALEDIN_MEDIA_UPLOAD_BUCKET repo variable is required}"
+          : "${DIALEDIN_PROFILE_TABLE:?DIALEDIN_PROFILE_TABLE repo variable is required}"
+          : "${DIALEDIN_SHOT_RESULTS_TABLE:?DIALEDIN_SHOT_RESULTS_TABLE repo variable is required}"
+
+          sed -i "s#DIALEDIN_MEDIA_UPLOAD_BUCKET: .*#DIALEDIN_MEDIA_UPLOAD_BUCKET: $DIALEDIN_MEDIA_UPLOAD_BUCKET#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_PROFILE_TABLE: .*#DIALEDIN_PROFILE_TABLE: $DIALEDIN_PROFILE_TABLE#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_SHOT_RESULTS_TABLE: .*#DIALEDIN_SHOT_RESULTS_TABLE: $DIALEDIN_SHOT_RESULTS_TABLE#" infra/k8s/agent.yaml
 
       - name: Apply manifests
         run: |

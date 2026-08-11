@@ -72,6 +72,18 @@ class ProfileCandidatesTest(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]["candidate_key"], candidate["candidate_key"])
 
+    def test_new_grinder_candidate_sends_optional_email_notification(self):
+        calls = []
+        original_notify = notifications.notify_new_profile_candidate
+        notifications.notify_new_profile_candidate = lambda candidate: calls.append(candidate) or True
+        try:
+            candidate = profile_candidates.save_profile_candidate("grinder", "Mystery Grinder Y", "user-1", {})
+        finally:
+            notifications.notify_new_profile_candidate = original_notify
+
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["candidate_key"], candidate["candidate_key"])
+
     def test_duplicate_machine_candidate_does_not_send_email_again(self):
         calls = []
         original_notify = notifications.notify_new_profile_candidate

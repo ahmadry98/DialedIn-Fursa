@@ -63,11 +63,23 @@ output "alert_sns_topic_arn" {
 output "application_urls" {
   description = "Public HTTPS URLs exposed through the optional application load balancer."
   value = var.enable_k8s_cluster && var.enable_public_ingress ? {
-    for name, hostname in local.public_hostnames : name => "https://${hostname}"
+    for name, hostname in local.public_hostnames : name => "${var.public_ingress_enable_https ? "https" : "http"}://${hostname}"
   } : {}
 }
 
 output "load_balancer_dns_name" {
   description = "DNS name of the optional public application load balancer."
   value       = try(module.ingress[0].load_balancer_dns_name, null)
+}
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by repository name."
+  value = {
+    for name, repo in aws_ecr_repository.app : name => repo.repository_url
+  }
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions OIDC builds/deploys."
+  value       = aws_iam_role.github_actions.arn
 }

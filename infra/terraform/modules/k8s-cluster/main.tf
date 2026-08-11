@@ -160,6 +160,16 @@ data "aws_iam_policy_document" "worker_runtime" {
   }
 
   statement {
+    sid    = "SendProfileCandidateEmail"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
     sid       = "PublishAlertNotifications"
     effect    = "Allow"
     actions   = ["sns:Publish"]

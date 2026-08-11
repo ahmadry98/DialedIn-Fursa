@@ -3,9 +3,22 @@ variable "domain_name" {
   type        = string
 }
 
+variable "enable_https" {
+  description = "Whether to create an HTTPS listener and ACM certificate."
+  type        = bool
+  default     = true
+}
+
+variable "manage_dns" {
+  description = "Whether Terraform manages Route 53 records for hostnames and ACM validation."
+  type        = bool
+  default     = true
+}
+
 variable "hosted_zone_id" {
   description = "ID of the existing Route 53 hosted zone"
   type        = string
+  default     = null
 }
 
 variable "http_node_port" {

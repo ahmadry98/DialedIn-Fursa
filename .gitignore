@@ -35,3 +35,5 @@ terraform.tfstate.d/
 .kube/
 infra/terraform/k8s-*.tfvars
 !infra/terraform/k8s-dev.example.tfvars
+infra/terraform/personal-*.tfvars
+!infra/terraform/personal-dev.example.tfvars
