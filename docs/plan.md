@@ -652,13 +652,13 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Create and verify the personal AWS CLI profile `dialedin-personal` for account `577208624033`.
 - [x] Create GitHub OIDC role in Ahmad's AWS account for ECR image builds.
 - [x] Run `terraform plan` against Ahmad's personal AWS account and confirm the target account ID before applying anything.
-- [x] Apply Terraform to create the personal-dev storage/ECR layer: S3 media bucket, DynamoDB profile/history tables, and ECR repositories. Optional EC2 Kubernetes remains disabled.
+- [x] Apply Terraform to create the personal-dev storage/ECR layer: S3 media bucket, DynamoDB profile/history tables, and ECR repositories.
 - [x] Import reviewed machine/grinder profiles into the personal-dev DynamoDB table.
 - [x] Copy reviewed machine images into the personal-dev S3 bucket.
-- [ ] Update GitHub Actions vars/secrets to support the personal-dev account without deleting course-account settings: `AWS_ACCOUNT_ID=577208624033`, `AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::577208624033:role/DialedInGitHubActionsRole`, and `AWS_GITHUB_ACTIONS_ROLE_NAME=DialedInGitHubActionsRole`.
-- [ ] Build and push images to personal-dev ECR.
-- [ ] Deploy to personal-dev Kubernetes or chosen hosting target.
-- [ ] Verify `/health`, `/machines`, media upload, Bedrock vision/chat, profile candidate capture, email notification, metrics, and simulator flow.
+- [x] Update GitHub Actions vars/secrets in GitHub UI to support the personal-dev account without deleting course-account settings: `AWS_ACCOUNT_ID=577208624033`, `AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::577208624033:role/DialedInGitHubActionsRole`, `AWS_GITHUB_ACTIONS_ROLE_NAME=DialedInGitHubActionsRole`, personal S3/DynamoDB runtime vars, and `DIALEDIN_DEV_KUBE_CONFIG_B64`.
+- [x] Build and push images to personal-dev ECR.
+- [x] Deploy to personal-dev Kubernetes through manual port-forward-first cloud rollout. Personal-dev now has VPC, one control-plane EC2, one worker ASG, IAM, SGs, SNS alerts, Calico, ECR pull secret, and all five app services running in the `dev` namespace.
+- [ ] Verify full mobile simulator flow against personal-dev after GitHub vars/secrets are set. Cloud smoke already passed for `/health`, `/machines`, S3-backed images, media upload URL generation, chat, espresso MCP, frontend, backend, and landing through port-forward.
 
 ## Checkpoint 30: Production Infrastructure Preparation
 

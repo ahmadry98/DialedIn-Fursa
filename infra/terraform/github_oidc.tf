@@ -18,12 +18,18 @@ data "aws_iam_policy_document" "github_actions_oidc_assume_role" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = flatten([
-        for repo in var.github_actions_repositories : [
-          "repo:${repo}:ref:refs/heads/main",
-          "repo:${repo}:ref:refs/heads/dev"
+      values = concat(
+        flatten([
+          for repo in var.github_actions_repositories : [
+            "repo:${repo}:ref:refs/heads/main",
+            "repo:${repo}:ref:refs/heads/dev",
+            "repo:${repo}:environment:dev"
+          ]
+        ]),
+        [
+          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:environment:dev"
         ]
-      ])
+      )
     }
   }
 }
@@ -86,4 +92,36 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
   name   = "${var.github_actions_role_name}-ecr"
   role   = aws_iam_role.github_actions.id
   policy = data.aws_iam_policy_document.github_actions_ecr.json
+}
+
+
+data "aws_iam_policy_document" "github_actions_k8s_deploy" {
+  statement {
+    sid = "DiscoverControlPlaneSecurityGroup"
+    actions = [
+      "ec2:DescribeSecurityGroups"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "TemporarilyAllowGitHubRunnerKubernetesApi"
+    actions = [
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupIngress"
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Project"
+      values   = [local.common_tags.Project]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_k8s_deploy" {
+  name   = "${var.github_actions_role_name}-k8s-deploy"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_k8s_deploy.json
 }

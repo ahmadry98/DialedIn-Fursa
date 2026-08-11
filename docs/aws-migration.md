@@ -95,22 +95,22 @@ Account and access:
 ```text
 [ ] Create or choose Ahmad's AWS account.
 [ ] Enable billing alerts/budgets.
-[ ] Configure local AWS CLI profile for the personal account, for example `dialedin-personal`.
+[x] Configure local AWS CLI profile for the personal account, for example `dialedin-personal`.
 [ ] Confirm Bedrock model access in the target region.
 [ ] Decide whether to use SES or SMTP for email notifications.
-[ ] Create GitHub OIDC provider/role or temporary static credentials.
+[x] Create GitHub OIDC provider/role or temporary static credentials.
 ```
 
 Terraform:
 
 ```text
-[ ] Create personal-dev tfvars.
-[ ] Choose personal-dev workspace name.
+[x] Create personal-dev tfvars.
+[x] Choose personal-dev workspace name.
 [ ] Confirm owner/project naming.
-[ ] Apply storage resources first: S3 and DynamoDB.
-[ ] Create ECR repositories.
-[ ] Apply optional EC2 Kubernetes only after storage works.
-[ ] Save Terraform outputs for bucket/table names and control-plane details.
+[x] Apply storage resources first: S3 and DynamoDB.
+[x] Create ECR repositories.
+[x] Apply optional EC2 Kubernetes only after storage works.
+[x] Save Terraform outputs for bucket/table names and control-plane details.
 ```
 
 Data migration:
@@ -118,31 +118,50 @@ Data migration:
 ```text
 [ ] Export reviewed machine profiles from course DynamoDB.
 [ ] Export reviewed grinder profiles from course DynamoDB.
-[ ] Import reviewed profiles into personal-dev DynamoDB.
-[ ] Copy reviewed S3 machine images into personal-dev S3.
-[ ] Verify `/machines` and `/grinders` show the same trusted data.
+[x] Import reviewed profiles into personal-dev DynamoDB.
+[x] Copy reviewed S3 machine images into personal-dev S3.
+[x] Verify `/machines` and `/grinders` show the same trusted data.
 ```
 
 GitHub Actions:
 
+Personal repo variables for the Fursa backend/DialChat repo:
+
 ```text
-[ ] Add personal-dev GitHub environment or repo variables.
-[ ] Add personal AWS account ID.
-[ ] Add personal GitHub Actions role ARN.
-[ ] Add personal control-plane security group name after Terraform creates it.
-[ ] Add personal-dev kubeconfig secret after Kubernetes is created.
-[ ] Build and push images to personal ECR.
-[ ] Deploy personal-dev manually with a selected image tag.
+AWS_ACCOUNT_ID=577208624033
+AWS_REGION=us-east-1
+AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::577208624033:role/DialedInGitHubActionsRole
+AWS_GITHUB_ACTIONS_ROLE_NAME=DialedInGitHubActionsRole
+CONTROL_PLANE_SECURITY_GROUP_NAME=ahmadry98-dialin-personal-dev-control-plane
+DIALEDIN_MEDIA_UPLOAD_BUCKET=ahmadry98-dialin-personal-dev-media-6f3f2008d362efc8a006fdab2b
+DIALEDIN_PROFILE_TABLE=ahmadry98-dialin-personal-dev-equipment-profiles
+DIALEDIN_SHOT_RESULTS_TABLE=ahmadry98-dialin-personal-dev-shot-results
+```
+
+After personal-dev Kubernetes exists, add this repo/environment secret:
+
+```text
+DIALEDIN_DEV_KUBE_CONFIG_B64=<base64 kubeconfig>
+```
+
+```text
+[x] Add personal-dev GitHub environment or repo variables.
+[x] Add personal AWS account ID.
+[x] Add personal GitHub Actions role ARN.
+[x] Add personal control-plane security group name after Terraform creates it.
+[x] Add personal-dev kubeconfig secret after Kubernetes is created.
+[x] Build and push images to personal ECR.
+[x] Deploy personal-dev manually with a selected image tag.
 ```
 
 Mobile/web:
 
 ```text
 [ ] Point Expo development env vars to the personal-dev API URL.
-[ ] Confirm photo upload and video upload.
-[ ] Confirm machine images load from the personal-dev API/S3 flow.
-[ ] Confirm Bedrock image recognition works.
-[ ] Confirm unknown machine candidate capture works.
+[ ] Confirm photo upload and video upload from the mobile app against the personal-dev API.
+[x] Confirm machine images load from the personal-dev API/S3 flow.
+[ ] Confirm Bedrock image recognition works in the personal account.
+[ ] Confirm unknown machine candidate capture works in the personal account.
 [ ] Confirm admin review/promote writes personal-dev DynamoDB/S3/JSON sync as expected.
 ```
 
@@ -162,9 +181,37 @@ ECR repositories:
 577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-espresso-mcp
 577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-frontend
 577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-landing
+
+Personal dev image tags pushed:
+dialedin-backend:174a174-amd64
+dialedin-fursa-agent:174a174-amd64
+dialedin-fursa-espresso-mcp:174a174-amd64
+dialedin-fursa-frontend:174a174-amd64
+dialedin-landing:011ac66-amd64
+
+Kubernetes:
+control_plane_public_ip = 100.62.90.213
+control_plane_private_ip = 10.20.1.6
+control_plane_security_group = sg-01413a223bf2ac7ad
+control_plane_security_group_name = ahmadry98-dialin-personal-dev-control-plane
+worker_asg_name = ahmadry98-dialin-personal-dev-workers
 ```
 
-Kubernetes/EC2 is not created yet because `enable_k8s_cluster=false` in `personal-dev.tfvars`.
+Kubernetes/EC2 is created for personal-dev. Local `personal-dev.tfvars` uses `enable_k8s_cluster=true` and `enable_public_ingress=false`; this keeps the first personal cloud smoke test on port-forwarding instead of public ingress/API Gateway. Calico was applied once after bootstrap, the stale replaced worker node was removed, and all five services rolled out in the `dev` namespace.
+
+Manual smoke test results:
+
+```text
+agent /health: OK
+espresso MCP /health: OK
+frontend: HTTP 200 through port-forward
+DialedIn backend: HTTP 200 through port-forward
+landing app: HTTP 200 through port-forward
+/machines: 26 machines from personal DynamoDB
+media upload URL: personal S3 presigned URL returned
+machine image endpoints: S3-backed images return HTTP 200
+chat endpoint: OK with ChatRequest schema
+```
 
 ## Production Readiness Checklist
 
