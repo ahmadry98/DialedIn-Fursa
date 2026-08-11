@@ -645,12 +645,17 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Run the same working cloud flow in Ahmad's personal AWS account as a new dev environment.
 
-- [ ] Create or document the personal AWS CLI profile.
-- [ ] Create GitHub OIDC role or temporary deploy credentials in Ahmad's AWS account.
-- [ ] Apply Terraform to create personal-dev S3, DynamoDB, ECR, IAM, monitoring, and optional EC2 Kubernetes resources.
-- [ ] Import reviewed machine/grinder profiles into the personal-dev DynamoDB table.
-- [ ] Copy reviewed machine images into the personal-dev S3 bucket.
-- [ ] Update GitHub Actions vars/secrets to support the personal-dev account without deleting course-account settings.
+- [x] Document that the current local `default` AWS profile still points to the course account and must not be used for the personal migration.
+- [x] Add `personal-dev.example.tfvars` as the safe template for Ahmad's own AWS account.
+- [x] Add ECR repositories to Terraform so the personal account can create image repositories from code instead of manually.
+- [x] Make GitHub Actions AWS account/role configuration reusable by account and role name, while keeping the course defaults working.
+- [x] Create and verify the personal AWS CLI profile `dialedin-personal` for account `577208624033`.
+- [x] Create GitHub OIDC role in Ahmad's AWS account for ECR image builds.
+- [x] Run `terraform plan` against Ahmad's personal AWS account and confirm the target account ID before applying anything.
+- [x] Apply Terraform to create the personal-dev storage/ECR layer: S3 media bucket, DynamoDB profile/history tables, and ECR repositories. Optional EC2 Kubernetes remains disabled.
+- [x] Import reviewed machine/grinder profiles into the personal-dev DynamoDB table.
+- [x] Copy reviewed machine images into the personal-dev S3 bucket.
+- [ ] Update GitHub Actions vars/secrets to support the personal-dev account without deleting course-account settings: `AWS_ACCOUNT_ID=577208624033`, `AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::577208624033:role/DialedInGitHubActionsRole`, and `AWS_GITHUB_ACTIONS_ROLE_NAME=DialedInGitHubActionsRole`.
 - [ ] Build and push images to personal-dev ECR.
 - [ ] Deploy to personal-dev Kubernetes or chosen hosting target.
 - [ ] Verify `/health`, `/machines`, media upload, Bedrock vision/chat, profile candidate capture, email notification, metrics, and simulator flow.

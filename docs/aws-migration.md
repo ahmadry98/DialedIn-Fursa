@@ -67,6 +67,8 @@ docs/plan.md
 
 Some `us-east-1` defaults are acceptable if the personal account also uses `us-east-1`. Test files that hardcode `us-east-1` do not need migration unless the app region changes.
 
+Current local finding: `aws sts get-caller-identity --profile default` still points to the course account `228281126655`. Use a separate personal profile before running Terraform for personal AWS.
+
 ## Target Environment Strategy
 
 Use three clearly separated environments:
@@ -93,7 +95,7 @@ Account and access:
 ```text
 [ ] Create or choose Ahmad's AWS account.
 [ ] Enable billing alerts/budgets.
-[ ] Configure local AWS CLI profile for the personal account.
+[ ] Configure local AWS CLI profile for the personal account, for example `dialedin-personal`.
 [ ] Confirm Bedrock model access in the target region.
 [ ] Decide whether to use SES or SMTP for email notifications.
 [ ] Create GitHub OIDC provider/role or temporary static credentials.
@@ -143,6 +145,26 @@ Mobile/web:
 [ ] Confirm unknown machine candidate capture works.
 [ ] Confirm admin review/promote writes personal-dev DynamoDB/S3/JSON sync as expected.
 ```
+
+## Personal Dev Terraform Outputs
+
+Created in Ahmad's personal AWS account `577208624033` on workspace `personal-dev`:
+
+```text
+dialchat_media_bucket = ahmadry98-dialin-personal-dev-media-6f3f2008d362efc8a006fdab2b
+equipment_profiles_table_name = ahmadry98-dialin-personal-dev-equipment-profiles
+shot_results_table_name = ahmadry98-dialin-personal-dev-shot-results
+github_actions_role_arn = arn:aws:iam::577208624033:role/DialedInGitHubActionsRole
+
+ECR repositories:
+577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-backend
+577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-agent
+577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-espresso-mcp
+577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-fursa-frontend
+577208624033.dkr.ecr.us-east-1.amazonaws.com/dialedin-landing
+```
+
+Kubernetes/EC2 is not created yet because `enable_k8s_cluster=false` in `personal-dev.tfvars`.
 
 ## Production Readiness Checklist
 

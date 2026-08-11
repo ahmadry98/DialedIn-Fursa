@@ -21,6 +21,7 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID || '228281126655' }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN || secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      AWS_GITHUB_ACTIONS_ROLE_NAME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_NAME || 'DialedInGitHubActionsRole' }}
       KUBECONFIG: ${{ github.workspace }}/kubeconfig
       CONTROL_PLANE_SECURITY_GROUP_NAME: ${{ vars.CONTROL_PLANE_SECURITY_GROUP_NAME || 'ahmadry98-dialedin-dev-control-plane' }}
     steps:
@@ -38,7 +39,7 @@ jobs:
       - name: Validate AWS role target
         if: env.AWS_ROLE_TO_ASSUME != ''
         run: |
-          expected="arn:aws:iam::${AWS_ACCOUNT_ID}:role/DialedInGitHubActionsRole"
+          expected="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${AWS_GITHUB_ACTIONS_ROLE_NAME}"
           if [ "$AWS_ROLE_TO_ASSUME" != "$expected" ]; then
             echo "Expected $expected but got $AWS_ROLE_TO_ASSUME" >&2
             exit 1

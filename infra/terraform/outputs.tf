@@ -71,3 +71,15 @@ output "load_balancer_dns_name" {
   description = "DNS name of the optional public application load balancer."
   value       = try(module.ingress[0].load_balancer_dns_name, null)
 }
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by repository name."
+  value = {
+    for name, repo in aws_ecr_repository.app : name => repo.repository_url
+  }
+}
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions OIDC builds/deploys."
+  value       = aws_iam_role.github_actions.arn
+}

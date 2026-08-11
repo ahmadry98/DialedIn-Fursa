@@ -526,6 +526,35 @@ The EC2 control-plane instance is running
 The GitHub role has the narrow temporary 6443 ingress permissions
 ```
 
+### Personal AWS Dev Bootstrap
+
+Your current local `default` AWS profile points to the course account. Before running Terraform for your own account, create a separate personal profile and confirm the account ID:
+
+```bash
+aws configure --profile dialedin-personal
+aws sts get-caller-identity --profile dialedin-personal
+```
+
+Prepare the personal dev tfvars file:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+cp personal-dev.example.tfvars personal-dev.tfvars
+# edit personal-dev.tfvars if you want a different owner, region, domain, or CORS origins
+```
+
+Start with storage and ECR only. This keeps cost/risk lower than creating EC2 Kubernetes immediately:
+
+```bash
+terraform init
+terraform workspace new personal-dev || terraform workspace select personal-dev
+AWS_PROFILE=dialedin-personal terraform plan -var-file=personal-dev.tfvars
+```
+
+Only run `terraform apply` after the plan shows the expected personal AWS account and resources. The current default profile is the course account, so do not run personal-account Terraform without `AWS_PROFILE=dialedin-personal` or equivalent credentials.
+
+After storage/ECR works, the next implementation step is data migration: export reviewed profiles and reviewed machine images from the course account, then import/copy them into the personal account.
+
 ### Prod Readiness Checklist
 
 Do not run production deployment until these are done:

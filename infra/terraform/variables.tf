@@ -27,6 +27,41 @@ variable "force_destroy_media_bucket" {
   default     = false
 }
 
+variable "ecr_repository_names" {
+  description = "ECR repositories created for DialedIN Docker images."
+  type        = list(string)
+  default = [
+    "dialedin-fursa-agent",
+    "dialedin-fursa-espresso-mcp",
+    "dialedin-fursa-frontend",
+    "dialedin-backend",
+    "dialedin-landing"
+  ]
+}
+
+variable "force_delete_ecr_repositories" {
+  description = "Allow Terraform to delete non-empty ECR repositories. Keep false for production."
+  type        = bool
+  default     = false
+}
+
+
+
+variable "github_actions_role_name" {
+  description = "IAM role name assumed by GitHub Actions through OIDC."
+  type        = string
+  default     = "DialedInGitHubActionsRole"
+}
+
+variable "github_actions_repositories" {
+  description = "GitHub repositories allowed to assume the GitHub Actions OIDC role on main/dev branches."
+  type        = list(string)
+  default = [
+    "ahmadry98/DialedIn-Fursa",
+    "ahmadry98/dialin-app",
+    "ahmadry98/dialedin-landing"
+  ]
+}
 
 variable "allowed_media_upload_origins" {
   description = "Browser origins allowed to PUT media through presigned S3 URLs. Keep this narrow in production."
