@@ -612,29 +612,101 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Add email notification when new machine profile candidates are captured.
 - [ ] Keep production/main deployment protected if used.
 
-## Checkpoint 28: Personal AWS Account Migration
+## Checkpoint 28: Personal AWS Account Migration Planning
+
+**Files:**
+- `infra/terraform/*.tf`
+- `infra/terraform/dev.tfvars`
+- `infra/terraform/prod.tfvars`
+- `.github/workflows/*.yaml`
+- `README.md`
+- `docs/aws-migration.md`
+- `docs/spec.md`
+- `docs/plan.md`
+
+**Deliverable:** Make the project ready to recreate the working course-AWS deployment in Ahmad's own AWS account without breaking the current course demo/dev environment.
+
+- [x] Keep the course AWS account as the current demo/dev environment until the personal account deploy is verified.
+- [x] Document the current dev deployment as the reference architecture: S3, DynamoDB, ECR, EC2 Kubernetes, Bedrock, email, monitoring, and GitHub Actions.
+- [x] Identify every hardcoded account-specific value: AWS account ID, role ARN, bucket names, table names, ECR repos, kubeconfig secret, security group name, public domain, and mobile API URL.
+- [x] Decide the personal account environment names, for example `personal-dev` first and `prod` later.
+- [x] Add a migration checklist for creating IAM/GitHub OIDC, Terraform state/workspace, ECR repos, S3 buckets, DynamoDB tables, Bedrock access, SES/email, and monitoring in Ahmad's account.
+- [x] Plan data migration: export reviewed DynamoDB equipment profiles, export/sync reviewed S3 machine photos, and import them into Ahmad's AWS account.
+- [x] Keep `deploy-prod.yaml` protected and placeholder-only until prod infrastructure exists.
+- [x] Do not change runtime infrastructure in this checkpoint; this is planning and documentation only.
+
+## Checkpoint 29: Personal AWS Dev Environment
 
 **Files:**
 - `infra/terraform/*.tf`
 - `infra/terraform/personal-dev.tfvars`
-- `infra/terraform/prod.tfvars`
 - `.github/workflows/*.yaml`
 - `README.md`
 
-**Deliverable:** Recreate the working course-AWS deployment in Ahmad's own AWS account before any public App Store or Play Store release.
+**Deliverable:** Run the same working cloud flow in Ahmad's personal AWS account as a new dev environment.
 
-- [ ] Keep the course AWS account as the current demo/dev environment until the cloud flow is stable.
-- [ ] Create IAM/GitHub Actions credentials in Ahmad's AWS account.
-- [ ] Enable required AWS services in Ahmad's account: S3, DynamoDB, ECR, Bedrock, SES, EC2/Kubernetes target, and monitoring.
-- [ ] Run Terraform against Ahmad's AWS account using a separate workspace/tfvars file.
-- [ ] Copy reviewed machine/grinder profiles from the course DynamoDB table into Ahmad's DynamoDB table.
-- [ ] Copy reviewed S3 machine images and any required media seed objects into Ahmad's S3 bucket.
-- [ ] Update GitHub Actions secrets and variables to deploy to Ahmad's AWS account.
-- [ ] Point mobile and web clients to the new production API URL.
-- [ ] Verify `/health`, `/machines`, media upload, Bedrock vision/chat, profile candidate capture, email notification, and metrics in Ahmad's AWS account.
-- [ ] Keep production deployment protected and manual until the App Store/Play Store release process is ready.
+- [ ] Create or document the personal AWS CLI profile.
+- [ ] Create GitHub OIDC role or temporary deploy credentials in Ahmad's AWS account.
+- [ ] Apply Terraform to create personal-dev S3, DynamoDB, ECR, IAM, monitoring, and optional EC2 Kubernetes resources.
+- [ ] Import reviewed machine/grinder profiles into the personal-dev DynamoDB table.
+- [ ] Copy reviewed machine images into the personal-dev S3 bucket.
+- [ ] Update GitHub Actions vars/secrets to support the personal-dev account without deleting course-account settings.
+- [ ] Build and push images to personal-dev ECR.
+- [ ] Deploy to personal-dev Kubernetes or chosen hosting target.
+- [ ] Verify `/health`, `/machines`, media upload, Bedrock vision/chat, profile candidate capture, email notification, metrics, and simulator flow.
 
-## Checkpoint 29: Final Demo
+## Checkpoint 30: Production Infrastructure Preparation
+
+**Files:**
+- `infra/terraform/prod.tfvars`
+- `.github/workflows/deploy-prod.yaml`
+- `README.md`
+- monitoring/alert docs
+
+**Deliverable:** Prepare production safely, but keep deployment manual and protected until release is ready.
+
+- [ ] Create separate prod resources; do not reuse dev S3 buckets, DynamoDB tables, kubeconfig, or security groups.
+- [ ] Configure production domain/API URL.
+- [ ] Configure production Bedrock/IAM access in Ahmad's AWS account.
+- [ ] Configure SES/SMTP for real profile-candidate email notifications.
+- [ ] Add production rollback instructions.
+- [ ] Add production smoke checks and monitoring checks.
+- [ ] Require manual confirmation/environment approval for prod deploy.
+- [ ] Keep App Store/Play Store builds pointed at dev until prod smoke tests pass.
+
+## Checkpoint 31: Mobile Release Readiness
+
+**Files:**
+- sibling app: `DialedIn/dialedin-mobile/*`
+- app config/store metadata docs
+- `README.md`
+
+**Deliverable:** Prepare DialedIn mobile for TestFlight/Android internal testing.
+
+- [ ] Move API URLs into release-safe environment config.
+- [ ] Confirm media upload performance on simulator and real phone.
+- [ ] Confirm camera/photo/video permissions and user-facing error messages.
+- [ ] Add app privacy notes for uploaded videos/photos and analysis data.
+- [ ] Prepare icons/splash/screenshots if needed.
+- [ ] Run full cloud smoke on a real device before store submission.
+
+## Checkpoint 32: AI Recognition And UX Improvements
+
+**Files:**
+- `services/agent/*`
+- `services/espresso_mcp/*`
+- sibling app: `DialedIn/dialedin-mobile/*`
+
+**Deliverable:** Improve user trust and reduce wrong machine/grinder recognition after infrastructure ownership is stable.
+
+- [ ] Improve photo recognition prompts and validation so brand-only guesses like `Varia` are not accepted as full equipment models.
+- [ ] Add clearer confirmation/correction loops for photo guesses.
+- [ ] Track recognition confidence and failure reasons for future tuning.
+- [ ] Improve chat recovery when the user sends random text, typos, or corrections.
+- [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
+- [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.
+
+## Checkpoint 33: Final Demo
 
 **Files:**
 - `docs/demo-script.md`
@@ -648,6 +720,8 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Show unknown gear capture.
 - [ ] Show Bedrock research draft with evidence.
 - [ ] Show reviewed promotion into trusted profiles.
+- [ ] Show CI/CD dev deploy and cloud simulator flow.
+- [ ] Explain personal AWS/prod release path.
 - [ ] Explain future visual model path.
 
 ## Current Review Before Push

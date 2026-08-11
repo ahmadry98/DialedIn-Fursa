@@ -438,6 +438,8 @@ In Kubernetes, edit `infra/k8s/agent.yaml`, put the SMTP values in `dialchat-age
 
 Checkpoint 27 adds GitHub Actions for tests, Docker image builds, and manual dev deployment. Configure these repository variables and secrets before using the build/deploy workflows.
 
+For the AWS account migration plan, see [docs/aws-migration.md](docs/aws-migration.md). The current course AWS account is a working dev/demo environment; production should move to Ahmad's own AWS account before public release.
+
 Repository variables:
 
 ```text
