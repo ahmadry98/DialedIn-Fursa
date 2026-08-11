@@ -28,7 +28,7 @@ data "aws_ami" "ubuntu" {
 }
 
 data "aws_route53_zone" "shared" {
-  count        = var.enable_k8s_cluster && var.enable_public_ingress ? 1 : 0
+  count        = var.enable_k8s_cluster && var.enable_public_ingress && var.public_ingress_manage_dns ? 1 : 0
   name         = var.domain_name
   private_zone = false
 }

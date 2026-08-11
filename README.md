@@ -174,7 +174,7 @@ cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
 npm run ios
 ```
 
-For the simplest local compose run, keep `DIALEDIN_MEDIA_STORAGE_MODE=local`, `DIALEDIN_PROFILE_STORAGE=json`, and `PROFILE_RESEARCH_AUTORUN=false`. Use S3/DynamoDB/Bedrock env vars only when you want the compose stack to talk to AWS.
+For the simplest local compose run, keep `DIALEDIN_MEDIA_STORAGE_MODE=local`, `DIALEDIN_PROFILE_STORAGE=json`, and `PROFILE_RESEARCH_AUTORUN=false`, and `PROFILE_RESEARCH_SOURCE_DISCOVERY=false`. Use S3/DynamoDB/Bedrock env vars only when you want the compose stack to talk to AWS.
 
 Grafana starts with Prometheus already configured as the default data source. Default local login is `admin` / `admin`, unless changed in `.env.compose`.
 
@@ -415,28 +415,27 @@ npm run ios
 
 Use local URLs only when you are running FastAPI on your Mac. Use the cloud URLs above when the app should talk to the Terraform/Kubernetes deployment.
 
-### 6. Enable New Machine Candidate Email Notifications
+### 6. Enable Profile Candidate Email Notifications
 
-The app can email you when a new unknown **machine** is captured as a profile candidate. The recipient defaults to `ahmadrayan1998@gmail.com`. Email is disabled unless SMTP is configured, so local tests and CI do not send messages.
+The app can email you when a new unknown **machine or grinder** is captured as a profile candidate. The email goes to `support@dialedin.me` and includes the candidate name, type, latest shot context, and the admin review link. Research autorun should already queue the evidence/draft work, so the admin flow is: open admin, check score/evidence, add an image if it is a machine, then promote.
 
-Set these values in the agent environment or Kubernetes secret:
+Email is disabled by default so local tests and CI do not send messages. In AWS, SES is preferred and the sender should be a verified identity such as `support@dialedin.me`.
 
 ```bash
 PROFILE_CANDIDATE_EMAIL_ENABLED=true
-PROFILE_CANDIDATE_EMAIL_TO=ahmadrayan1998@gmail.com
-SMTP_HOST=<smtp-host>
-SMTP_PORT=587
-SMTP_USERNAME=<smtp-user>
-SMTP_PASSWORD=<smtp-password>
-SMTP_FROM=<from-address>
-SMTP_USE_TLS=true
+PROFILE_CANDIDATE_EMAIL_PROVIDER=ses
+PROFILE_CANDIDATE_EMAIL_FROM=support@dialedin.me
+PROFILE_CANDIDATE_EMAIL_TO=support@dialedin.me
+PROFILE_CANDIDATE_ADMIN_URL=http://ai-dev.dialedin.me/admin
 ```
 
-In Kubernetes, edit `infra/k8s/agent.yaml`, put the SMTP values in `dialchat-agent-secrets`, apply the manifest, and restart the agent deployment.
+SES setup notes: verify `support@dialedin.me` or the `dialedin.me` domain in SES, keep the worker IAM permission for `ses:SendEmail`, and restart the agent deployment after changing the environment. SMTP is still supported locally by setting `PROFILE_CANDIDATE_EMAIL_PROVIDER=smtp` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and `SMTP_USE_TLS`.
 
 ## GitHub Actions CI/CD Setup
 
 Checkpoint 27 adds GitHub Actions for tests, Docker image builds, and manual dev deployment. Configure these repository variables and secrets before using the build/deploy workflows.
+
+For the AWS account migration plan, see [docs/aws-migration.md](docs/aws-migration.md). The current course AWS account is a working dev/demo environment; production should move to Ahmad's own AWS account before public release.
 
 Repository variables:
 
@@ -523,6 +522,74 @@ CONTROL_PLANE_SECURITY_GROUP_NAME matches the Terraform control-plane security g
 The EC2 control-plane instance is running
 The GitHub role has the narrow temporary 6443 ingress permissions
 ```
+
+### Personal AWS Dev Bootstrap
+
+Your current local `default` AWS profile points to the course account. Before running Terraform for your own account, create a separate personal profile and confirm the account ID:
+
+```bash
+aws configure --profile dialedin-personal
+aws sts get-caller-identity --profile dialedin-personal
+```
+
+Prepare the personal dev tfvars file:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+cp personal-dev.example.tfvars personal-dev.tfvars
+# edit personal-dev.tfvars if you want a different owner, region, domain, or CORS origins
+```
+
+Start with storage and ECR only. This keeps cost/risk lower than creating EC2 Kubernetes immediately:
+
+```bash
+terraform init
+terraform workspace new personal-dev || terraform workspace select personal-dev
+AWS_PROFILE=dialedin-personal terraform plan -var-file=personal-dev.tfvars
+```
+
+Only run `terraform apply` after the plan shows the expected personal AWS account and resources. The current default profile is the course account, so do not run personal-account Terraform without `AWS_PROFILE=dialedin-personal` or equivalent credentials.
+
+After storage/ECR works, the next implementation step is data migration: export reviewed profiles and reviewed machine images from the course account, then import/copy them into the personal account.
+
+
+### Personal Dev Public Ingress
+
+Personal-dev now has an AWS Application Load Balancer in front of `ingress-nginx`. Because `dialedin.me` is currently managed outside Route 53, Terraform creates the ALB but does not create DNS records automatically. Add these CNAME records in the DNS provider for `dialedin.me`:
+
+```text
+api-dev  CNAME  ahmadry98-dialin-personal-dev-al-187028928.us-east-1.elb.amazonaws.com
+ai-dev   CNAME  ahmadry98-dialin-personal-dev-al-187028928.us-east-1.elb.amazonaws.com
+app-dev  CNAME  ahmadry98-dialin-personal-dev-al-187028928.us-east-1.elb.amazonaws.com
+```
+
+Current personal-dev ingress is HTTP-only while DNS is external:
+
+```text
+DialChat API:   http://api-dev.dialedin.me
+DialChat web:   http://ai-dev.dialedin.me
+Landing site:   http://app-dev.dialedin.me
+```
+
+Before DNS propagates, smoke test the ALB with a Host header:
+
+```bash
+ALB=ahmadry98-dialin-personal-dev-al-187028928.us-east-1.elb.amazonaws.com
+curl -H 'Host: api-dev.dialedin.me' http://$ALB/health
+curl -H 'Host: api-dev.dialedin.me' http://$ALB/machines
+```
+
+After the CNAME records resolve, run the mobile app against the public dev API:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
+EXPO_PUBLIC_DIALCHAT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_AI_SHOT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://api-dev.dialedin.me \
+npm run ios -- --clear
+```
+
+Next production-quality step: move `dialedin.me` DNS to Route 53 or add DNS validation records manually, then enable ACM/HTTPS so the app can use `https://api-dev.dialedin.me`.
 
 ### Prod Readiness Checklist
 

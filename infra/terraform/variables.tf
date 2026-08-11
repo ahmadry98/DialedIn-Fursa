@@ -27,6 +27,41 @@ variable "force_destroy_media_bucket" {
   default     = false
 }
 
+variable "ecr_repository_names" {
+  description = "ECR repositories created for DialedIN Docker images."
+  type        = list(string)
+  default = [
+    "dialedin-fursa-agent",
+    "dialedin-fursa-espresso-mcp",
+    "dialedin-fursa-frontend",
+    "dialedin-backend",
+    "dialedin-landing"
+  ]
+}
+
+variable "force_delete_ecr_repositories" {
+  description = "Allow Terraform to delete non-empty ECR repositories. Keep false for production."
+  type        = bool
+  default     = false
+}
+
+
+
+variable "github_actions_role_name" {
+  description = "IAM role name assumed by GitHub Actions through OIDC."
+  type        = string
+  default     = "DialedInGitHubActionsRole"
+}
+
+variable "github_actions_repositories" {
+  description = "GitHub repositories allowed to assume the GitHub Actions OIDC role on main/dev branches."
+  type        = list(string)
+  default = [
+    "ahmadry98/DialedIn-Fursa",
+    "ahmadry98/dialin-app",
+    "ahmadry98/dialedin-landing"
+  ]
+}
 
 variable "allowed_media_upload_origins" {
   description = "Browser origins allowed to PUT media through presigned S3 URLs. Keep this narrow in production."
@@ -50,10 +85,28 @@ variable "enable_public_ingress" {
   default     = false
 }
 
+variable "public_ingress_manage_dns" {
+  description = "Create Route 53 DNS and ACM validation records for public ingress. Disable when the domain is managed outside Route 53."
+  type        = bool
+  default     = true
+}
+
+variable "public_ingress_enable_https" {
+  description = "Create an HTTPS ALB listener with ACM. Disable for external-DNS dev smoke tests until a certificate is validated."
+  type        = bool
+  default     = true
+}
+
 variable "domain_name" {
   description = "Existing public Route 53 hosted zone used for public Kubernetes endpoints."
   type        = string
   default     = "fursa.click"
+}
+
+variable "public_hostnames_override" {
+  description = "Optional explicit public hostnames keyed by service name, for example { agent = \"api-dev.dialedin.me\" }."
+  type        = map(string)
+  default     = {}
 }
 
 variable "vpc_cidr" {
@@ -134,7 +187,7 @@ variable "ssh_public_key" {
 variable "alert_email" {
   description = "Email address subscribed to optional infrastructure alerts."
   type        = string
-  default     = "ahmadrayan1998@gmail.com"
+  default     = "support@dialedin.me"
 
   validation {
     condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.alert_email))

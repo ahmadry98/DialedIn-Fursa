@@ -72,6 +72,63 @@ class ProfileWebEvidenceTest(unittest.TestCase):
 
 
 
+
+    def test_direct_url_candidates_include_quick_mill_silvano_official_page(self):
+        urls = [
+            result["url"]
+            for result in profile_web_evidence.build_direct_url_candidates("machine", "Quick Mill Silvano Evo")
+        ]
+
+        self.assertIn("https://www.quick-mill.com/products/silvano/", urls)
+        self.assertTrue(any("quick-mill.com" in url for url in urls))
+
+    def test_direct_url_candidates_include_fellow_opus_official_sources(self):
+        urls = [
+            result["url"]
+            for result in profile_web_evidence.build_direct_url_candidates("grinder", "Fellow Opus")
+        ]
+
+        self.assertIn("https://fellowproducts.com/collections/gifts-under-250/products/opus-coffee-grinder", urls)
+        self.assertTrue(any("help.fellowproducts.com" in url for url in urls))
+
+    def test_discovery_queries_precede_generic_queries(self):
+        discovery = {
+            "official_domains": ["quick-mill.com"],
+            "product_urls": [],
+            "manual_urls": [],
+            "support_urls": [],
+            "search_queries": ["Quick Mill Silvano Evo official product page"],
+        }
+
+        queries = profile_web_evidence.build_discovery_queries("machine", "Quick Mill Silvano Evo", discovery)
+
+        self.assertEqual(queries[0], "Quick Mill Silvano Evo official product page")
+        self.assertTrue(any(query.startswith("site:quick-mill.com") for query in queries))
+
+    def test_discovered_exact_urls_are_fetched_before_generated_candidates(self):
+        discovery = {
+            "official_domains": ["quick-mill.com"],
+            "product_urls": ["https://www.quick-mill.com/products/silvano/"],
+            "manual_urls": [],
+            "support_urls": [],
+            "search_queries": [],
+        }
+
+        with patch.object(profile_web_evidence, "search_web", return_value=[]), patch.object(
+            profile_web_evidence, "build_direct_url_candidates", return_value=[]
+        ), patch.object(
+            profile_web_evidence, "fetch_page_text", return_value="Official Quick Mill page with vibration pump and technical characteristics."
+        ) as fetch:
+            evidence = profile_web_evidence.collect_web_evidence(
+                {"type": "machine", "name_entered": "Quick Mill Silvano Evo"},
+                max_results=1,
+                source_discovery=discovery,
+            )
+
+        self.assertEqual(fetch.call_args.args[0], "https://www.quick-mill.com/products/silvano/")
+        self.assertEqual(evidence["sources"][0]["source_type"], "web")
+        self.assertIn("Quick Mill", evidence["text"])
+
     def test_known_direct_asset_candidates_include_elizabeth_pdf(self):
         urls = [result["url"] for result in profile_web_evidence.known_direct_asset_candidates("LELIT Elizabeth")]
 

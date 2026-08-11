@@ -1,4 +1,4 @@
-enable_k8s_cluster = true
+enable_k8s_cluster    = true
 enable_public_ingress = false
 
 # Replace with your current public IP, for example: "203.0.113.10/32".

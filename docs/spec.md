@@ -204,17 +204,21 @@ This prevents incorrect candidates like `grinder:meraki`.
 
 Unknown equipment is handled through a reviewable learning loop:
 
-1. `capture_unknown_gear` saves unknown machines/grinders to `profile_candidates.json`.
+1. `capture_unknown_gear` saves unknown machines/grinders as profile candidates.
 2. `profile_research_worker` selects candidates with `needs_research`.
-3. `profile_web_evidence` searches/fetches official or likely official pages and extracts compact evidence.
-4. Bedrock receives the expected schema, observed context for disambiguation only, and source evidence.
-5. Bedrock returns JSON only.
-6. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, and `research_evidence`.
-7. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed`.
-8. Human reviewer edits or approves the draft.
-9. `profile_promoter` promotes the reviewed draft into trusted profiles. With DynamoDB storage, it also updates the JSON seed unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
+3. A source-discovery step asks Bedrock/LLM for the likely manufacturer, official website candidates, product-page queries, manual/support queries, and source confidence for the exact product name.
+4. `profile_web_evidence` uses web search to confirm the likely official domain before trusting it.
+5. The worker fetches official product/manual/support pages first, then reputable retailer/spec pages only when official sources cannot verify a field.
+6. Bedrock receives the expected schema, observed context for disambiguation only, and confirmed source evidence.
+7. Bedrock returns JSON only.
+8. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, `research_evidence`, and source-discovery notes.
+9. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed` or `needs_manual_review` with a clear admin reason.
+10. Human reviewer edits or approves the draft.
+11. `profile_promoter` promotes the reviewed draft into trusted profiles. With DynamoDB storage, it also updates the JSON seed unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
 
 Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile. Checkpoint 16 adds PDF/manual text extraction, source deduplication, manufacturer-prioritized evidence ranking, and the research quality score shown in admin.
+
+Checkpoint 31 upgrades research from hard-coded/guessed domain lookup to smarter source discovery. Manual URL entry remains useful for edge cases, but the normal path should not require Ahmad to know the manufacturer website. The source-discovery step must prefer official manufacturer domains, confirm them with search evidence, and avoid sending low-confidence empty evidence into profile extraction.
 
 Important rule: observed app context, such as a user-entered grind setting, must not be treated as manufacturer data or a typical setting.
 
@@ -224,6 +228,7 @@ Local env controls:
 PROFILE_RESEARCH_AUTORUN=true
 PROFILE_RESEARCH_AUTORUN_LIMIT=1
 PROFILE_RESEARCH_WEB_EVIDENCE=true
+PROFILE_RESEARCH_SOURCE_DISCOVERY=true
 MODEL=bedrock/openai.gpt-oss-20b-1:0
 AWS_REGION=us-east-1
 CHAT_LLM_EXTRACTION=true
@@ -279,7 +284,7 @@ The CI workflow includes:
 - Frontend `npm ci`, TypeScript checking, and production build from `services/frontend`.
 - `PROFILE_RESEARCH_AUTORUN=false` during tests so CI does not call Bedrock or mutate candidate research state.
 
-Deployment/CD is future work and should be added after the deployment target is finalized. The profile research worker can later get a separate manual workflow using GitHub secrets for AWS credentials, but normal PR CI should remain deterministic and cheap.
+Deployment/CD is now active for the dev environment. GitHub Actions can build Docker images into ECR and manually deploy a chosen image tag to the dev EC2 Kubernetes cluster. Production deployment remains intentionally guarded until separate production infrastructure, secrets, domains, rollback steps, and monitoring are ready. Normal PR CI must remain deterministic and cheap, with profile research autorun disabled.
 
 ## 17. Future LangGraph Enhancements
 
@@ -436,14 +441,18 @@ Current verified local checks include backend pytest suite and Next.js productio
 
 ## 23. Deployment And Observability
 
-Final course deployment target:
+Current dev deployment target:
 
-- Docker images for frontend, agent, and espresso MCP.
-- Kubernetes on AWS EC2.
-- `dev` and `prod` namespaces if required by the course workflow.
+- Docker images for frontend, agent, espresso MCP, DialedIn backend, and landing app.
+- ECR for Linux/AMD64 images.
+- Kubernetes on AWS EC2 for the course dev environment.
 - S3 and DynamoDB via Terraform.
-- Prometheus/Grafana for request, audio, MCP, and failure metrics.
-- GitHub Actions for tests, build, and deployment.
+- Prometheus/Grafana for request, audio, MCP, media, profile research, and failure metrics.
+- GitHub Actions for PR checks, image builds, and manual dev deployment.
+
+The dev deploy workflow is manual by design. It validates a base64 kubeconfig secret, temporarily opens Kubernetes API port `6443` only to the current GitHub runner IP, deploys the selected image tag, waits for rollouts, and then revokes the temporary security-group rule. This keeps the course cluster reachable by CI without leaving the Kubernetes API broadly open.
+
+Production deployment remains protected. `deploy-prod.yaml` is a guarded placeholder until production infrastructure exists and the release checklist is complete.
 
 Production ownership direction:
 
@@ -451,3 +460,22 @@ Production ownership direction:
 - Before App Store or Play Store release, the same Terraform/Kubernetes/GitHub Actions workflow should be recreated in Ahmad's own AWS account.
 - Production user media, DynamoDB profile data, shot history, Bedrock usage, SES/email, logs, and monitoring should live in Ahmad's AWS account, not the shared course account.
 - The migration should copy reviewed DynamoDB equipment profiles and reviewed S3 machine images from course AWS into Ahmad's account, then point the mobile and web clients to the new production API URL.
+
+## 24. Personal AWS Migration And Production Readiness
+
+The next infrastructure phase is not to deploy production immediately. The next phase is to make the working course-AWS dev deployment reproducible in Ahmad's personal AWS account.
+
+Migration requirements:
+
+- Parameterize account-specific values: AWS account ID, role ARNs, ECR registry, S3 bucket names, DynamoDB table names, security group names, kubeconfig secret names, public domains, and mobile API URLs.
+- Keep course AWS and personal AWS separated by workspace/tfvars/GitHub environment configuration.
+- Use GitHub OIDC where possible instead of long-lived AWS keys.
+- Recreate dev first in the personal account, then prepare production separately.
+- Export/import reviewed profile data from DynamoDB.
+- Copy reviewed machine images from S3.
+- Confirm Bedrock model access and SES/SMTP/email notification setup in the personal account.
+- Verify the simulator and real-phone flows against the new cloud API before pointing any release build at it.
+
+Production readiness requires separate prod resources, manual approval, rollback instructions, monitoring checks, and store-release configuration. Dev success in the course account is not enough to run prod.
+
+The concrete migration checklist lives in `docs/aws-migration.md`. It records current course-account values, values that must be parameterized, personal AWS setup steps, data migration tasks, and production readiness gates.

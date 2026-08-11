@@ -64,7 +64,9 @@ module "ingress" {
   source = "./modules/ingress"
 
   domain_name              = var.domain_name
-  hosted_zone_id           = data.aws_route53_zone.shared[0].zone_id
+  enable_https             = var.public_ingress_enable_https
+  manage_dns               = var.public_ingress_manage_dns
+  hosted_zone_id           = var.public_ingress_manage_dns ? data.aws_route53_zone.shared[0].zone_id : null
   http_node_port           = var.ingress_http_node_port
   name_prefix              = local.name_prefix
   public_hostnames         = local.public_hostnames
