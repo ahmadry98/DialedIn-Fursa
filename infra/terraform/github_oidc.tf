@@ -27,6 +27,8 @@ data "aws_iam_policy_document" "github_actions_oidc_assume_role" {
           ]
         ]),
         [
+          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:ref:refs/heads/main",
+          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:ref:refs/heads/dev",
           "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:environment:dev"
         ]
       )
