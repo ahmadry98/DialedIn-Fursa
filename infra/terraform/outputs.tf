@@ -63,7 +63,7 @@ output "alert_sns_topic_arn" {
 output "application_urls" {
   description = "Public HTTPS URLs exposed through the optional application load balancer."
   value = var.enable_k8s_cluster && var.enable_public_ingress ? {
-    for name, hostname in local.public_hostnames : name => "https://${hostname}"
+    for name, hostname in local.public_hostnames : name => "${var.public_ingress_enable_https ? "https" : "http"}://${hostname}"
   } : {}
 }
 

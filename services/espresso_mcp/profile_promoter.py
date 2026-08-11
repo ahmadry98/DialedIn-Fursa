@@ -24,6 +24,7 @@ def promote_candidate(candidate_key: str) -> dict[str, Any]:
     if candidate.get("type") == "machine":
         _require_reviewed_machine_image(draft, candidate_key)
         result = _upsert_profile(machine_profiles.PROFILE_PATH, draft, "machine_name", machine_profiles.GENERIC_PROFILE_NAME)
+        machine_profiles.load_machine_profiles.cache_clear()
     elif candidate.get("type") == "grinder":
         result = _upsert_profile(grinder_profiles.PROFILE_PATH, draft, "grinder_name", grinder_profiles.GENERIC_GRINDER_NAME)
     else:

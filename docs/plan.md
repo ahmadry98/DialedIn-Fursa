@@ -609,7 +609,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Run frontend build/type checks on PRs.
 - [x] Build Docker images after merge.
 - [x] Deploy to dev.
-- [x] Add email notification when new machine profile candidates are captured.
+- [x] Add optional SES/SMTP email notification when new machine or grinder profile candidates are captured.
 - [ ] Keep production/main deployment protected if used.
 
 ## Checkpoint 28: Personal AWS Account Migration Planning
@@ -658,9 +658,53 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Update GitHub Actions vars/secrets in GitHub UI to support the personal-dev account without deleting course-account settings: `AWS_ACCOUNT_ID=577208624033`, `AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::577208624033:role/DialedInGitHubActionsRole`, `AWS_GITHUB_ACTIONS_ROLE_NAME=DialedInGitHubActionsRole`, personal S3/DynamoDB runtime vars, and `DIALEDIN_DEV_KUBE_CONFIG_B64`.
 - [x] Build and push images to personal-dev ECR.
 - [x] Deploy to personal-dev Kubernetes through manual port-forward-first cloud rollout. Personal-dev now has VPC, one control-plane EC2, one worker ASG, IAM, SGs, SNS alerts, Calico, ECR pull secret, and all five app services running in the `dev` namespace.
-- [ ] Verify full mobile simulator flow against personal-dev after GitHub vars/secrets are set. Cloud smoke already passed for `/health`, `/machines`, S3-backed images, media upload URL generation, chat, espresso MCP, frontend, backend, and landing through port-forward.
+- [x] Verify full mobile simulator flow against personal-dev after GitHub vars/secrets are set. Cloud smoke passed for `/health`, `/machines`, S3-backed images, media upload URL generation, chat, espresso MCP, frontend, backend, landing, and Bedrock image recognition.
 
-## Checkpoint 30: Production Infrastructure Preparation
+## Checkpoint 30: Public Personal Dev Ingress
+
+**Files:**
+- `infra/k8s/ingress.yaml`
+- `infra/terraform/*.tf`
+- `README.md`
+- `docs/aws-migration.md`
+- `docs/plan.md`
+
+**Deliverable:** Expose personal-dev DialChat through a public dev API hostname without port-forwarding.
+
+- [x] Install `ingress-nginx` in the personal-dev Kubernetes cluster.
+- [x] Pin ingress-nginx HTTP NodePort to `30080` so the AWS ALB target group can forward traffic.
+- [x] Add `dialedin.me` hostnames to the Kubernetes ingress manifest: `api-dev`, `ai-dev`, and `app-dev`.
+- [x] Make Terraform ingress support external-DNS mode when the domain is managed outside Route 53.
+- [x] Create the personal-dev public ALB and HTTP listener.
+- [x] Smoke test `/health` and `/machines` through the ALB with `Host: api-dev.dialedin.me`.
+- [x] Add GoDaddy CNAME records for `api-dev`, `ai-dev`, and `app-dev` pointing to the ALB DNS name.
+- [x] After DNS resolves, run the mobile simulator against `http://api-dev.dialedin.me`.
+- [ ] Add HTTPS/ACM after DNS validation is available.
+
+## Checkpoint 31: Smarter Research Discovery
+
+**Files:**
+- `services/espresso_mcp/profile_source_discovery.py`
+- `services/espresso_mcp/profile_web_evidence.py`
+- `services/espresso_mcp/profile_research_worker.py`
+- `services/espresso_mcp/profile_research.py`
+- `services/espresso_mcp/tests/test_profile_source_discovery.py`
+- `services/espresso_mcp/tests/test_profile_web_evidence.py`
+- `services/agent/tests/test_profile_candidates.py`
+
+**Deliverable:** Unknown machine/grinder research should discover likely official sources intelligently instead of depending on hard-coded brand domains or manual URLs.
+
+- [x] Add a Bedrock source-discovery step before profile extraction.
+- [x] Ask the LLM for likely manufacturer name, official domain candidates, product page queries, manual/support page queries, and confidence.
+- [x] Use web search results to confirm the suggested official domain before trusting it.
+- [x] Fetch official product/manual/support pages first, then reputable retailers only as fallback evidence.
+- [x] Pass only confirmed evidence into the draft-profile Bedrock extraction prompt.
+- [x] If source confidence is low or no official evidence is found, mark the candidate as `needs_manual_review`/`research_failed` with a clear admin reason instead of producing mostly empty JSON.
+- [ ] Show source-discovery confidence and found/failed URLs in the admin page.
+- [x] Keep manual URL entry as a fallback, not the normal workflow.
+- [x] Add regression cases for Quick Mill Silvano Evo and Fellow Opus so future searches do not return zero evidence.
+
+## Checkpoint 32: Production Infrastructure Preparation
 
 **Files:**
 - `infra/terraform/prod.tfvars`
@@ -673,13 +717,13 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Create separate prod resources; do not reuse dev S3 buckets, DynamoDB tables, kubeconfig, or security groups.
 - [ ] Configure production domain/API URL.
 - [ ] Configure production Bedrock/IAM access in Ahmad's AWS account.
-- [ ] Configure SES/SMTP for real profile-candidate email notifications.
+- [ ] Configure production SES/SMTP for real profile-candidate email notifications. Personal-dev SES sender `support@dialedin.me` is verified.
 - [ ] Add production rollback instructions.
 - [ ] Add production smoke checks and monitoring checks.
 - [ ] Require manual confirmation/environment approval for prod deploy.
 - [ ] Keep App Store/Play Store builds pointed at dev until prod smoke tests pass.
 
-## Checkpoint 31: Mobile Release Readiness
+## Checkpoint 33: Mobile Release Readiness
 
 **Files:**
 - sibling app: `DialedIn/dialedin-mobile/*`
@@ -695,7 +739,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Prepare icons/splash/screenshots if needed.
 - [ ] Run full cloud smoke on a real device before store submission.
 
-## Checkpoint 32: AI Recognition And UX Improvements
+## Checkpoint 34: AI Recognition And UX Improvements
 
 **Files:**
 - `services/agent/*`
@@ -711,7 +755,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
 - [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.
 
-## Checkpoint 33: Final Demo
+## Checkpoint 35: Final Demo
 
 **Files:**
 - `docs/demo-script.md`

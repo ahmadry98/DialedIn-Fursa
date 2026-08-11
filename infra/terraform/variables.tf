@@ -85,10 +85,28 @@ variable "enable_public_ingress" {
   default     = false
 }
 
+variable "public_ingress_manage_dns" {
+  description = "Create Route 53 DNS and ACM validation records for public ingress. Disable when the domain is managed outside Route 53."
+  type        = bool
+  default     = true
+}
+
+variable "public_ingress_enable_https" {
+  description = "Create an HTTPS ALB listener with ACM. Disable for external-DNS dev smoke tests until a certificate is validated."
+  type        = bool
+  default     = true
+}
+
 variable "domain_name" {
   description = "Existing public Route 53 hosted zone used for public Kubernetes endpoints."
   type        = string
   default     = "fursa.click"
+}
+
+variable "public_hostnames_override" {
+  description = "Optional explicit public hostnames keyed by service name, for example { agent = \"api-dev.dialedin.me\" }."
+  type        = map(string)
+  default     = {}
 }
 
 variable "vpc_cidr" {
@@ -169,7 +187,7 @@ variable "ssh_public_key" {
 variable "alert_email" {
   description = "Email address subscribed to optional infrastructure alerts."
   type        = string
-  default     = "ahmadrayan1998@gmail.com"
+  default     = "support@dialedin.me"
 
   validation {
     condition     = can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", var.alert_email))

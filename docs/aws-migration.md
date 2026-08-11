@@ -96,8 +96,8 @@ Account and access:
 [ ] Create or choose Ahmad's AWS account.
 [ ] Enable billing alerts/budgets.
 [x] Configure local AWS CLI profile for the personal account, for example `dialedin-personal`.
-[ ] Confirm Bedrock model access in the target region.
-[ ] Decide whether to use SES or SMTP for email notifications.
+[x] Confirm Bedrock model access in the target region.
+[x] Decide whether to use SES or SMTP for email notifications.
 [x] Create GitHub OIDC provider/role or temporary static credentials.
 ```
 
@@ -157,10 +157,10 @@ DIALEDIN_DEV_KUBE_CONFIG_B64=<base64 kubeconfig>
 Mobile/web:
 
 ```text
-[ ] Point Expo development env vars to the personal-dev API URL.
+[x] Point Expo development env vars to the personal-dev API URL. Use `http://api-dev.dialedin.me` after DNS, or the ALB Host-header smoke test before DNS.
 [ ] Confirm photo upload and video upload from the mobile app against the personal-dev API.
 [x] Confirm machine images load from the personal-dev API/S3 flow.
-[ ] Confirm Bedrock image recognition works in the personal account.
+[x] Confirm Bedrock image recognition works in the personal account after Anthropic Haiku access was enabled.
 [ ] Confirm unknown machine candidate capture works in the personal account.
 [ ] Confirm admin review/promote writes personal-dev DynamoDB/S3/JSON sync as expected.
 ```
@@ -197,7 +197,7 @@ control_plane_security_group_name = ahmadry98-dialin-personal-dev-control-plane
 worker_asg_name = ahmadry98-dialin-personal-dev-workers
 ```
 
-Kubernetes/EC2 is created for personal-dev. Local `personal-dev.tfvars` uses `enable_k8s_cluster=true` and `enable_public_ingress=false`; this keeps the first personal cloud smoke test on port-forwarding instead of public ingress/API Gateway. Calico was applied once after bootstrap, the stale replaced worker node was removed, and all five services rolled out in the `dev` namespace.
+Kubernetes/EC2 is created for personal-dev. Local `personal-dev.tfvars` uses `enable_k8s_cluster=true`, `enable_public_ingress=true`, `public_ingress_manage_dns=false`, and `public_ingress_enable_https=false`. Calico and ingress-nginx are installed, the ALB forwards HTTP traffic to ingress-nginx NodePort `30080`, and all five services are running in the `dev` namespace.
 
 Manual smoke test results:
 
@@ -211,7 +211,22 @@ landing app: HTTP 200 through port-forward
 media upload URL: personal S3 presigned URL returned
 machine image endpoints: S3-backed images return HTTP 200
 chat endpoint: OK with ChatRequest schema
+public ALB Host-header smoke: OK for /health and /machines
 ```
+
+
+## Personal Dev Public Ingress
+
+The personal-dev public ingress is now created in HTTP/external-DNS mode:
+
+```text
+ALB DNS: ahmadry98-dialin-personal-dev-al-187028928.us-east-1.elb.amazonaws.com
+API:     http://api-dev.dialedin.me
+Web:     http://ai-dev.dialedin.me
+Landing: http://app-dev.dialedin.me
+```
+
+`dialedin.me` currently uses GoDaddy/domaincontrol nameservers, so Terraform cannot create DNS records automatically. Add CNAME records for `api-dev`, `ai-dev`, and `app-dev` pointing to the ALB DNS name above. HTTPS is intentionally deferred until DNS validation is handled.
 
 ## Production Readiness Checklist
 
@@ -224,7 +239,7 @@ Production is a separate checkpoint. Do not run production from dev resources.
 [ ] Separate prod GitHub environment secrets/vars.
 [ ] Production domain and API URL.
 [ ] Production Bedrock/IAM permissions.
-[ ] Production SES/SMTP email sending.
+[ ] Production SES/SMTP email sending. Dev SES sender is verified; production still needs its own release decision.
 [ ] Monitoring and alerts.
 [ ] Rollback instructions.
 [ ] Privacy notes for uploaded photos/videos.
@@ -237,18 +252,19 @@ Production is a separate checkpoint. Do not run production from dev resources.
 After a personal-dev deployment exists:
 
 ```bash
-curl -k https://<personal-dev-api>/health
-curl -k https://<personal-dev-api>/machines
-curl -k https://<personal-dev-api>/grinders
+curl http://api-dev.dialedin.me/health
+curl http://api-dev.dialedin.me/machines
+curl http://api-dev.dialedin.me/grinders
 ```
 
 Run the Expo app against the personal-dev API:
 
 ```bash
 cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
-EXPO_PUBLIC_AI_SHOT_API_URL=https://<personal-dev-api> \
-EXPO_PUBLIC_DIALEDIN_API_URL=https://<personal-dev-api> \
-npm run ios
+EXPO_PUBLIC_DIALCHAT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_AI_SHOT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://api-dev.dialedin.me \
+npm run ios -- --clear
 ```
 
 ## Decision For Now

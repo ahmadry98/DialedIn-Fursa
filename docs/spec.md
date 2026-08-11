@@ -204,17 +204,21 @@ This prevents incorrect candidates like `grinder:meraki`.
 
 Unknown equipment is handled through a reviewable learning loop:
 
-1. `capture_unknown_gear` saves unknown machines/grinders to `profile_candidates.json`.
+1. `capture_unknown_gear` saves unknown machines/grinders as profile candidates.
 2. `profile_research_worker` selects candidates with `needs_research`.
-3. `profile_web_evidence` searches/fetches official or likely official pages and extracts compact evidence.
-4. Bedrock receives the expected schema, observed context for disambiguation only, and source evidence.
-5. Bedrock returns JSON only.
-6. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, and `research_evidence`.
-7. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed`.
-8. Human reviewer edits or approves the draft.
-9. `profile_promoter` promotes the reviewed draft into trusted profiles. With DynamoDB storage, it also updates the JSON seed unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
+3. A source-discovery step asks Bedrock/LLM for the likely manufacturer, official website candidates, product-page queries, manual/support queries, and source confidence for the exact product name.
+4. `profile_web_evidence` uses web search to confirm the likely official domain before trusting it.
+5. The worker fetches official product/manual/support pages first, then reputable retailer/spec pages only when official sources cannot verify a field.
+6. Bedrock receives the expected schema, observed context for disambiguation only, and confirmed source evidence.
+7. Bedrock returns JSON only.
+8. `attach_draft_profile` validates the shape and stores `draft_profile`, `draft_validation`, `research_evidence`, and source-discovery notes.
+9. `research_quality` grades evidence and draft completeness. Schema-valid drafts are `draft_ready` only when the score is greater than 55; no-source or mostly empty drafts become `research_failed` or `needs_manual_review` with a clear admin reason.
+10. Human reviewer edits or approves the draft.
+11. `profile_promoter` promotes the reviewed draft into trusted profiles. With DynamoDB storage, it also updates the JSON seed unless `DIALEDIN_PROFILE_SYNC_JSON=false`.
 
 Checkpoint 15 adds a local admin review surface at `/admin` plus agent endpoints to list candidates, rerun research for one candidate, save edited draft JSON/review notes, and promote reviewed drafts. Promotion still removes the candidate from `profile_candidates.json` only after writing the trusted machine or grinder profile. Checkpoint 16 adds PDF/manual text extraction, source deduplication, manufacturer-prioritized evidence ranking, and the research quality score shown in admin.
+
+Checkpoint 31 upgrades research from hard-coded/guessed domain lookup to smarter source discovery. Manual URL entry remains useful for edge cases, but the normal path should not require Ahmad to know the manufacturer website. The source-discovery step must prefer official manufacturer domains, confirm them with search evidence, and avoid sending low-confidence empty evidence into profile extraction.
 
 Important rule: observed app context, such as a user-entered grind setting, must not be treated as manufacturer data or a typical setting.
 
@@ -224,6 +228,7 @@ Local env controls:
 PROFILE_RESEARCH_AUTORUN=true
 PROFILE_RESEARCH_AUTORUN_LIMIT=1
 PROFILE_RESEARCH_WEB_EVIDENCE=true
+PROFILE_RESEARCH_SOURCE_DISCOVERY=true
 MODEL=bedrock/openai.gpt-oss-20b-1:0
 AWS_REGION=us-east-1
 CHAT_LLM_EXTRACTION=true

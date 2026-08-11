@@ -59,6 +59,10 @@ def validate_grind_setting(grinder_name: str | None, current_setting: Any) -> st
     if maximum is not None and parsed > maximum:
         return _range_error(profile)
 
+    increment_error = _setting_increment_error(profile, parsed, minimum)
+    if increment_error:
+        return increment_error
+
     return None
 
 
@@ -115,6 +119,19 @@ def _range_error(profile: dict[str, Any]) -> str:
     minimum = profile.get("min_setting")
     maximum = profile.get("max_setting")
     return f"{profile['grinder_name']} accepts settings from {minimum} to {maximum}."
+
+
+def _setting_increment_error(profile: dict[str, Any], parsed: float, minimum: float | None) -> str | None:
+    increment = _float_or_none(profile.get("setting_increment"))
+    if increment is None or increment <= 0:
+        return None
+
+    origin = minimum if minimum is not None else 0.0
+    steps = (parsed - origin) / increment
+    if abs(steps - round(steps)) <= 1e-6:
+        return None
+
+    return f"{profile['grinder_name']} accepts settings in {increment:g}-step increments."
 
 
 def _best_fuzzy_profile_match(normalized_query: str, profiles: list[dict[str, Any]]) -> dict[str, Any] | None:

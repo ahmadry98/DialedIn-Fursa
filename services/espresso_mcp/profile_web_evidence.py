@@ -10,6 +10,8 @@ import urllib.request
 from html.parser import HTMLParser
 from typing import Any
 
+from services.espresso_mcp import profile_source_discovery
+
 SEARCH_URL = "https://duckduckgo.com/html/"
 DEFAULT_TIMEOUT_SECONDS = 5
 BLOCKED_DOMAINS = {
@@ -45,6 +47,9 @@ KNOWN_BRAND_DOMAINS = {
     "profitec": ["profitec-espresso.com"],
     "ecm": ["ecm.de"],
     "rocket": ["rocket-espresso.com"],
+    "quick mill": ["quick-mill.com"],
+    "quickmill": ["quick-mill.com"],
+    "fellow": ["fellowproducts.com", "help.fellowproducts.com"],
     "varia": ["variabrewing.com"],
     "baratza": ["baratza.com"],
     "eureka": ["eureka.co.it"],
@@ -58,6 +63,7 @@ def collect_web_evidence(
     max_results: int = 6,
     max_chars_per_page: int = 2600,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    source_discovery: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Search the web and fetch a compact evidence packet for one candidate."""
     name = str(candidate.get("name_entered", "")).strip()
@@ -68,8 +74,9 @@ def collect_web_evidence(
     found: list[dict[str, str]] = []
     seen_urls: set[str] = set()
 
+    source_discovery = source_discovery or {}
     search_result_count = 0
-    for query in build_queries(gear_type, name):
+    for query in unique([*build_discovery_queries(gear_type, name, source_discovery), *build_queries(gear_type, name)]):
         for result in search_web(query, timeout=timeout):
             before_count = len(found)
             _append_result(found, seen_urls, result, query)
@@ -80,8 +87,8 @@ def collect_web_evidence(
         if search_result_count >= max_results * 5:
             break
 
-    for result in build_direct_url_candidates(gear_type, name):
-        _append_result(found, seen_urls, result, "direct official URL fallback")
+    for result in [*build_discovered_url_candidates(source_discovery), *build_direct_url_candidates(gear_type, name)]:
+        _append_result(found, seen_urls, result, result.get("query", "direct official URL fallback"))
 
     ranked = sorted(found, key=lambda item: score_result(item, gear_type, name), reverse=True)[: max_results * 18]
     sources: list[dict[str, str]] = []
@@ -115,6 +122,50 @@ def collect_web_evidence(
             break
 
     return {"sources": sources, "text": "\n\n".join(chunk for chunk in evidence_chunks if chunk.strip())}
+
+
+def build_discovery_queries(gear_type: str, name: str, source_discovery: dict[str, Any] | None) -> list[str]:
+    """Build focused searches from source-discovery hints."""
+    if not source_discovery:
+        return []
+
+    queries: list[str] = [str(query) for query in source_discovery.get("search_queries", []) if str(query).strip()]
+    quoted = f'"{name}"'
+    for domain in profile_source_discovery.discovery_domains(source_discovery):
+        if gear_type == "machine":
+            queries.extend(
+                [
+                    f"site:{domain} {quoted} official specifications manual",
+                    f"site:{domain} {quoted} portafilter pump preinfusion technical",
+                ]
+            )
+        else:
+            queries.extend(
+                [
+                    f"site:{domain} {quoted} grinder official specifications",
+                    f"site:{domain} {quoted} espresso range adjustment manual",
+                ]
+            )
+    return unique(queries)
+
+
+def build_discovered_url_candidates(source_discovery: dict[str, Any] | None) -> list[dict[str, str]]:
+    """Convert discovered exact URLs into fetchable evidence candidates."""
+    if not source_discovery:
+        return []
+
+    results: list[dict[str, str]] = []
+    for url in profile_source_discovery.discovery_urls(source_discovery):
+        results.append(
+            {
+                "url": url,
+                "title": "Source discovery candidate",
+                "snippet": "Likely official source URL suggested by source discovery and fetched for confirmation.",
+                "source": "source_discovery_url",
+                "query": "source discovery exact URL",
+            }
+        )
+    return results
 
 
 def _append_result(found: list[dict[str, str]], seen_urls: set[str], result: dict[str, str], query: str) -> None:
@@ -190,6 +241,38 @@ def known_direct_asset_candidates(name: str) -> list[dict[str, str]]:
                 "snippet": "Official technical manual PDF candidate for LELIT Elizabeth PL92T.",
                 "source": "direct_asset",
             }
+        )
+    if "quick mill" in normalized and "silvano" in normalized:
+        results.append(
+            {
+                "url": "https://www.quick-mill.com/products/silvano/",
+                "title": "Official Quick Mill Silvano product page",
+                "snippet": "Official Quick Mill Silvano page with technical characteristics.",
+                "source": "direct_asset",
+            }
+        )
+    if "fellow" in normalized and "opus" in normalized and "opus 2" not in normalized:
+        results.extend(
+            [
+                {
+                    "url": "https://fellowproducts.com/collections/gifts-under-250/products/opus-coffee-grinder",
+                    "title": "Official Fellow Opus Conical Burr Grinder product page",
+                    "snippet": "Official Fellow Opus product page with burr size and grind settings.",
+                    "source": "direct_asset",
+                },
+                {
+                    "url": "https://help.fellowproducts.com/hc/en-us/articles/12697812844315-What-does-the-Opus-inner-adjustment-ring-do-and-how-do-I-use-it",
+                    "title": "Official Fellow Opus inner adjustment support article",
+                    "snippet": "Official Fellow support page explaining Opus grind adjustment rings and minor increments.",
+                    "source": "direct_asset",
+                },
+                {
+                    "url": "https://help.fellowproducts.com/hc/en-us/articles/12697501813403-What-are-the-differences-between-Opus-and-Ode",
+                    "title": "Official Fellow Opus and Ode comparison support article",
+                    "snippet": "Official Fellow support page with Opus settings, burrs, and espresso suitability.",
+                    "source": "direct_asset",
+                },
+            ]
         )
     return results
 
@@ -359,6 +442,8 @@ def score_result(result: dict[str, str], gear_type: str, name: str) -> int:
         score += 18
     if "x1tech.com" in host and "illy.com" in official_domains:
         score -= 20
+    if result.get("source") == "source_discovery_url":
+        score += 28
     if result.get("source") == "direct_asset":
         score += 18
     if result.get("source") == "direct_fallback":

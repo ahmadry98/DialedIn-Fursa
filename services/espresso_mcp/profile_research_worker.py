@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from services.espresso_mcp import profile_candidates, profile_research, profile_web_evidence
+from services.espresso_mcp import profile_candidates, profile_research, profile_source_discovery, profile_web_evidence
 
 try:
     from dotenv import load_dotenv
@@ -46,7 +46,9 @@ def run_worker(
     for candidate in candidates:
         packet = profile_research.prepare_research_packet(candidate["candidate_key"])
         file_evidence = _load_evidence(evidence_dir, candidate) if evidence_dir else ""
-        web_packet = _collect_web_evidence(candidate) if _web_evidence_enabled(web_evidence) else {"sources": [], "text": ""}
+        web_enabled = _web_evidence_enabled(web_evidence)
+        discovery = _discover_source_hints(candidate, model_id=model_id, region=region) if web_enabled and not dry_run else {}
+        web_packet = _collect_web_evidence(candidate, discovery) if web_enabled else {"sources": [], "text": ""}
         evidence = _join_evidence(file_evidence, web_packet.get("text", ""))
         if web_packet.get("sources"):
             profile_research.attach_research_evidence(candidate["candidate_key"], web_packet)
@@ -58,6 +60,7 @@ def run_worker(
                     "candidate_key": candidate["candidate_key"],
                     "status": "dry_run",
                     "prompt": prompt,
+                    "discovery": discovery,
                     "evidence_found": bool(evidence),
                     "evidence_sources": web_packet.get("sources", []),
                 }
@@ -255,11 +258,28 @@ def _web_evidence_enabled(web_evidence: bool | None) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def _collect_web_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
+def _discover_source_hints(candidate: dict[str, Any], *, model_id: str | None, region: str | None) -> dict[str, Any]:
+    if not profile_source_discovery.source_discovery_enabled():
+        return {}
     try:
-        return profile_web_evidence.collect_web_evidence(candidate)
+        return profile_source_discovery.discover_source_hints(candidate, model_id=model_id, region=region)
     except Exception as error:
-        return {"sources": [], "text": f"Web evidence collection failed: {error}"}
+        note = f"Source discovery failed; falling back to standard search: {type(error).__name__}: {error}"
+        try:
+            profile_candidates.add_profile_candidate_note(candidate["candidate_key"], note)
+        except Exception:
+            pass
+        return {"confidence": "low", "notes": note}
+
+
+def _collect_web_evidence(candidate: dict[str, Any], discovery: dict[str, Any] | None = None) -> dict[str, Any]:
+    try:
+        packet = profile_web_evidence.collect_web_evidence(candidate, source_discovery=discovery)
+        if discovery:
+            packet["source_discovery"] = discovery
+        return packet
+    except Exception as error:
+        return {"sources": [], "text": f"Web evidence collection failed: {error}", "source_discovery": discovery or {}}
 
 
 def _join_evidence(*parts: str) -> str:

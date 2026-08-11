@@ -11,8 +11,10 @@ force_delete_ecr_repositories = false
 
 allowed_media_upload_origins = [
   "http://localhost:3000",
-  "http://127.0.0.1:3000"
-  # Add personal-dev web/mobile origins after the domain/API is chosen.
+  "http://127.0.0.1:3000",
+  "http://ai-dev.dialedin.me",
+  "http://api-dev.dialedin.me",
+  "http://app-dev.dialedin.me"
 ]
 
 # Start with storage/ECR only. Enable Kubernetes after S3/DynamoDB/ECR work.
