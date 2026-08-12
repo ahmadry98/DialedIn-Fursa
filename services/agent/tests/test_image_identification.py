@@ -33,7 +33,7 @@ class ImageIdentificationTest(unittest.TestCase):
         self.assertIn("Known equipment candidates", prompt)
         self.assertIn("Rancilio Silvia", prompt)
         self.assertIn("Varia VS3", prompt)
-        self.assertIn("return null with low confidence", prompt)
+        self.assertIn("Only return null when no useful brand or model is visible", prompt)
 
 
 if __name__ == "__main__":

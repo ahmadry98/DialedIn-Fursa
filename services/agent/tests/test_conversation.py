@@ -75,14 +75,66 @@ class ConversationApiTest(unittest.TestCase):
         self.assertIn("17", payload["response"])
         self.assertEqual(payload["analysis_result"]["recommendation"]["recommendation"], "grind_finer")
 
+    def test_chat_allows_unknown_roast(self):
+        context = self.post_chat("Rancilio Silvia")["shot_context"]
+        context = self.post_chat("DF54", context)["shot_context"]
+        context = self.post_chat("idk", context)["shot_context"]
+        context = self.post_chat("15", context)["shot_context"]
+
+        payload = self.post_chat("I don't know", context)
+        self.assertTrue(payload["shot_context"]["roast_unknown"])
+        self.assertEqual(payload["next_field"], "taste")
+
+    def test_chat_analyzes_without_dose_or_roast_when_unknown(self):
+        context = {
+            "user_id": "demo-user",
+            "machine": "Rancilio Silvia",
+            "grinder": "DF54",
+            "dose_unknown": True,
+            "grind_setting": "15",
+            "roast_unknown": True,
+            "taste": "sour",
+        }
+
+        payload = self.post_chat("17 seconds", context)
+
+        self.assertIsNone(payload["next_field"])
+        self.assertEqual(payload["missing_fields"], [])
+        self.assertIsNotNone(payload["analysis_result"])
+
     def test_chat_builtin_grinder_skips_grinder_question(self):
         context = self.post_chat("Meraki")["shot_context"]
         payload = self.post_chat("built-in", context)
 
         self.assertTrue(payload["shot_context"]["uses_built_in_grinder"])
-        self.assertEqual(payload["next_field"], "grind_setting")
+        self.assertEqual(payload["next_field"], "dose_g")
         self.assertNotIn("grinder", payload["missing_fields"])
-        self.assertNotIn("dose_g", payload["missing_fields"])
+        self.assertIn("grind_setting", payload["missing_fields"])
+
+    def test_chat_unknown_dose_then_asks_grind_setting(self):
+        context = self.post_chat("Lelit Anita")["shot_context"]
+        context = self.post_chat("built-in", context)["shot_context"]
+        payload = self.post_chat("idk", context)
+
+        self.assertTrue(payload["shot_context"]["dose_unknown"])
+        self.assertEqual(payload["next_field"], "grind_setting")
+        self.assertIn("grind setting", payload["response"].lower())
+
+    def test_chat_unknown_roast_then_asks_taste(self):
+        context = {
+            "user_id": "demo-user",
+            "machine": "LELIT Anita PL042TEMD",
+            "grinder": "LELIT Anita PL042TEMD built-in grinder",
+            "uses_built_in_grinder": True,
+            "dose_unknown": True,
+            "grind_setting": "2.1",
+        }
+
+        payload = self.post_chat("I do not know", context)
+
+        self.assertTrue(payload["shot_context"]["roast_unknown"])
+        self.assertEqual(payload["next_field"], "taste")
+        self.assertIn("taste", payload["response"].lower())
 
     def test_chat_accepts_video_path_as_timing_source(self):
         context = {
