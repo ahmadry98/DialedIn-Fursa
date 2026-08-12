@@ -1,12 +1,16 @@
 data "aws_caller_identity" "current" {}
 
+locals {
+  github_actions_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+}
+
 data "aws_iam_policy_document" "github_actions_oidc_assume_role" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github_actions.arn]
+      identifiers = [local.github_actions_oidc_provider_arn]
     }
 
     condition {
@@ -23,13 +27,15 @@ data "aws_iam_policy_document" "github_actions_oidc_assume_role" {
           for repo in var.github_actions_repositories : [
             "repo:${repo}:ref:refs/heads/main",
             "repo:${repo}:ref:refs/heads/dev",
-            "repo:${repo}:environment:dev"
+            "repo:${repo}:environment:dev",
+            "repo:${repo}:environment:production"
           ]
         ]),
         [
           "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:ref:refs/heads/main",
           "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:ref:refs/heads/dev",
-          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:environment:dev"
+          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:environment:dev",
+          "repo:ahmadry98@100522503/DialedIn-Fursa@1311859286:environment:production"
         ]
       )
     }
@@ -37,7 +43,8 @@ data "aws_iam_policy_document" "github_actions_oidc_assume_role" {
 }
 
 resource "aws_iam_openid_connect_provider" "github_actions" {
-  url = "https://token.actions.githubusercontent.com"
+  count = var.manage_github_oidc_provider ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com"
 
   client_id_list = [
     "sts.amazonaws.com"
@@ -85,7 +92,8 @@ data "aws_iam_policy_document" "github_actions_ecr" {
       "ecr:UploadLayerPart"
     ]
     resources = [
-      for repo in aws_ecr_repository.app : repo.arn
+      for repository_name in var.ecr_repository_names :
+      "arn:aws:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/${repository_name}"
     ]
   }
 }
