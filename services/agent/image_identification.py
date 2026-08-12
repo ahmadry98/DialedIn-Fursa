@@ -15,7 +15,8 @@ Classify the actual object in the image as either an espresso machine or a coffe
 The user may have attached the wrong photo for the current chat step; do not force the requested type if the object is clearly the other type.
 Prefer a candidate from the provided known equipment list when the visual evidence matches it.
 Use visible evidence: brand/logo text, button layout, knob placement, group head, steam wand, built-in grinder, hopper, burr grinder body, and model label.
-If the model is not clearly identifiable, return null or a brand-only name with confidence "low".
+If the exact model is not clearly identifiable but a brand/logo is visible, return the brand name with confidence "low".
+Only return null when no useful brand or model is visible.
 For Varia grinders, valid model names include Varia VS3, Varia VS4, and Varia VS6. Do not return Varia VS2. If you only know the brand, return "Varia" with confidence "low".
 If the image is unclear, return null for name and confidence "low".
 Do not invent technical specifications.
@@ -74,8 +75,8 @@ def build_user_prompt(gear_type: str) -> str:
         f"The chat currently expects a {gear_type}, but classify the actual object in the image. "
         "Compare the image against the known equipment candidates below. "
         "If one candidate is visually plausible, return that exact candidate name. "
-        "If the image only proves a brand, return the brand with low confidence. "
-        "If no candidate matches clearly, return null with low confidence. "
+        "If the exact model is uncertain but a brand/logo is visible, return the brand name with low confidence. "
+        "Only return null when no useful brand or model is visible. "
         "Return only the JSON object.\n\n"
         f"Known equipment candidates: {candidate_text}"
     )

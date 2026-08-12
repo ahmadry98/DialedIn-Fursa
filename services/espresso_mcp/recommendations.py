@@ -359,8 +359,8 @@ def _keep_fixed(shot_context: dict[str, Any]) -> list[str]:
 
 
 def _missing_context(shot_context: dict[str, Any]) -> list[str]:
-    required = ["machine", "grinder", "grind_setting", "roast_level", "taste"]
-    optional = ["dose_g"]
+    required = ["machine", "grinder", "grind_setting", "taste"]
+    optional = ["dose_g", "roast_level"]
     return [field for field in [*required, *optional] if shot_context.get(field) in (None, "")]
 
 

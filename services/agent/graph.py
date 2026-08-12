@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -195,14 +196,14 @@ def _filter_extracted_context(extracted: dict[str, Any], message: str, previous_
     if expected_field != "timing" and not conversation.has_explicit_timing(message):
         filtered.pop("total_shot_seconds", None)
         filtered.pop("video_s3_key", None)
+    if expected_field != "dose_g" and "dose_g" in filtered and not conversation.has_labeled_dose(message):
+        filtered.pop("dose_g", None)
     if expected_field in {"machine", "grinder"} and conversation.is_vague_equipment_reply(message):
         filtered.pop(expected_field, None)
         if expected_field == "machine":
             filtered.pop("grinder", None)
             filtered.pop("uses_built_in_grinder", None)
-    if expected_field == "grind_setting" and not conversation.has_labeled_dose(message):
-        filtered.pop("dose_g", None)
-    if expected_field == "taste" and conversation.is_structured_field_correction(message) and not conversation.has_labeled_taste(message):
+    if conversation.is_structured_field_correction(message) and not conversation.has_labeled_taste(message):
         filtered.pop("taste", None)
     if filtered.get("machine"):
         filtered["machine"] = conversation.canonical_gear_name(str(filtered["machine"]), "machine")
@@ -297,7 +298,7 @@ def _validate_equipment(state: CoachGraphState) -> dict[str, Any]:
 
 def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
     expected_field = (state.get("previous_missing") or [None])[0]
-    if expected_field not in {"grind_setting", "roast_level", "timing"}:
+    if expected_field not in {"dose_g", "grind_setting", "roast_level", "timing"}:
         return {}
 
     message = state.get("message", "")
@@ -308,13 +309,16 @@ def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
     updates: dict[str, Any] = {}
     reason: str | None = None
 
-    if expected_field == "grind_setting":
+    if expected_field == "dose_g":
+        if not context.dose_unknown and context.dose_g is None:
+            reason = "Dose should be a number in grams, like 18g. If you do not know, say idk."
+    elif expected_field == "grind_setting":
         if not context.grind_setting or not _looks_numeric(context.grind_setting):
             updates["grind_setting"] = None
             reason = "Grind setting should be the number or mark on your grinder, like 12 or 2.1."
-    elif expected_field == "roast_level" and context.roast_level not in {"light", "medium", "dark"}:
+    elif expected_field == "roast_level" and not context.roast_unknown and context.roast_level not in {"light", "medium", "dark"}:
         updates["roast_level"] = None
-        reason = "Roast level should be light, medium, or dark."
+        reason = "Roast level should be light, medium, dark, or idk if the bag does not say."
     elif expected_field == "timing" and not context.video_s3_key and context.total_shot_seconds is None:
         reason = "Please attach or send a shot video, or type the total time if you timed it yourself, like 27 seconds."
 
@@ -431,9 +435,75 @@ def _low_confidence_image_prompt(state: CoachGraphState) -> str | None:
     if guess.get("name") and str(guess.get("confidence") or "low").lower() in {"medium", "high"}:
         return None
     gear_type = guess.get("gear_type") or latest_message.image_kind or "machine"
+    brand = _brand_hint_from_guess(guess)
+    suggestions = _known_models_for_brand(brand, str(gear_type)) if brand else []
     if gear_type == "grinder":
+        if brand and suggestions:
+            return f"I can see it may be {brand}, but I cannot confirm the exact grinder model. Is it {_format_suggestions(suggestions)}, or another {brand} grinder?"
+        if brand and _brand_is_known_for_type(brand, "grinder"):
+            return f"I can see it may be {brand}, but I cannot confirm the exact grinder model. What grinder is it?"
         return "I could not identify the grinder confidently from the photo. What grinder is it?"
+    if brand and suggestions:
+        return f"I can see it may be {brand}, but I cannot confirm the exact machine model. Is it {_format_suggestions(suggestions)}, or another {brand} machine?"
+    if brand and _brand_is_known_for_type(brand, "machine"):
+        return f"I can see it may be {brand}, but I cannot confirm the exact machine model. What machine is it?"
     return "I could not identify the machine confidently from the photo. What machine is it?"
+
+
+def _brand_hint_from_guess(guess: dict[str, Any]) -> str | None:
+    name = str(guess.get("name") or "").strip()
+    candidates = [name, str(guess.get("reason") or "")]
+    for candidate in candidates:
+        normalized = conversation._normalize_text(candidate)
+        for brand in sorted(conversation.BRAND_ONLY_NAMES, key=len, reverse=True):
+            if re.search(rf"\b{re.escape(brand)}\b", normalized):
+                return _title_brand(brand)
+    return None
+
+
+def _brand_is_known_for_type(brand: str | None, gear_type: str) -> bool:
+    return bool(_known_models_for_brand(brand, gear_type, limit=1))
+
+
+def _known_models_for_brand(brand: str | None, gear_type: str, limit: int = 4) -> list[str]:
+    if not brand:
+        return []
+    normalized_brand = conversation._normalize_text(brand)
+    if gear_type == "grinder":
+        profiles = conversation.grinder_profiles.list_grinder_profiles()
+        generic_name = conversation.grinder_profiles.GENERIC_GRINDER_NAME
+        name_key = "grinder_name"
+    else:
+        profiles = conversation.machine_profiles.list_machine_profiles()
+        generic_name = conversation.machine_profiles.GENERIC_PROFILE_NAME
+        name_key = "machine_name"
+    matches: list[str] = []
+    for profile in profiles:
+        name = str(profile.get(name_key) or "")
+        if not name or name == generic_name:
+            continue
+        aliases = [str(alias) for alias in profile.get("aliases", []) if isinstance(alias, str)]
+        haystack = " ".join([name, *aliases])
+        if re.search(rf"\b{re.escape(normalized_brand)}\b", conversation._normalize_text(haystack)):
+            matches.append(name)
+    return sorted(dict.fromkeys(matches), key=str.lower)[:limit]
+
+
+def _format_suggestions(suggestions: list[str]) -> str:
+    if len(suggestions) == 1:
+        return suggestions[0]
+    return ", ".join(suggestions[:-1]) + f", or {suggestions[-1]}"
+
+
+def _title_brand(brand: str) -> str:
+    special = {
+        "df": "DF",
+        "ecm": "ECM",
+        "illy": "illy",
+        "lelit": "LELIT",
+        "1zpresso": "1Zpresso",
+    }
+    return special.get(brand, " ".join(part.capitalize() for part in brand.split()))
 
 
 def _generic_machine_notice(state: CoachGraphState, context: ShotContext) -> str | None:
