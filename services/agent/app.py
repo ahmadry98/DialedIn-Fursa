@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import logging
+from time import perf_counter
+
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,6 +33,7 @@ from services.espresso_mcp import profile_promoter
 from services.espresso_mcp import profile_research_worker
 
 settings = get_settings()
+logger = logging.getLogger("dialedin.agent")
 app = FastAPI(title=settings.app_name)
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +43,76 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+_PATH_FAMILIES = (
+    ("/machines/", "/machines/{slug}"),
+    ("/grinders/", "/grinders/{slug}"),
+    ("/profile-candidates/", "/profile-candidates/{candidate_key}"),
+    ("/media/local-upload/", "/media/local-upload/{media_key}"),
+)
+
+
+def _path_family(path: str) -> str:
+    if path.startswith("/machines/") and path.endswith("/image"):
+        return "/machines/{slug}/image"
+    if path.startswith("/api/machines/"):
+        return "/api/machines/{slug}/"
+    if path.startswith("/api/grinders/"):
+        return "/api/grinders/{slug}/"
+    if path.startswith("/profile-candidates/") and path.endswith("/research"):
+        return "/profile-candidates/{candidate_key}/research"
+    if path.startswith("/profile-candidates/") and path.endswith("/promote"):
+        return "/profile-candidates/{candidate_key}/promote"
+    for prefix, family in _PATH_FAMILIES:
+        if path.startswith(prefix):
+            return family
+    return path
+
+
+def _log_request(*, request: Request, status_code: int, duration_seconds: float, error: str | None = None) -> None:
+    payload = {
+        "event": "http_request",
+        "method": request.method,
+        "path": _path_family(request.url.path),
+        "status_code": status_code,
+        "duration_ms": round(duration_seconds * 1000, 2),
+        "client_host": request.client.host if request.client else None,
+    }
+    if error:
+        payload["error"] = error
+    message = json.dumps(payload, sort_keys=True)
+    if status_code >= 500:
+        logger.error(message)
+    elif status_code >= 400:
+        logger.warning(message)
+    else:
+        logger.info(message)
+
+
+@app.middleware("http")
+async def record_http_observability(request: Request, call_next):
+    start = perf_counter()
+    path = _path_family(request.url.path)
+    try:
+        response = await call_next(request)
+    except Exception as error:
+        duration = perf_counter() - start
+        observability.increment("dialedin_http_requests_total", method=request.method, path=path, status="500", status_family="5xx")
+        observability.increment("dialedin_http_5xx_total", path=path)
+        observability.observe("dialedin_http_request_seconds", duration, method=request.method, path=path, status="500", status_family="5xx")
+        _log_request(request=request, status_code=500, duration_seconds=duration, error=error.__class__.__name__)
+        raise
+
+    duration = perf_counter() - start
+    status = str(response.status_code)
+    status_family = f"{response.status_code // 100}xx"
+    observability.increment("dialedin_http_requests_total", method=request.method, path=path, status=status, status_family=status_family)
+    observability.observe("dialedin_http_request_seconds", duration, method=request.method, path=path, status=status, status_family=status_family)
+    if response.status_code >= 500:
+        observability.increment("dialedin_http_5xx_total", path=path)
+    _log_request(request=request, status_code=response.status_code, duration_seconds=duration)
+    return response
 
 
 def _run_profile_research_background(*, limit: int) -> None:
