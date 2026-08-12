@@ -772,8 +772,11 @@ attach_draft_profile(candidate_key, draft_profile)
 **Deliverable:** Improve user trust and reduce wrong machine/grinder recognition after infrastructure ownership is stable.
 
 - [x] Improve photo recognition prompts and validation so brand-only guesses like `Varia` are not accepted as full equipment models.
+- [x] Improve fallback responses when the vision model sees a brand but cannot confirm the exact model.
 - [ ] Add clearer confirmation/correction loops for photo guesses.
 - [x] Track recognition confidence and failure reasons for future tuning.
+- [x] Fix native AI chat keyboard behavior so the message composer stays above the iOS keyboard.
+- [x] Prefer stable reviewed machine image URLs and mobile prefetching so machine list/search/detail images reuse cache.
 - [ ] Improve chat recovery when the user sends random text, typos, or corrections.
 - [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
 - [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.

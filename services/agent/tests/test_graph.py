@@ -104,6 +104,7 @@ class CoachGraphTest(unittest.TestCase):
                 shot_context=ShotContext(
                     machine="Rancilio Silvia",
                     grinder="Varia VS3",
+                    dose_unknown=True,
                     video_s3_key="uploads/demo/shot.mov",
                 ),
             ),
@@ -124,6 +125,7 @@ class CoachGraphTest(unittest.TestCase):
                     machine="Rancilio Silvia",
                     grinder="Varia VS3",
                     grind_setting="2.1",
+                    dose_unknown=True,
                     roast_level="medium",
                     taste="balanced",
                     video_s3_key="uploads/demo/shot.mov",
@@ -208,7 +210,7 @@ class CoachGraphTest(unittest.TestCase):
             response = graph.run_chat_graph(request, fake_analyze)
 
         self.assertEqual(response.shot_context.grinder, "Varia VS4")
-        self.assertEqual(response.next_field, "grind_setting")
+        self.assertEqual(response.next_field, "dose_g")
 
     def test_graph_accepts_real_varia_vs3_grinder(self):
         request = ChatRequest(
@@ -223,7 +225,7 @@ class CoachGraphTest(unittest.TestCase):
             response = graph.run_chat_graph(request, fake_analyze)
 
         self.assertEqual(response.shot_context.grinder, "Varia VS3")
-        self.assertEqual(response.next_field, "grind_setting")
+        self.assertEqual(response.next_field, "dose_g")
 
     def test_graph_rejects_non_equipment_machine_reply(self):
         response = graph.run_chat_graph(
@@ -460,8 +462,8 @@ class CoachGraphTest(unittest.TestCase):
 
         self.assertTrue(response.shot_context.uses_built_in_grinder)
         self.assertEqual(response.shot_context.grinder, "LELIT Anita PL042TEMD built-in grinder")
-        self.assertEqual(response.next_field, "grind_setting")
-        self.assertNotIn("dose_g", response.missing_fields)
+        self.assertEqual(response.next_field, "dose_g")
+        self.assertIn("dose_g", response.missing_fields)
 
     def test_graph_rejects_built_in_grinder_when_machine_profile_disallows_it(self):
         request = ChatRequest(
@@ -494,7 +496,7 @@ class CoachGraphTest(unittest.TestCase):
         self.assertEqual(response.next_field, "grind_setting")
         self.assertIn("grind setting should be", response.response.lower())
 
-    def test_graph_rejects_invalid_roast_level_immediately(self):
+    def test_graph_allows_unknown_roast_level_to_skip(self):
         request = ChatRequest(
             messages=[ChatMessage(role="user", content="nothing")],
             shot_context=ShotContext(
@@ -508,8 +510,9 @@ class CoachGraphTest(unittest.TestCase):
         response = graph.run_chat_graph(request, fake_analyze)
 
         self.assertIsNone(response.shot_context.roast_level)
-        self.assertEqual(response.next_field, "roast_level")
-        self.assertIn("light, medium, or dark", response.response.lower())
+        self.assertTrue(response.shot_context.roast_unknown)
+        self.assertEqual(response.next_field, "taste")
+        self.assertIn("taste", response.response.lower())
 
 
     def test_graph_low_video_timing_confidence_asks_for_confirmation(self):
@@ -571,6 +574,7 @@ class CoachGraphTest(unittest.TestCase):
                 machine="Lelit Anita",
                 grinder="Lelit Anita built-in grinder",
                 uses_built_in_grinder=True,
+                dose_unknown=True,
             ),
         )
         extracted = {"dose_g": 17, "total_shot_seconds": 17}
@@ -655,6 +659,7 @@ class CoachGraphTest(unittest.TestCase):
                 machine="LELIT Anita PL042TEMD",
                 grinder="LELIT Anita PL042TEMD built-in grinder",
                 uses_built_in_grinder=True,
+                dose_unknown=True,
             ),
         )
         extracted = {"dose_g": 1.8, "grind_setting": "1.8"}
@@ -742,6 +747,60 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIsNone(response.shot_context.pending_gear_name)
         self.assertEqual(response.next_field, "machine")
         self.assertIn("could not identify the machine confidently", response.response.lower())
+
+    def test_graph_low_confidence_brand_image_suggests_known_machine_models(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="machine photo",
+                    image_base64="ZmFrZQ==",
+                    image_media_type="image/jpeg",
+                    image_kind="machine",
+                )
+            ]
+        )
+        guess = {"gear_type": "machine", "name": "LELIT", "confidence": "low", "reason": "LELIT logo visible."}
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock", return_value=guess
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertIsNone(response.shot_context.pending_gear_name)
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("may be lelit", response.response.lower())
+        self.assertIn("exact machine model", response.response.lower())
+        self.assertIn("lelit anita", response.response.lower())
+
+    def test_graph_low_confidence_reason_brand_suggests_known_machine_models(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="machine photo",
+                    image_base64="ZmFrZQ==",
+                    image_media_type="image/jpeg",
+                    image_kind="machine",
+                )
+            ]
+        )
+        guess = {"gear_type": "machine", "name": None, "confidence": "low", "reason": "The Lelit badge is visible, but model is unclear."}
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock", return_value=guess
+        ):
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            response = graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(response.next_field, "machine")
+        self.assertIn("may be lelit", response.response.lower())
+        self.assertIn("lelit anita", response.response.lower())
 
     def test_graph_canonicalizes_image_guess_alias(self):
         request = ChatRequest(
@@ -930,7 +989,8 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIsNone(response.shot_context.grinder)
         self.assertIsNone(response.shot_context.pending_gear_name)
         self.assertEqual(response.next_field, "grinder")
-        self.assertIn("could not identify the grinder confidently", response.response.lower())
+        self.assertIn("may be varia", response.response.lower())
+        self.assertIn("varia vs3", response.response.lower())
 
     def test_graph_does_not_accept_brand_only_grinder_photo_as_machine(self):
         request = ChatRequest(

@@ -14,9 +14,11 @@ class ShotContext(BaseModel):
     grinder: str | None = None
     uses_built_in_grinder: bool = False
     dose_g: float | None = None
+    dose_unknown: bool = False
     yield_g: float | None = None
     grind_setting: str | None = None
     roast_level: str | None = None
+    roast_unknown: bool = False
     taste: str | None = None
     timing_confidence: float | None = None
     total_shot_seconds: float | None = None

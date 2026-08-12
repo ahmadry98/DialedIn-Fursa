@@ -14,7 +14,7 @@ from typing import Any
 from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse, ShotContext
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
-FIELD_ORDER = ["machine", "grinder", "grind_setting", "roast_level", "taste", "timing"]
+FIELD_ORDER = ["machine", "grinder", "dose_g", "grind_setting", "roast_level", "taste", "timing"]
 TASTE_WORDS = {"sour", "bitter", "balanced", "thin", "watery", "harsh", "dry", "sweet", "acidic"}
 ROAST_LEVELS = {"light", "medium", "dark"}
 VIDEO_PATTERN = re.compile(r"(?:data/[^\s]+|[^\s]+\.(?:mp4|mov|m4v|wav))", re.IGNORECASE)
@@ -76,9 +76,11 @@ def missing_chat_fields(context: ShotContext) -> list[str]:
         missing.append("machine")
     if not context.uses_built_in_grinder and not context.grinder:
         missing.append("grinder")
+    if context.dose_g is None and not context.dose_unknown:
+        missing.append("dose_g")
     if not context.grind_setting:
         missing.append("grind_setting")
-    if not context.roast_level:
+    if not context.roast_level and not context.roast_unknown:
         missing.append("roast_level")
     if not context.taste:
         missing.append("taste")
@@ -113,6 +115,14 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
 
     _apply_compact_setup_message(context, text, previous_missing)
 
+    if previous_missing[:1] == ["dose_g"] and _looks_like_unknown_optional(lowered):
+        context.dose_unknown = True
+        return
+
+    if previous_missing[:1] == ["roast_level"] and _looks_like_unknown_optional(lowered):
+        context.roast_unknown = True
+        return
+
     if is_built_in_grinder_reply(text):
         context.uses_built_in_grinder = True
         if context.machine and not context.grinder:
@@ -136,6 +146,7 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
         dose = _first_number(text)
     if dose is not None:
         context.dose_g = dose
+        context.dose_unknown = False
 
     yield_value = _extract_labeled_number(text, ["yield", "out", "output"])
     if yield_value is not None:
@@ -151,6 +162,7 @@ def apply_message_to_context(context: ShotContext, message: str, previous_missin
         roast = _extract_roast_level(text)
         if roast:
             context.roast_level = roast
+            context.roast_unknown = False
         elif previous_missing[:1] == ["roast_level"] and lowered in ROAST_LEVELS:
             context.roast_level = lowered
 
@@ -226,6 +238,7 @@ def _apply_compact_setup_message(context: ShotContext, text: str, previous_missi
         roast = _extract_roast_level(part)
         if roast and not context.roast_level:
             context.roast_level = roast
+            context.roast_unknown = False
             parts.remove(part)
             break
 
@@ -311,9 +324,9 @@ def question_for(field: str, context: ShotContext) -> str:
     questions = {
         "machine": "What espresso machine are you using? You can type the model name for now.",
         "grinder": "What grinder are you using? If it is built into the machine, say built-in.",
-        "dose_g": "What dose are you using in grams? For example: 18g.",
-        "grind_setting": "What grind setting are you currently using? If you know the dose, you can include it too, like 18g.",
-        "roast_level": "What roast level is the coffee: light, medium, or dark?",
+        "dose_g": "What dose did you use? For example: 17g or 18g in the basket. If you do not know, say idk.",
+        "grind_setting": "What grind setting are you currently using?",
+        "roast_level": "What roast level is the coffee: light, medium, or dark? If the bag does not say, you can say idk.",
         "taste": "How did the shot taste? Sour, bitter, balanced, thin, harsh, or anything you noticed.",
         "timing": "Attach or send your espresso shot video. If you timed it yourself, you can type the total time, like 27 seconds.",
     }
@@ -638,7 +651,29 @@ def _extract_correction_name(text: str) -> str | None:
 
 
 def _looks_like_skip(text: str) -> bool:
-    return text in {"skip", "unknown", "no", "none", "not sure"}
+    return _looks_like_unknown_optional(text)
+
+
+def _looks_like_unknown_optional(text: str) -> bool:
+    normalized = _normalize_text(text)
+    return normalized in {
+        "skip",
+        "unknown",
+        "i dont know",
+        "i don t know",
+        "dont know",
+        "don t know",
+        "do not know",
+        "i do not know",
+        "idk",
+        "no idea",
+        "not sure",
+        "not written",
+        "doesnt say",
+        "does not say",
+        "none",
+        "nothing",
+    }
 
 
 def _looks_like_image_file(value: str) -> bool:

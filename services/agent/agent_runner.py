@@ -15,7 +15,7 @@ from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, Chat
 from services.espresso_mcp import app as espresso_tools
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
-REQUIRED_CONTEXT_FIELDS = ["machine", "grinder", "grind_setting", "roast_level", "taste"]
+REQUIRED_CONTEXT_FIELDS = ["machine", "grinder", "grind_setting", "taste"]
 METRICS = {
     "shot_analysis_requests_total": 0,
     "chat_requests_total": 0,
