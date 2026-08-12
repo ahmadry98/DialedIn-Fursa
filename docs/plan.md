@@ -718,9 +718,10 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Configure production domain/API URL.
 - [ ] Configure production Bedrock/IAM access in Ahmad's AWS account.
 - [ ] Configure production SES/SMTP for real profile-candidate email notifications. Personal-dev SES sender `support@dialedin.me` is verified.
-- [ ] Add production rollback instructions.
-- [ ] Add production smoke checks and monitoring checks.
-- [ ] Require manual confirmation/environment approval for prod deploy.
+- [x] Add production rollback instructions.
+- [x] Add production smoke checks and monitoring checks.
+- [x] Require manual confirmation/environment approval for prod deploy.
+- [x] Add static production-readiness check to CI.
 - [ ] Keep App Store/Play Store builds pointed at dev until prod smoke tests pass.
 
 ## Checkpoint 33: Mobile Release Readiness
@@ -738,6 +739,23 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Add app privacy notes for uploaded videos/photos and analysis data.
 - [ ] Prepare icons/splash/screenshots if needed.
 - [ ] Run full cloud smoke on a real device before store submission.
+
+
+## Checkpoint 33.5: Production Monitoring And Mobile Observability
+
+**Files:**
+- backend repo: `infra/k8s/*`, `infra/terraform/*`, `.github/workflows/*`, `docs/production-readiness.md`, `README.md`
+- mobile repo: `dialedin-mobile/*`
+
+**Deliverable:** Production-ready visibility for the iOS/Android app and cloud backend before public app-store release.
+
+- [ ] Add Sentry or equivalent crash/error monitoring to the React Native/Expo mobile app.
+- [ ] Capture mobile API failures, upload failures, and important user-flow errors without logging private video/photo contents.
+- [ ] Send Kubernetes/backend application logs to CloudWatch Logs or another production log sink.
+- [ ] Add basic CloudWatch alarms for API down, high 5xx rate, failed S3 uploads, Bedrock failures, and repeated profile-research errors.
+- [ ] Decide whether production needs Amazon Managed Prometheus/Grafana now, or whether CloudWatch alarms are enough for first iOS release.
+- [ ] Document production alert recipients and on-call/debug workflow.
+- [ ] Verify monitoring with a real simulator/phone smoke test and one intentional backend error.
 
 ## Checkpoint 34: AI Recognition And UX Improvements
 
