@@ -391,26 +391,27 @@ KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true rollout st
 ### 4. Open The Cloud URLs
 
 ```text
-DialChat web:   https://ai-dev.fursa.click
-DialChat API:   https://api-dev.fursa.click
-Landing site:   https://app-dev.fursa.click
+DialChat API:   http://api-dev.dialedin.me
+DialChat web:   http://ai-dev.dialedin.me
+Landing site:   http://app-dev.dialedin.me
 ```
 
 Smoke checks:
 
 ```bash
-curl -k https://api-dev.fursa.click/health
-curl -k https://api-dev.fursa.click/machines
-curl -k https://ai-dev.fursa.click/api/health
+curl http://api-dev.dialedin.me/health
+curl http://api-dev.dialedin.me/machines
+curl http://ai-dev.dialedin.me/api/health
 ```
 
 ### 5. Run The Phone App Against Cloud
 
 ```bash
 cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
-EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
-EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
-npm run ios
+EXPO_PUBLIC_DIALCHAT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_AI_SHOT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://api-dev.dialedin.me \
+npm run ios -- --clear
 ```
 
 Use local URLs only when you are running FastAPI on your Mac. Use the cloud URLs above when the app should talk to the Terraform/Kubernetes deployment.
@@ -501,17 +502,18 @@ Use this flow after code is merged to `dev` and the simulator/local smoke test p
 7. Test the cloud API and app:
 
 ```bash
-curl -k https://api-dev.fursa.click/health
-curl -k https://api-dev.fursa.click/machines
+curl http://api-dev.dialedin.me/health
+curl http://api-dev.dialedin.me/machines
 ```
 
 Then run the mobile app against cloud:
 
 ```bash
 cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
-EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
-EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
-npm run ios
+EXPO_PUBLIC_DIALCHAT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_AI_SHOT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://api-dev.dialedin.me \
+npm run ios -- --clear
 ```
 
 If `Deploy Dev` cannot reach Kubernetes, check these first:
@@ -592,6 +594,15 @@ npm run ios -- --clear
 Next production-quality step: move `dialedin.me` DNS to Route 53 or add DNS validation records manually, then enable ACM/HTTPS so the app can use `https://api-dev.dialedin.me`.
 
 ### Prod Readiness Checklist
+
+For the full release gate, use [docs/production-readiness.md](docs/production-readiness.md). It contains the prod separation rules, GitHub environment setup, data promotion flow, smoke tests, monitoring checks, and rollback commands.
+
+Run the static readiness gate before a production checkpoint or release PR:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project
+.venv/bin/python scripts/production_readiness_check.py
+```
 
 Do not run production deployment until these are done:
 

@@ -233,9 +233,10 @@ MODEL=bedrock/openai.gpt-oss-20b-1:0
 AWS_REGION=us-east-1
 CHAT_LLM_EXTRACTION=true
 CHAT_LLM_MODEL=us.anthropic.claude-haiku-4-5-20251001-v1:0
+VISION_MODEL=us.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
-`CHAT_LLM_EXTRACTION=true` enables both structured chat extraction and LLM validation of unknown machine/grinder names before the coach accepts them as shot context. Obvious junk is rejected deterministically before Bedrock is called.
+`CHAT_LLM_EXTRACTION=true` enables both structured chat extraction and LLM validation of unknown machine/grinder names before the coach accepts them as shot context. Obvious junk is rejected deterministically before Bedrock is called. `VISION_MODEL` lets photo recognition use a stronger multimodal model without changing the normal chat model.
 
 ## 13. Recommendation Rules
 

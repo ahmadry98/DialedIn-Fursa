@@ -45,6 +45,9 @@ jobs:
           python -m json.tool infra/grafana/dashboards/shot-analysis.json >/tmp/shot-analysis-infra.json
           ruby -e 'require "yaml"; YAML.load_file("monitoring/prometheus.yml"); YAML.load_file("monitoring/alerts.yml")'
 
+      - name: Run production readiness checks
+        run: python scripts/production_readiness_check.py
+
       - name: Validate Docker Compose config
         run: docker compose config >/tmp/dialedin-compose.yml
 

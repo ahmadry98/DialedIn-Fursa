@@ -804,6 +804,34 @@ class CoachGraphTest(unittest.TestCase):
         self.assertIn("is that your machine", response.response.lower())
 
 
+    def test_graph_uses_vision_model_for_image_identification(self):
+        request = ChatRequest(
+            messages=[
+                ChatMessage(
+                    role="user",
+                    content="machine photo",
+                    image_base64="ZmFrZQ==",
+                    image_media_type="image/jpeg",
+                    image_kind="machine",
+                )
+            ]
+        )
+        guess = {"gear_type": "machine", "name": None, "confidence": "low", "reason": "Unclear photo."}
+
+        with patch.object(graph, "get_settings") as fake_settings, patch.object(
+            graph.image_identification, "identify_gear_image_with_bedrock", return_value=guess
+        ) as fake_image_identification:
+            fake_settings.return_value.chat_llm_extraction_enabled = True
+            fake_settings.return_value.chat_llm_model_id = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            fake_settings.return_value.vision_model_id = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+            fake_settings.return_value.aws_region = "us-east-1"
+            graph.run_chat_graph(request, fake_analyze)
+
+        self.assertEqual(
+            fake_image_identification.call_args.kwargs["model_id"],
+            "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        )
+
     def test_graph_rejected_image_guess_asks_natural_followup(self):
         request = ChatRequest(
             messages=[ChatMessage(role="user", content="no")],

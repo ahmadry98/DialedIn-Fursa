@@ -294,6 +294,8 @@ attach_draft_profile(candidate_key, draft_profile)
 
 - [x] Let the user upload a machine or grinder photo in chat.
 - [x] Send image to a multimodal LLM for a best-guess model name.
+- [x] Keep normal chat extraction on Haiku while allowing `VISION_MODEL` to use a stronger Sonnet model for photos.
+- [x] Prompt image recognition with known machine/grinder candidates, required confidence, and visual clues.
 - [x] Match the guess against trusted machine/grinder profiles and aliases.
 - [x] Ask the user to confirm before using the guessed gear.
 - [x] Route low-confidence or unknown photo results back to manual gear entry so the existing candidate workflow can capture them after analysis.
@@ -718,9 +720,10 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Configure production domain/API URL.
 - [ ] Configure production Bedrock/IAM access in Ahmad's AWS account.
 - [ ] Configure production SES/SMTP for real profile-candidate email notifications. Personal-dev SES sender `support@dialedin.me` is verified.
-- [ ] Add production rollback instructions.
-- [ ] Add production smoke checks and monitoring checks.
-- [ ] Require manual confirmation/environment approval for prod deploy.
+- [x] Add production rollback instructions.
+- [x] Add production smoke checks and monitoring checks.
+- [x] Require manual confirmation/environment approval for prod deploy.
+- [x] Add static production-readiness check to CI.
 - [ ] Keep App Store/Play Store builds pointed at dev until prod smoke tests pass.
 
 ## Checkpoint 33: Mobile Release Readiness
@@ -732,12 +735,32 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Prepare DialedIn mobile for TestFlight/Android internal testing.
 
-- [ ] Move API URLs into release-safe environment config.
-- [ ] Confirm media upload performance on simulator and real phone.
-- [ ] Confirm camera/photo/video permissions and user-facing error messages.
-- [ ] Add app privacy notes for uploaded videos/photos and analysis data.
-- [ ] Prepare icons/splash/screenshots if needed.
+- [x] Move API URLs into release-safe environment config with `.env.example` and `eas.json` profiles.
+- [x] Confirm mobile release config with lint, TypeScript, and Expo config export.
+- [x] Confirm photo/video library permission copy and user-facing media error flow are documented.
+- [x] Add app privacy notes for uploaded videos/photos and analysis data.
+- [x] Document local, personal-dev, and future production run/build commands in the mobile README.
+- [x] Compress recognition photos on-device to avoid 413 request-size failures on real phones.
+- [ ] Confirm media upload performance on simulator and real phone after the next real-device smoke test.
+- [ ] Prepare final app icons/splash/screenshots if needed.
 - [ ] Run full cloud smoke on a real device before store submission.
+
+
+## Checkpoint 33.5: Production Monitoring And Mobile Observability
+
+**Files:**
+- backend repo: `infra/k8s/*`, `infra/terraform/*`, `.github/workflows/*`, `docs/production-readiness.md`, `README.md`
+- mobile repo: `dialedin-mobile/*`
+
+**Deliverable:** Production-ready visibility for the iOS/Android app and cloud backend before public app-store release.
+
+- [ ] Add Sentry or equivalent crash/error monitoring to the React Native/Expo mobile app.
+- [ ] Capture mobile API failures, upload failures, and important user-flow errors without logging private video/photo contents.
+- [ ] Send Kubernetes/backend application logs to CloudWatch Logs or another production log sink.
+- [ ] Add basic CloudWatch alarms for API down, high 5xx rate, failed S3 uploads, Bedrock failures, and repeated profile-research errors.
+- [ ] Decide whether production needs Amazon Managed Prometheus/Grafana now, or whether CloudWatch alarms are enough for first iOS release.
+- [ ] Document production alert recipients and on-call/debug workflow.
+- [ ] Verify monitoring with a real simulator/phone smoke test and one intentional backend error.
 
 ## Checkpoint 34: AI Recognition And UX Improvements
 
@@ -748,9 +771,9 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Improve user trust and reduce wrong machine/grinder recognition after infrastructure ownership is stable.
 
-- [ ] Improve photo recognition prompts and validation so brand-only guesses like `Varia` are not accepted as full equipment models.
+- [x] Improve photo recognition prompts and validation so brand-only guesses like `Varia` are not accepted as full equipment models.
 - [ ] Add clearer confirmation/correction loops for photo guesses.
-- [ ] Track recognition confidence and failure reasons for future tuning.
+- [x] Track recognition confidence and failure reasons for future tuning.
 - [ ] Improve chat recovery when the user sends random text, typos, or corrections.
 - [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
 - [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.

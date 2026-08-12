@@ -27,6 +27,14 @@ class ImageIdentificationTest(unittest.TestCase):
         self.assertEqual(image_identification.strip_data_url_prefix("data:image/jpeg;base64,abc"), "abc")
         self.assertEqual(image_identification.strip_data_url_prefix("abc"), "abc")
 
+    def test_build_user_prompt_includes_known_candidates_and_visual_rules(self):
+        prompt = image_identification.build_user_prompt("machine")
+
+        self.assertIn("Known equipment candidates", prompt)
+        self.assertIn("Rancilio Silvia", prompt)
+        self.assertIn("Varia VS3", prompt)
+        self.assertIn("return null with low confidence", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
