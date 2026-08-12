@@ -96,16 +96,29 @@ def _image_identify(state: CoachGraphState) -> dict[str, Any]:
     if not settings.chat_llm_extraction_enabled:
         return {}
 
+    vision_model_id = getattr(settings, "vision_model_id", settings.chat_llm_model_id)
     try:
         guess = image_identification.identify_gear_image_with_bedrock(
             image_base64=message.image_base64,
             media_type=message.image_media_type or "image/jpeg",
             gear_type=message.image_kind,
-            model_id=settings.chat_llm_model_id,
+            model_id=vision_model_id,
             region=settings.aws_region,
         )
     except Exception as error:  # pragma: no cover - external Bedrock failures should not break chat.
-        return {"image_error": f"{type(error).__name__}: {error}"}
+        if vision_model_id != settings.chat_llm_model_id:
+            try:
+                guess = image_identification.identify_gear_image_with_bedrock(
+                    image_base64=message.image_base64,
+                    media_type=message.image_media_type or "image/jpeg",
+                    gear_type=message.image_kind,
+                    model_id=settings.chat_llm_model_id,
+                    region=settings.aws_region,
+                )
+            except Exception as fallback_error:  # pragma: no cover - external Bedrock failures should not break chat.
+                return {"image_error": f"{type(error).__name__}: {error}; fallback {type(fallback_error).__name__}: {fallback_error}"}
+        else:
+            return {"image_error": f"{type(error).__name__}: {error}"}
 
     gear_type = guess.get("gear_type") or message.image_kind
     gear_name = guess.get("name")
