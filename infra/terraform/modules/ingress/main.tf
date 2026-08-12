@@ -55,7 +55,7 @@ resource "aws_vpc_security_group_ingress_rule" "load_balancer_https" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "load_balancer_http" {
-  count             = var.enable_https ? 0 : 1
+  count             = var.enable_https || !var.enable_https_listener ? 0 : 1
   security_group_id = aws_security_group.load_balancer.id
   description       = "Public HTTP traffic for dev ingress"
   cidr_ipv4         = "0.0.0.0/0"
@@ -124,7 +124,7 @@ resource "aws_autoscaling_attachment" "ingress" {
 }
 
 resource "aws_lb_listener" "https" {
-  count             = var.enable_https ? 1 : 0
+  count             = var.enable_https && var.enable_https_listener ? 1 : 0
   load_balancer_arn = aws_lb.main.arn
   port              = 443
   protocol          = "HTTPS"

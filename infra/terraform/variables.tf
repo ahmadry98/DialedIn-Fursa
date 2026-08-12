@@ -45,7 +45,19 @@ variable "force_delete_ecr_repositories" {
   default     = false
 }
 
+variable "manage_ecr_repositories" {
+  description = "Whether this workspace creates ECR repositories. Production reuses the reviewed repositories created by dev."
+  type        = bool
+  default     = true
+}
 
+
+
+variable "manage_github_oidc_provider" {
+  description = "Whether this workspace creates the account-level GitHub Actions OIDC provider. Only one provider can exist per AWS account."
+  type        = bool
+  default     = true
+}
 
 variable "github_actions_role_name" {
   description = "IAM role name assumed by GitHub Actions through OIDC."
@@ -93,6 +105,12 @@ variable "public_ingress_manage_dns" {
 
 variable "public_ingress_enable_https" {
   description = "Create an HTTPS ALB listener with ACM. Disable for external-DNS dev smoke tests until a certificate is validated."
+  type        = bool
+  default     = true
+}
+
+variable "public_ingress_enable_https_listener" {
+  description = "Whether the HTTPS listener is enabled. Set false for the first external-DNS apply, validate ACM, then set true."
   type        = bool
   default     = true
 }

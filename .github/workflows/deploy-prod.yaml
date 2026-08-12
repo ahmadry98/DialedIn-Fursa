@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag to deploy to production.
+        description: Image tag to deploy for agent, espresso MCP, and frontend.
         required: true
         type: string
       confirm:
@@ -14,17 +14,106 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  guard:
-    name: Production deployment guard
+  deploy-prod:
+    name: Deploy DialChat to production Kubernetes
     runs-on: ubuntu-latest
     environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      AWS_GITHUB_ACTIONS_ROLE_NAME: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_NAME || 'DialedInGitHubActionsProdRole' }}
+      KUBECONFIG: ${{ github.workspace }}/kubeconfig
+      CONTROL_PLANE_SECURITY_GROUP_NAME: ${{ vars.CONTROL_PLANE_SECURITY_GROUP_NAME }}
+      DIALEDIN_MEDIA_UPLOAD_BUCKET: ${{ vars.DIALEDIN_MEDIA_UPLOAD_BUCKET }}
+      DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
+      DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
     steps:
-      - name: Require explicit confirmation
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirm production deployment
         run: |
           if [ "${{ inputs.confirm }}" != "deploy-prod" ]; then
-            echo "Production deploy cancelled: confirmation text did not match."
+            echo "Type deploy-prod in the confirmation field to deploy production." >&2
             exit 1
           fi
-          echo "Production deploy workflow is intentionally guarded. Add prod manifests and secrets before enabling automatic apply."
+          : "${AWS_ACCOUNT_ID:?AWS_ACCOUNT_ID production environment variable is required}"
+          : "${AWS_ROLE_TO_ASSUME:?AWS_GITHUB_ACTIONS_ROLE_ARN production environment variable is required}"
+          : "${CONTROL_PLANE_SECURITY_GROUP_NAME:?CONTROL_PLANE_SECURITY_GROUP_NAME production environment variable is required}"
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.1.2
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: dialedin-deploy-prod-${{ github.run_id }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Allow runner to Kubernetes API
+        run: |
+          RUNNER_IP=$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')
+          CONTROL_PLANE_SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
+            --filters "Name=tag:Name,Values=$CONTROL_PLANE_SECURITY_GROUP_NAME" \
+            --query 'SecurityGroups[0].GroupId' --output text)
+          test -n "$CONTROL_PLANE_SECURITY_GROUP_ID" && test "$CONTROL_PLANE_SECURITY_GROUP_ID" != "None"
+          echo "CONTROL_PLANE_SECURITY_GROUP_ID=$CONTROL_PLANE_SECURITY_GROUP_ID" >> "$GITHUB_ENV"
+          echo "RUNNER_K8S_API_CIDR=$RUNNER_IP/32" >> "$GITHUB_ENV"
+          aws ec2 authorize-security-group-ingress --group-id "$CONTROL_PLANE_SECURITY_GROUP_ID" \
+            --ip-permissions "IpProtocol=tcp,FromPort=6443,ToPort=6443,IpRanges=[{CidrIp=$RUNNER_IP/32,Description='GitHub Actions prod deploy'}]" \
+            || echo "Ingress rule already exists; continuing."
+
+      - name: Write and validate kubeconfig
+        env:
+          DIALEDIN_PROD_KUBE_CONFIG_B64: ${{ secrets.DIALEDIN_PROD_KUBE_CONFIG_B64 }}
+        run: |
+          : "${DIALEDIN_PROD_KUBE_CONFIG_B64:?DIALEDIN_PROD_KUBE_CONFIG_B64 production secret is required}"
+          printf '%s' "$DIALEDIN_PROD_KUBE_CONFIG_B64" | base64 --decode > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true get deployments -n prod
+
+      - name: Refresh ECR pull secret
+        run: |
+          ECR_PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true create secret docker-registry ecr-pull-secret -n prod \
+            --docker-server="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com" --docker-username=AWS --docker-password="$ECR_PASSWORD" \
+            --dry-run=client -o yaml | kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f -
+
+      - name: Patch production deployment inputs
+        run: |
+          : "${DIALEDIN_MEDIA_UPLOAD_BUCKET:?DIALEDIN_MEDIA_UPLOAD_BUCKET production variable is required}"
+          : "${DIALEDIN_PROFILE_TABLE:?DIALEDIN_PROFILE_TABLE production variable is required}"
+          : "${DIALEDIN_SHOT_RESULTS_TABLE:?DIALEDIN_SHOT_RESULTS_TABLE production variable is required}"
+          TAG="${{ inputs.image_tag }}"
+          REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$TAG#" infra/k8s/agent.yaml
+          sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$TAG#" infra/k8s/espresso-mcp.yaml
+          sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
+          sed -i "s#DIALEDIN_MEDIA_UPLOAD_BUCKET: .*#DIALEDIN_MEDIA_UPLOAD_BUCKET: $DIALEDIN_MEDIA_UPLOAD_BUCKET#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_PROFILE_TABLE: .*#DIALEDIN_PROFILE_TABLE: $DIALEDIN_PROFILE_TABLE#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_SHOT_RESULTS_TABLE: .*#DIALEDIN_SHOT_RESULTS_TABLE: $DIALEDIN_SHOT_RESULTS_TABLE#" infra/k8s/agent.yaml
+          sed -i "s#PROFILE_CANDIDATE_ADMIN_URL: .*#PROFILE_CANDIDATE_ADMIN_URL: https://ai.dialedin.me/admin#" infra/k8s/agent.yaml
+
+      - name: Apply production manifests
+        run: |
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/agent.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/espresso-mcp.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/frontend.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/ingress-prod.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/hpa.yaml
+
+      - name: Wait for production rollout
+        run: |
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-agent --timeout=360s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/espresso-mcp --timeout=360s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-frontend --timeout=360s
+
+      - name: Revoke runner Kubernetes API access
+        if: always() && env.CONTROL_PLANE_SECURITY_GROUP_ID != '' && env.RUNNER_K8S_API_CIDR != ''
+        run: |
+          aws ec2 revoke-security-group-ingress --group-id "$CONTROL_PLANE_SECURITY_GROUP_ID" --protocol tcp --port 6443 --cidr "$RUNNER_K8S_API_CIDR" || true
