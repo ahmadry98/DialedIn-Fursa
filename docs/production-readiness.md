@@ -168,7 +168,19 @@ increase(dialedin_chat_requests_total[5m])
 increase(dialedin_mcp_tool_errors_total[10m])
 dialedin_audio_timing_confidence_latest < 0.7
 increase(dialedin_profile_research_runs_total{status="error"}[30m])
+sum by (status_family) (increase(dialedin_http_requests_total[5m]))
+increase(dialedin_http_5xx_total[10m])
 ```
+
+For personal-dev CloudWatch, verify these alarms exist and send to the Terraform `alert_email` SNS subscription:
+
+```text
+*-ingress-target-5xx
+*-ingress-unhealthy-hosts
+*-control-plane-cpu-high
+```
+
+The backend emits structured JSON request logs on stdout. The mobile app emits scrubbed observability events for API failures, media upload failures, permission denial, oversized videos, and session persistence failures. Do not log image base64, media keys, presigned URLs, or message contents.
 
 Production alerts should cover:
 
