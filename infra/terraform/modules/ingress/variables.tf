@@ -9,6 +9,12 @@ variable "enable_https" {
   default     = true
 }
 
+variable "enable_https_listener" {
+  description = "Whether to expose the HTTPS listener after the certificate is validated."
+  type        = bool
+  default     = true
+}
+
 variable "manage_dns" {
   description = "Whether Terraform manages Route 53 records for hostnames and ACM validation."
   type        = bool

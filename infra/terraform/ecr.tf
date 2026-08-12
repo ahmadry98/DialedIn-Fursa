@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "app" {
-  for_each = toset(var.ecr_repository_names)
+  for_each = var.manage_ecr_repositories ? toset(var.ecr_repository_names) : toset([])
 
   name                 = each.value
   image_tag_mutability = "MUTABLE"

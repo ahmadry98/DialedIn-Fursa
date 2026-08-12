@@ -75,7 +75,7 @@ output "load_balancer_dns_name" {
 output "ecr_repository_urls" {
   description = "ECR repository URLs keyed by repository name."
   value = {
-    for name, repo in aws_ecr_repository.app : name => repo.repository_url
+    for name in var.ecr_repository_names : name => "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/${name}"
   }
 }
 
@@ -93,3 +93,7 @@ output "target_group_arn_suffix" {
   value       = try(module.ingress[0].target_group_arn_suffix, null)
 }
 
+output "certificate_validation_records" {
+  description = "External DNS validation records for the optional public ACM certificate."
+  value       = try(module.ingress[0].certificate_validation_records, [])
+}
