@@ -83,3 +83,13 @@ output "github_actions_role_arn" {
   description = "IAM role ARN for GitHub Actions OIDC builds/deploys."
   value       = aws_iam_role.github_actions.arn
 }
+output "load_balancer_arn_suffix" {
+  description = "CloudWatch metric ARN suffix of the optional public application load balancer."
+  value       = try(module.ingress[0].load_balancer_arn_suffix, null)
+}
+
+output "target_group_arn_suffix" {
+  description = "CloudWatch metric ARN suffix of the optional ingress target group."
+  value       = try(module.ingress[0].target_group_arn_suffix, null)
+}
+

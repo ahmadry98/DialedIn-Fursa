@@ -754,12 +754,12 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** Production-ready visibility for the iOS/Android app and cloud backend before public app-store release.
 
-- [ ] Add Sentry or equivalent crash/error monitoring to the React Native/Expo mobile app.
-- [ ] Capture mobile API failures, upload failures, and important user-flow errors without logging private video/photo contents.
-- [ ] Send Kubernetes/backend application logs to CloudWatch Logs or another production log sink.
-- [ ] Add basic CloudWatch alarms for API down, high 5xx rate, failed S3 uploads, Bedrock failures, and repeated profile-research errors.
-- [ ] Decide whether production needs Amazon Managed Prometheus/Grafana now, or whether CloudWatch alarms are enough for first iOS release.
-- [ ] Document production alert recipients and on-call/debug workflow.
+- [x] Add Sentry-ready mobile observability wrapper for React Native/Expo errors without adding the SDK yet.
+- [x] Capture mobile API failures, upload failures, permission denials, oversized videos, and session failures without logging private video/photo contents.
+- [x] Emit structured backend request logs on stdout so Kubernetes/CloudWatch collection can ingest them without media contents.
+- [x] Add basic CloudWatch alarms for ingress target 5xx responses, unhealthy ingress targets, and high control-plane CPU; app-level S3/Bedrock/profile metrics remain Prometheus/log based until CloudWatch log metric filters are added.
+- [x] Decide that CloudWatch alarms plus local/dev Prometheus are enough for the first iOS release; managed Prometheus/Grafana can wait.
+- [x] Document production alert recipients and debug checks in production readiness docs.
 - [ ] Verify monitoring with a real simulator/phone smoke test and one intentional backend error.
 
 ## Checkpoint 34: AI Recognition And UX Improvements

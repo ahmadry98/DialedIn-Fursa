@@ -1,9 +1,11 @@
 import math
+import os
 import sys
 import unittest
 import wave
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -36,6 +38,8 @@ def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
 
 class AgentApiTest(unittest.TestCase):
     def setUp(self):
+        self.env_patch = patch.dict(os.environ, {"DIALEDIN_SHOT_HISTORY_STORAGE": "memory"})
+        self.env_patch.start()
         espresso_tools.SHOT_HISTORY.clear()
         agent_app.settings = agent_app.settings.__class__(
             app_name=agent_app.settings.app_name,
@@ -64,6 +68,7 @@ class AgentApiTest(unittest.TestCase):
     def tearDown(self):
         profile_candidates.CANDIDATES_PATH = self.original_candidates_path
         self.candidate_tmp.cleanup()
+        self.env_patch.stop()
 
     def test_health(self):
         response = self.client.get("/health")
@@ -107,6 +112,16 @@ class AgentApiTest(unittest.TestCase):
         self.assertIn('dialedin_audio_analysis_requests_total{source="manual"} 1', metrics)
         self.assertIn("dialedin_audio_total_shot_seconds_latest", metrics)
         self.assertIn("dialedin_audio_timing_confidence_latest", metrics)
+
+    def test_prometheus_http_request_metrics(self):
+        self.client.get("/health")
+        self.client.get("/missing-route")
+
+        metrics = self.client.get("/metrics.prometheus").text
+
+        self.assertIn('dialedin_http_requests_total{method="GET",path="/health",status="200",status_family="2xx"}', metrics)
+        self.assertIn('dialedin_http_requests_total{method="GET",path="/missing-route",status="404",status_family="4xx"}', metrics)
+        self.assertIn("dialedin_http_request_seconds_count", metrics)
 
     def test_chat_asks_for_shot_context(self):
         response = self.client.post(

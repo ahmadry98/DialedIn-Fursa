@@ -197,6 +197,10 @@ dialedin_audio_analysis_duration_seconds_latest
 dialedin_media_uploaded_bytes_latest
 dialedin_profile_research_runs_total
 dialedin_mcp_tool_errors_total
+dialedin_http_requests_total
+sum by (status_family) (increase(dialedin_http_requests_total[5m]))
+increase(dialedin_http_5xx_total[10m])
+dialedin_http_request_seconds_latest
 scrape_duration_seconds{job=~"dialedin-agent|espresso-mcp-health"}
 ```
 
@@ -207,7 +211,10 @@ ALERTS
 increase(dialedin_mcp_tool_errors_total[10m])
 dialedin_audio_timing_confidence_latest < 0.7
 increase(dialedin_profile_research_runs_total{status="error"}[30m])
+increase(dialedin_http_5xx_total[10m])
 ```
+
+For personal-dev cloud monitoring, Terraform creates SNS-backed CloudWatch alarms for ALB target 5xx responses, unhealthy ingress targets, and high control-plane CPU when public ingress is enabled. App logs are structured JSON on stdout so Kubernetes/CloudWatch log collection can parse method, path, status, and latency without exposing user media contents.
 
 Grafana opens at `http://localhost:3001` with `admin` / `admin` by default. Open **Dashboards -> DialedIN -> DialedIN Local Stack** for the service overview, or **DialedIN Shot Analysis Observability** for chat/audio/upload/profile research metrics.
 
