@@ -66,8 +66,32 @@ def check_ci() -> list[Check]:
         Check("Docker build workflow is not PR-triggered", "pull_request:" not in build, "build-images.yaml"),
         Check("Dev deploy is manual", "workflow_dispatch:" in deploy_dev and "Deploy DialChat to dev Kubernetes" in deploy_dev, "deploy-dev.yaml"),
         Check("Dev deploy requires runtime storage vars", has_all(deploy_dev, ["DIALEDIN_MEDIA_UPLOAD_BUCKET", "DIALEDIN_PROFILE_TABLE", "DIALEDIN_SHOT_RESULTS_TABLE"]), "deploy-dev.yaml"),
-        Check("Prod deploy is manually guarded", has_all(deploy_prod, ["workflow_dispatch:", "environment: production", "deploy-prod", "Production deployment guard"]), "deploy-prod.yaml"),
-        Check("Prod deploy placeholder does not apply manifests yet", "kubectl" not in deploy_prod and "terraform apply" not in deploy_prod, "prod deploy should stay inert until production infra exists"),
+        Check(
+            "Prod deploy is manually guarded",
+            has_all(
+                deploy_prod,
+                [
+                    "workflow_dispatch:",
+                    "environment: production",
+                    "inputs.confirm",
+                    "deploy-prod",
+                    "Confirm production deployment",
+                ],
+            ),
+            "deploy-prod.yaml",
+        ),
+        Check(
+            "Prod deploy applies production manifests only after confirmation",
+            has_all(
+                deploy_prod,
+                [
+                    "Apply production manifests",
+                    "infra/k8s/ingress-prod.yaml",
+                    "DIALEDIN_PROD_KUBE_CONFIG_B64",
+                ],
+            ),
+            "deploy-prod.yaml",
+        ),
     ]
 
 
@@ -107,7 +131,12 @@ def check_terraform() -> list[Check]:
         Check("Terraform has prod-safe bucket destroy default", "force_destroy_media_bucket" in variables and "default     = false" in variables, "variables.tf"),
         Check("Prod tfvars does not force-destroy media", re.search(r"force_destroy_media_bucket\s*=\s*false", prod) is not None, "prod.tfvars"),
         Check("Prod tfvars does not force-delete ECR", "force_delete_ecr_repositories = true" not in prod_active, "prod.tfvars"),
-        Check("Prod infrastructure not accidentally enabled", "enable_k8s_cluster" not in prod_active and "enable_public_ingress" not in prod_active, "prod.tfvars should be intentional before prod apply"),
+        Check(
+            "Prod infrastructure is explicitly enabled",
+            re.search(r"enable_k8s_cluster\s*=\s*true", prod_active) is not None
+            and re.search(r"enable_public_ingress\s*=\s*true", prod_active) is not None,
+            "prod.tfvars",
+        ),
         Check("Terraform supports public ingress host override", "public_hostnames_override" in variables, "variables.tf"),
     ]
 
