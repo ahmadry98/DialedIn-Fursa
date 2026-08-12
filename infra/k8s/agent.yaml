@@ -15,6 +15,7 @@ data:
   MODEL: bedrock/openai.gpt-oss-20b-1:0
   CHAT_LLM_EXTRACTION: "true"
   CHAT_LLM_MODEL: us.anthropic.claude-haiku-4-5-20251001-v1:0
+  VISION_MODEL: us.anthropic.claude-sonnet-4-5-20250929-v1:0
   PROFILE_CANDIDATE_EMAIL_ENABLED: "true"
   PROFILE_CANDIDATE_EMAIL_PROVIDER: ses
   PROFILE_CANDIDATE_EMAIL_FROM: support@dialedin.me

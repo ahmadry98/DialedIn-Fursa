@@ -7,11 +7,15 @@ import json
 import re
 from typing import Any
 
+from services.espresso_mcp import grinder_profiles, machine_profiles
+
 SYSTEM_PROMPT = """You identify espresso equipment from a user photo.
 Return ONLY valid JSON. No markdown. No commentary.
 Classify the actual object in the image as either an espresso machine or a coffee grinder.
 The user may have attached the wrong photo for the current chat step; do not force the requested type if the object is clearly the other type.
-If you can only see a brand/company logo but not the exact model, return the brand as name with confidence "low" and explain that the exact model is needed.
+Prefer a candidate from the provided known equipment list when the visual evidence matches it.
+Use visible evidence: brand/logo text, button layout, knob placement, group head, steam wand, built-in grinder, hopper, burr grinder body, and model label.
+If the model is not clearly identifiable, return null or a brand-only name with confidence "low".
 For Varia grinders, valid model names include Varia VS3, Varia VS4, and Varia VS6. Do not return Varia VS2. If you only know the brand, return "Varia" with confidence "low".
 If the image is unclear, return null for name and confidence "low".
 Do not invent technical specifications.
@@ -48,7 +52,7 @@ def identify_gear_image_with_bedrock(
             {
                 "role": "user",
                 "content": [
-                    {"text": f"The chat currently expects a {gear_type}, but classify the actual object in the image. Return only the JSON object."},
+                    {"text": build_user_prompt(gear_type)},
                     {
                         "image": {
                             "format": media_format(media_type),
@@ -61,6 +65,48 @@ def identify_gear_image_with_bedrock(
         inferenceConfig={"temperature": 0.0, "maxTokens": 500},
     )
     return sanitize_guess(parse_json_object(bedrock_response_text(response)), fallback_type=gear_type)
+
+
+def build_user_prompt(gear_type: str) -> str:
+    candidates = known_equipment_candidates()
+    candidate_text = json.dumps(candidates, ensure_ascii=False)
+    return (
+        f"The chat currently expects a {gear_type}, but classify the actual object in the image. "
+        "Compare the image against the known equipment candidates below. "
+        "If one candidate is visually plausible, return that exact candidate name. "
+        "If the image only proves a brand, return the brand with low confidence. "
+        "If no candidate matches clearly, return null with low confidence. "
+        "Return only the JSON object.\n\n"
+        f"Known equipment candidates: {candidate_text}"
+    )
+
+
+def known_equipment_candidates(limit: int = 80) -> dict[str, list[str]]:
+    machines = []
+    for profile in machine_profiles.list_machine_profiles():
+        name = profile.get("machine_name")
+        if name and name != machine_profiles.GENERIC_PROFILE_NAME:
+            aliases = [alias for alias in profile.get("aliases", []) if isinstance(alias, str)]
+            machines.append(_candidate_label(str(name), aliases))
+
+    grinders = []
+    for profile in grinder_profiles.list_grinder_profiles():
+        name = profile.get("grinder_name")
+        if name and name != grinder_profiles.GENERIC_GRINDER_NAME:
+            aliases = [alias for alias in profile.get("aliases", []) if isinstance(alias, str)]
+            grinders.append(_candidate_label(str(name), aliases))
+
+    return {
+        "machines": sorted(machines, key=str.lower)[:limit],
+        "grinders": sorted(grinders, key=str.lower)[:limit],
+    }
+
+
+def _candidate_label(name: str, aliases: list[str]) -> str:
+    useful_aliases = [alias for alias in aliases[:3] if alias.lower() != name.lower()]
+    if not useful_aliases:
+        return name
+    return f"{name} (aliases: {', '.join(useful_aliases)})"
 
 
 def sanitize_guess(data: dict[str, Any], *, fallback_type: str) -> dict[str, Any]:
