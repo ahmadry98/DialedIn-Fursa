@@ -4,6 +4,7 @@ project_name = "dialedin"
 
 # Production keeps its own media, profile, and shot-history resources through the prod workspace.
 force_destroy_media_bucket    = false
+enable_media_cdn              = true
 force_delete_ecr_repositories = false
 
 # ECR images are shared across environments; runtime data is not.

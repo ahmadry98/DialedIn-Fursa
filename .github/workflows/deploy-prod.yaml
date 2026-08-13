@@ -39,6 +39,7 @@ jobs:
       DIALEDIN_MEDIA_UPLOAD_BUCKET: ${{ vars.DIALEDIN_MEDIA_UPLOAD_BUCKET }}
       DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
       DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
+      DIALEDIN_MEDIA_CDN_BASE_URL: ${{ vars.DIALEDIN_MEDIA_CDN_BASE_URL || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,6 +98,7 @@ jobs:
           : "${DIALEDIN_MEDIA_UPLOAD_BUCKET:?DIALEDIN_MEDIA_UPLOAD_BUCKET production variable is required}"
           : "${DIALEDIN_PROFILE_TABLE:?DIALEDIN_PROFILE_TABLE production variable is required}"
           : "${DIALEDIN_SHOT_RESULTS_TABLE:?DIALEDIN_SHOT_RESULTS_TABLE production variable is required}"
+          : "${DIALEDIN_MEDIA_CDN_BASE_URL:?DIALEDIN_MEDIA_CDN_BASE_URL production variable is required}"
           REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           AGENT_TAG="${{ inputs.agent_image_tag }}"
           MCP_TAG="${{ inputs.espresso_mcp_image_tag }}"
@@ -119,6 +121,7 @@ jobs:
           sed -i "s#DIALEDIN_MEDIA_UPLOAD_BUCKET: .*#DIALEDIN_MEDIA_UPLOAD_BUCKET: $DIALEDIN_MEDIA_UPLOAD_BUCKET#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_PROFILE_TABLE: .*#DIALEDIN_PROFILE_TABLE: $DIALEDIN_PROFILE_TABLE#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_SHOT_RESULTS_TABLE: .*#DIALEDIN_SHOT_RESULTS_TABLE: $DIALEDIN_SHOT_RESULTS_TABLE#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_MEDIA_CDN_BASE_URL: .*#DIALEDIN_MEDIA_CDN_BASE_URL: $DIALEDIN_MEDIA_CDN_BASE_URL#" infra/k8s/agent.yaml
           sed -i "s#PROFILE_CANDIDATE_ADMIN_URL: .*#PROFILE_CANDIDATE_ADMIN_URL: https://ai.dialedin.me/admin#" infra/k8s/agent.yaml
 
       - name: Apply production manifests
