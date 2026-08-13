@@ -3,6 +3,11 @@ output "dialchat_media_bucket" {
   value       = aws_s3_bucket.dialchat_media.bucket
 }
 
+output "dialchat_media_cdn_base_url" {
+  description = "CloudFront base URL for reviewed machine images, when the media CDN is enabled."
+  value       = try("https://${aws_cloudfront_distribution.dialchat_media[0].domain_name}", null)
+}
+
 output "shot_results_table_name" {
   description = "DynamoDB table for persisted shot analysis history."
   value       = aws_dynamodb_table.shot_results.name

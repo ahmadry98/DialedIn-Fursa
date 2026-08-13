@@ -97,6 +97,14 @@ def metrics() -> dict[str, int]:
 
 
 def _timing_from_request(request: AnalyzeShotRequest) -> dict[str, Any]:
+    if request.audio_s3_key:
+        observability.increment("dialedin_audio_analysis_requests_total", source="audio")
+        return observability.time_call(
+            "dialedin_audio_analysis_duration_seconds",
+            lambda: espresso_tools.analyze_audio_timing(request.audio_s3_key),
+            source="audio",
+        )
+
     if request.video_s3_key:
         observability.increment("dialedin_audio_analysis_requests_total", source="video")
         return observability.time_call(
@@ -121,7 +129,7 @@ def _timing_from_request(request: AnalyzeShotRequest) -> dict[str, Any]:
             "warnings": [],
         }
 
-    raise ValueError("Either video_s3_key or total_shot_seconds is required")
+    raise ValueError("Either audio_s3_key, video_s3_key, or total_shot_seconds is required")
 
 
 def _recommendation_context(

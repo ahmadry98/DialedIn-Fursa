@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class ShotContext(BaseModel):
     user_id: str = "demo-user"
+    audio_s3_key: str | None = None
     video_s3_key: str | None = None
     machine: str | None = None
     grinder: str | None = None
@@ -71,7 +72,7 @@ class ChatResponse(BaseModel):
 class MediaUploadUrlRequest(BaseModel):
     filename: str
     content_type: str = "application/octet-stream"
-    media_kind: str = Field(pattern="^(shot_video|machine_photo|grinder_photo)$")
+    media_kind: str = Field(pattern="^(shot_audio|shot_video|machine_photo|grinder_photo)$")
     user_id: str = "demo-user"
 
 
@@ -86,13 +87,14 @@ class MediaUploadUrlResponse(BaseModel):
 
 class MediaRegisterRequest(BaseModel):
     media_key: str
-    media_kind: str = Field(pattern="^(shot_video|machine_photo|grinder_photo)$")
+    media_kind: str = Field(pattern="^(shot_audio|shot_video|machine_photo|grinder_photo)$")
     storage_mode: str = Field(pattern="^(local|s3)$")
     content_type: str | None = None
 
 
 class MediaRegisterResponse(BaseModel):
     media_key: str
+    audio_s3_key: str | None = None
     video_s3_key: str | None = None
     media_kind: str
     storage_mode: str

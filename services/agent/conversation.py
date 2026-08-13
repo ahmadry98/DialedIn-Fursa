@@ -84,7 +84,7 @@ def missing_chat_fields(context: ShotContext) -> list[str]:
         missing.append("roast_level")
     if not context.taste:
         missing.append("taste")
-    if not context.video_s3_key and context.total_shot_seconds is None:
+    if not context.audio_s3_key and not context.video_s3_key and context.total_shot_seconds is None:
         missing.append("timing")
     return missing
 

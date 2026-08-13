@@ -27,6 +27,12 @@ variable "force_destroy_media_bucket" {
   default     = false
 }
 
+variable "enable_media_cdn" {
+  description = "Create a CloudFront distribution for reviewed machine images. Keep false until a workspace is ready to use the CDN."
+  type        = bool
+  default     = false
+}
+
 variable "ecr_repository_names" {
   description = "ECR repositories created for DialedIN Docker images."
   type        = list(string)
