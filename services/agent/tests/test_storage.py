@@ -110,6 +110,21 @@ class StorageApiTest(unittest.TestCase):
         self.assertEqual(fake_client.params["Bucket"], "dialedin-test-bucket")
         self.assertEqual(fake_client.params["ContentType"], "video/quicktime")
 
+    def test_register_audio_returns_audio_timing_key(self):
+        response = self.client.post(
+            "/media/register",
+            json={
+                "media_key": "test-media/user-1/shot_audio/shot.m4a",
+                "media_kind": "shot_audio",
+                "storage_mode": "local",
+                "content_type": "audio/mp4",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["audio_s3_key"], "test-media/user-1/shot_audio/shot.m4a")
+        self.assertIsNone(response.json()["video_s3_key"])
+
 
 if __name__ == "__main__":
     unittest.main()

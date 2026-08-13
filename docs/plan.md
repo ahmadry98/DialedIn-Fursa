@@ -781,6 +781,24 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
 - [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.
 
+## Checkpoint 36: Development Media Delivery And Audio-First Timing
+
+**Files:**
+- backend repo: `infra/terraform/cloudfront.tf`, `infra/terraform/*`, `infra/k8s/agent.yaml`, `.github/workflows/deploy-dev.yaml`, `services/agent/*`
+- sibling app: `DialedIn/dialedin-mobile/modules/dialedin-audio-extractor/*`, `components/AIShotChat.tsx`, `lib/aiShotApi.ts`
+
+**Deliverable:** Faster reviewed machine-image delivery in personal-dev and a native audio-first upload path for espresso timing.
+
+- [x] Add opt-in CloudFront distribution with Origin Access Control for reviewed machine-photo objects only.
+- [x] Return stable CloudFront image URLs from the equipment API when `DIALEDIN_MEDIA_CDN_BASE_URL` is configured.
+- [x] Wire the CDN URL through the manual dev deployment workflow without changing production manifests or production tfvars.
+- [x] Add `shot_audio` upload/register API support and prefer `audio_s3_key` for timing analysis.
+- [x] Add a local iOS Expo module that exports a selected video’s audio track as compact M4A before upload.
+- [x] Preserve compressed-video fallback for Expo Go and unsupported platforms.
+- [x] Add regression coverage for direct audio timing.
+- [ ] Apply the personal-dev Terraform change, set the dev CDN variable, and smoke-test on a release/dev iOS build.
+- [ ] Add Android audio extraction before Android store release.
+
 ## Checkpoint 35: Final Demo
 
 **Files:**

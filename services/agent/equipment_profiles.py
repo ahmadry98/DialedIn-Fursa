@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import quote
 
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
 
-def list_machines() -> list[dict[str, Any]]:
+def list_machines(*, media_cdn_base_url: str | None = None) -> list[dict[str, Any]]:
     profiles = [profile for profile in machine_profiles.list_machine_profiles() if profile.get("machine_name") != machine_profiles.GENERIC_PROFILE_NAME]
-    return sorted((_machine_summary(profile) for profile in profiles), key=lambda item: item["display_name"].lower())
+    return sorted(
+        (_machine_summary(profile, media_cdn_base_url=media_cdn_base_url) for profile in profiles),
+        key=lambda item: item["display_name"].lower(),
+    )
 
 
-def get_machine(slug_or_alias: str) -> dict[str, Any]:
+def get_machine(slug_or_alias: str, *, media_cdn_base_url: str | None = None) -> dict[str, Any]:
     profile = _machine_by_slug_or_alias(slug_or_alias)
     if profile.get("machine_name") == machine_profiles.GENERIC_PROFILE_NAME:
         raise ValueError(f"Machine profile not found: {slug_or_alias}")
-    return _machine_detail(profile)
+    return _machine_detail(profile, media_cdn_base_url=media_cdn_base_url)
 
 
 def list_grinders() -> list[dict[str, Any]]:
@@ -50,7 +54,7 @@ def _grinder_by_slug_or_alias(value: str) -> dict[str, Any]:
     return grinder_profiles.get_grinder_profile(value)
 
 
-def _machine_summary(profile: dict[str, Any]) -> dict[str, Any]:
+def _machine_summary(profile: dict[str, Any], *, media_cdn_base_url: str | None = None) -> dict[str, Any]:
     specs = profile.get("specs", {})
     brew_defaults = profile.get("brew_defaults", {})
     name = str(profile.get("machine_name") or "Unknown machine")
@@ -76,14 +80,14 @@ def _machine_summary(profile: dict[str, Any]) -> dict[str, Any]:
         "tags": tags[:3],
         "has_image": _has_profile_image(profile),
         "image": profile.get("image") or None,
-        "image_url": _profile_image_url(profile),
+        "image_url": _profile_image_url(profile, media_cdn_base_url=media_cdn_base_url),
         "specs": specs,
         "brew_defaults": brew_defaults,
     }
 
 
-def _machine_detail(profile: dict[str, Any]) -> dict[str, Any]:
-    summary = _machine_summary(profile)
+def _machine_detail(profile: dict[str, Any], *, media_cdn_base_url: str | None = None) -> dict[str, Any]:
+    summary = _machine_summary(profile, media_cdn_base_url=media_cdn_base_url)
     summary.update(
         {
             "grind_adjustment_notes": profile.get("grind_adjustment_notes"),
@@ -140,13 +144,16 @@ def _grinder_detail(profile: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
-def _profile_image_url(profile: dict[str, Any]) -> str | None:
+def _profile_image_url(profile: dict[str, Any], *, media_cdn_base_url: str | None = None) -> str | None:
     image = _reviewed_profile_image(profile)
     if image is None:
         return None
     if image.get("url"):
         return str(image["url"])
     if image.get("storage_mode") == "s3" and image.get("media_key"):
+        media_key = str(image["media_key"]).lstrip("/")
+        if media_cdn_base_url and "/machine_photo/" in f"/{media_key}":
+            return f"{media_cdn_base_url.rstrip('/')}/{quote(media_key, safe='/')}"
         slug = str(profile.get("dialedin_slug") or _slug(str(profile.get("machine_name") or "")))
         return f"/machines/{slug}/image"
     return None

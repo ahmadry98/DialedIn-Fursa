@@ -17,6 +17,7 @@ EXTRACTABLE_FIELDS = {
     "grind_setting",
     "roast_level",
     "taste",
+    "audio_s3_key",
     "video_s3_key",
     "total_shot_seconds",
 }
@@ -26,7 +27,7 @@ Return ONLY valid JSON. No markdown. No commentary.
 Only include fields that are clearly stated or strongly implied by the latest user message.
 Do not invent machine specs, grinder specs, shot timing, or recommendations.
 Use null for fields you cannot infer.
-Allowed JSON fields: machine, grinder, uses_built_in_grinder, dose_g, yield_g, grind_setting, roast_level, taste, video_s3_key, total_shot_seconds.
+Allowed JSON fields: machine, grinder, uses_built_in_grinder, dose_g, yield_g, grind_setting, roast_level, taste, audio_s3_key, video_s3_key, total_shot_seconds.
 Roast level must be one of: light, medium, dark, or null.
 If the user says built-in grinder, set uses_built_in_grinder true.
 """

@@ -27,6 +27,7 @@ jobs:
       DIALEDIN_MEDIA_UPLOAD_BUCKET: ${{ vars.DIALEDIN_MEDIA_UPLOAD_BUCKET }}
       DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
       DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
+      DIALEDIN_MEDIA_CDN_BASE_URL: ${{ vars.DIALEDIN_MEDIA_CDN_BASE_URL || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -136,6 +137,7 @@ jobs:
           sed -i "s#DIALEDIN_MEDIA_UPLOAD_BUCKET: .*#DIALEDIN_MEDIA_UPLOAD_BUCKET: $DIALEDIN_MEDIA_UPLOAD_BUCKET#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_PROFILE_TABLE: .*#DIALEDIN_PROFILE_TABLE: $DIALEDIN_PROFILE_TABLE#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_SHOT_RESULTS_TABLE: .*#DIALEDIN_SHOT_RESULTS_TABLE: $DIALEDIN_SHOT_RESULTS_TABLE#" infra/k8s/agent.yaml
+          sed -i "s#DIALEDIN_MEDIA_CDN_BASE_URL: .*#DIALEDIN_MEDIA_CDN_BASE_URL: $DIALEDIN_MEDIA_CDN_BASE_URL#" infra/k8s/agent.yaml
 
       - name: Apply manifests
         run: |

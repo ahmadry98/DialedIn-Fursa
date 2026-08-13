@@ -16,7 +16,7 @@ from typing import Any
 from services.agent.config import AgentSettings
 
 
-SUPPORTED_MEDIA_KINDS = {"shot_video", "machine_photo", "grinder_photo"}
+SUPPORTED_MEDIA_KINDS = {"shot_audio", "shot_video", "machine_photo", "grinder_photo"}
 
 
 @dataclass(frozen=True)
@@ -97,6 +97,7 @@ def register_uploaded_media(*, media_key: str, media_kind: str, storage_mode: st
         raise ValueError(f"Unsupported storage_mode: {storage_mode}")
     return {
         "media_key": media_key,
+        "audio_s3_key": media_key if media_kind == "shot_audio" else None,
         "video_s3_key": media_key if media_kind == "shot_video" else None,
         "media_kind": media_kind,
         "storage_mode": storage_mode,
