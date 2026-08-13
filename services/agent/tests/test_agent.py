@@ -38,7 +38,7 @@ def write_synthetic_wav(path: Path, sample_rate: int = 16000) -> None:
 
 class AgentApiTest(unittest.TestCase):
     def setUp(self):
-        self.env_patch = patch.dict(os.environ, {"DIALEDIN_SHOT_HISTORY_STORAGE": "memory"})
+        self.env_patch = patch.dict(os.environ, {"DIALEDIN_SHOT_HISTORY_STORAGE": "memory", "DIALEDIN_PROFILE_STORAGE": "json"})
         self.env_patch.start()
         espresso_tools.SHOT_HISTORY.clear()
         agent_app.settings = agent_app.settings.__class__(
@@ -271,7 +271,7 @@ class AgentApiTest(unittest.TestCase):
         self.assertNotIn("yield_g", payload["missing_fields"])
         self.assertEqual(payload["recommendation"]["recommendation"], "keep_settings")
 
-    def test_analyze_shot_with_wav_path(self):
+    def test_analyze_shot_with_audio_path(self):
         with TemporaryDirectory() as tmp:
             wav_path = Path(tmp) / "shot.wav"
             write_synthetic_wav(wav_path)
@@ -279,7 +279,7 @@ class AgentApiTest(unittest.TestCase):
                 "/analyze-shot",
                 json={
                     "user_id": "user-2",
-                    "video_s3_key": str(wav_path),
+                    "audio_s3_key": str(wav_path),
                     "machine": "Rancilio Silvia",
                     "grinder": "DF54",
                     "dose_g": 18,
@@ -466,7 +466,7 @@ class AgentApiTest(unittest.TestCase):
         response = self.client.post("/analyze-shot", json={"user_id": "user-3"})
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("Either video_s3_key or total_shot_seconds", response.json()["detail"])
+        self.assertIn("Either audio_s3_key, video_s3_key, or total_shot_seconds", response.json()["detail"])
 
 
 if __name__ == "__main__":

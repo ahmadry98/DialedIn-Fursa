@@ -365,7 +365,7 @@ Checkpoint 22 adds a repository abstraction so trusted machines and grinders use
 
 ## 20. Video Upload And Storage Direction
 
-Checkpoint 18 adds the production-shaped upload flow while preserving a local development fallback. The Expo app no longer sends a phone-local video path directly to analysis. It asks FastAPI for an upload target, uploads the selected shot video, registers the uploaded media, and then sends the returned `video_s3_key` into the chat context. In `local` mode, FastAPI writes the uploaded video below `data/uploads/` and returns that local path as the key so ffmpeg/audio analysis still works on the developer machine. In `s3` mode, FastAPI returns a presigned S3 PUT URL and the S3 object key.
+Checkpoint 18 adds the production-shaped upload flow while preserving a local development fallback. The Expo app no longer sends a phone-local video path directly to analysis. It asks FastAPI for an upload target, uploads media, registers it, and sends the returned timing key into the chat context. In `local` mode, FastAPI writes uploaded media below `data/uploads/` and returns that local path as the key so ffmpeg/audio analysis still works on the developer machine. In `s3` mode, FastAPI returns a presigned S3 PUT URL and the S3 object key.
 
 Storage environment variables:
 
@@ -387,15 +387,15 @@ S3 upload/download failures should return actionable messages, such as missing A
 
 Local `data/raw-videos/...` paths are only for development on the Mac. They are not a good phone workflow because a real mobile app cannot rely on the user's local project folder.
 
-Production/mobile video flow should be:
+Production/mobile timing flow should be:
 
 1. User records or selects a shot video inside the Expo app.
 2. App requests a presigned upload URL from the backend.
-3. App uploads the raw video to S3.
-4. Backend returns/stores a `video_s3_key`.
+3. In a native release build, the app extracts a compact M4A audio track and uploads that to S3; Expo Go and unsupported platforms fall back to the already-compressed video.
+4. Backend returns/stores an `audio_s3_key` or compatibility `video_s3_key`.
 5. Chat sends that key as timing context.
-6. Agent/MCP downloads or streams the S3 object, extracts audio, analyzes timing, and saves derived artifacts.
-7. Shot result stores the video key, timing result, recommendation, and user-confirmed corrections for history/compare features.
+6. Agent/MCP analyzes the audio directly and saves derived timing artifacts.
+7. Shot result stores the timing media key, timing result, recommendation, and user-confirmed corrections for history/compare features.
 
 The same storage layer can later support extracted audio files, waveform/debug artifacts, and persistent chat/shot history.
 

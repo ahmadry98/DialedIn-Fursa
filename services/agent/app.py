@@ -142,7 +142,7 @@ def prometheus_metrics() -> str:
 
 @app.get("/machines")
 def list_machines() -> dict[str, object]:
-    machines = equipment_profiles.list_machines()
+    machines = equipment_profiles.list_machines(media_cdn_base_url=settings.media_cdn_base_url)
     return {"count": len(machines), "machines": machines}
 
 
@@ -150,7 +150,7 @@ def list_machines() -> dict[str, object]:
 @app.head("/machines/{slug_or_alias:path}/image")
 def get_machine_image(slug_or_alias: str, request: Request) -> Response:
     try:
-        machine = equipment_profiles.get_machine(slug_or_alias)
+        machine = equipment_profiles.get_machine(slug_or_alias, media_cdn_base_url=settings.media_cdn_base_url)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -177,7 +177,7 @@ def get_machine_image(slug_or_alias: str, request: Request) -> Response:
 @app.get("/machines/{slug_or_alias:path}")
 def get_machine(slug_or_alias: str) -> dict[str, object]:
     try:
-        return equipment_profiles.get_machine(slug_or_alias)
+        return equipment_profiles.get_machine(slug_or_alias, media_cdn_base_url=settings.media_cdn_base_url)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
@@ -197,7 +197,12 @@ def attach_machine_image(slug_or_alias: str, request_body: MachineImageAttachReq
         profile = machine_profiles.update_machine_profile_image(slug_or_alias, image)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return {"machine": equipment_profiles.get_machine(str(profile.get("dialedin_slug") or profile.get("machine_name")))}
+    return {
+        "machine": equipment_profiles.get_machine(
+            str(profile.get("dialedin_slug") or profile.get("machine_name")),
+            media_cdn_base_url=settings.media_cdn_base_url,
+        )
+    }
 
 
 @app.get("/grinders")
@@ -216,7 +221,7 @@ def get_grinder(slug_or_alias: str) -> dict[str, object]:
 
 @app.get("/api/machines/")
 def list_machines_compat() -> list[dict[str, object]]:
-    return equipment_profiles.list_machines()
+    return equipment_profiles.list_machines(media_cdn_base_url=settings.media_cdn_base_url)
 
 
 @app.get("/api/machines/{slug_or_alias:path}/")

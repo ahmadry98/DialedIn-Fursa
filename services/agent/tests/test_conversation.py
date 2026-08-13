@@ -1,7 +1,9 @@
+import os
 import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -15,6 +17,11 @@ from services.espresso_mcp import profile_candidates
 
 class ConversationApiTest(unittest.TestCase):
     def setUp(self):
+        self.env_patch = patch.dict(
+            os.environ,
+            {"DIALEDIN_PROFILE_STORAGE": "json", "DIALEDIN_SHOT_HISTORY_STORAGE": "memory"},
+        )
+        self.env_patch.start()
         espresso_tools.SHOT_HISTORY.clear()
         agent_app.settings = agent_app.settings.__class__(
             app_name=agent_app.settings.app_name,
@@ -42,6 +49,7 @@ class ConversationApiTest(unittest.TestCase):
     def tearDown(self):
         profile_candidates.CANDIDATES_PATH = self.original_candidates_path
         self.candidate_tmp.cleanup()
+        self.env_patch.stop()
 
     def post_chat(self, message, context=None):
         body = {"messages": [{"role": "user", "content": message}]}

@@ -135,7 +135,20 @@ python scripts/profile_repository_cli.py import --type grinder --input services/
 
 Without `DIALEDIN_PROFILE_TABLE`, profile data falls back to the checked-in JSON files. To force JSON even when a table is configured, set `DIALEDIN_PROFILE_STORAGE=json`.
 
-The mobile app and Next.js local demo use `/media/upload-url`, upload the video with `PUT`, call `/media/register`, then send the returned `video_s3_key` to `/chat` or `/analyze-shot`.
+The mobile app and Next.js local demo use `/media/upload-url`, upload the media with `PUT`, call `/media/register`, then send the returned timing key to `/chat` or `/analyze-shot`. In an iOS native build, the app extracts a compact M4A audio track from a selected shot video and uploads that audio for timing; Expo Go falls back to the compressed video path.
+
+### Development CDN For Machine Images
+
+The personal-dev Terraform workspace can create an opt-in CloudFront distribution for reviewed S3 machine photos. The backend returns stable CloudFront URLs for those images, so mobile list/search/detail screens avoid the backend-to-S3 hop and reuse the device/CDN cache. It does not expose video or arbitrary media paths.
+
+```bash
+cd infra/terraform
+terraform workspace select dev
+terraform apply -var-file=personal-dev.tfvars
+terraform output -raw dialchat_media_cdn_base_url
+```
+
+Set that output as the `DIALEDIN_MEDIA_CDN_BASE_URL` variable in the GitHub `dev` environment, then run **Deploy Dev** with the image tag containing this backend change. CloudFront provisioning can take several minutes. This checkpoint intentionally does not enable the CDN in production.
 
 ## Run With Docker Compose
 

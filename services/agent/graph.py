@@ -194,6 +194,7 @@ def _filter_extracted_context(extracted: dict[str, Any], message: str, previous_
     expected_field = previous_missing[0] if previous_missing else None
     filtered = dict(extracted)
     if expected_field != "timing" and not conversation.has_explicit_timing(message):
+        filtered.pop("audio_s3_key", None)
         filtered.pop("total_shot_seconds", None)
         filtered.pop("video_s3_key", None)
     if expected_field != "dose_g" and "dose_g" in filtered and not conversation.has_labeled_dose(message):
@@ -319,7 +320,7 @@ def _validate_field_answer(state: CoachGraphState) -> dict[str, Any]:
     elif expected_field == "roast_level" and not context.roast_unknown and context.roast_level not in {"light", "medium", "dark"}:
         updates["roast_level"] = None
         reason = "Roast level should be light, medium, dark, or idk if the bag does not say."
-    elif expected_field == "timing" and not context.video_s3_key and context.total_shot_seconds is None:
+    elif expected_field == "timing" and not context.audio_s3_key and not context.video_s3_key and context.total_shot_seconds is None:
         reason = "Please attach or send a shot video, or type the total time if you timed it yourself, like 27 seconds."
 
     if not reason:

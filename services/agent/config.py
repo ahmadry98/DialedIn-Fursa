@@ -32,6 +32,7 @@ class AgentSettings:
     media_upload_bucket: str | None = None
     media_upload_prefix: str = "dialchat-media"
     media_upload_url_expires_seconds: int = 900
+    media_cdn_base_url: str | None = None
     require_confirm_below_confidence: float = 0.35
     profile_research_autorun: bool = False
     profile_research_autorun_limit: int = 1
@@ -50,6 +51,7 @@ def get_settings() -> AgentSettings:
     media_upload_bucket = os.getenv("DIALEDIN_MEDIA_UPLOAD_BUCKET") or None
     media_upload_prefix = os.getenv("DIALEDIN_MEDIA_UPLOAD_PREFIX", "dialchat-media")
     media_upload_expires = int(os.getenv("DIALEDIN_MEDIA_UPLOAD_URL_EXPIRES_SECONDS", "900"))
+    media_cdn_base_url = os.getenv("DIALEDIN_MEDIA_CDN_BASE_URL", "").rstrip("/") or None
     confidence = float(os.getenv("DIALEDIN_CONFIRM_CONFIDENCE", "0.35"))
     autorun = os.getenv("PROFILE_RESEARCH_AUTORUN", "false").lower() in {"1", "true", "yes", "on"}
     autorun_limit = int(os.getenv("PROFILE_RESEARCH_AUTORUN_LIMIT", "1"))
@@ -64,6 +66,7 @@ def get_settings() -> AgentSettings:
         media_upload_bucket=media_upload_bucket,
         media_upload_prefix=media_upload_prefix,
         media_upload_url_expires_seconds=media_upload_expires,
+        media_cdn_base_url=media_cdn_base_url,
         require_confirm_below_confidence=confidence,
         profile_research_autorun=autorun,
         profile_research_autorun_limit=max(1, autorun_limit),
