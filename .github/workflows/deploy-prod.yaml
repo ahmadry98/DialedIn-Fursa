@@ -3,9 +3,17 @@ name: Deploy Prod
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: Image tag to deploy for agent, espresso MCP, and frontend.
-        required: true
+      agent_image_tag:
+        description: Optional agent image tag to deploy.
+        required: false
+        type: string
+      espresso_mcp_image_tag:
+        description: Optional espresso MCP image tag to deploy.
+        required: false
+        type: string
+      frontend_image_tag:
+        description: Optional frontend image tag to deploy.
+        required: false
         type: string
       confirm:
         description: Type deploy-prod to confirm.
@@ -89,11 +97,25 @@ jobs:
           : "${DIALEDIN_MEDIA_UPLOAD_BUCKET:?DIALEDIN_MEDIA_UPLOAD_BUCKET production variable is required}"
           : "${DIALEDIN_PROFILE_TABLE:?DIALEDIN_PROFILE_TABLE production variable is required}"
           : "${DIALEDIN_SHOT_RESULTS_TABLE:?DIALEDIN_SHOT_RESULTS_TABLE production variable is required}"
-          TAG="${{ inputs.image_tag }}"
           REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-          sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$TAG#" infra/k8s/agent.yaml
-          sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$TAG#" infra/k8s/espresso-mcp.yaml
-          sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
+          AGENT_TAG="${{ inputs.agent_image_tag }}"
+          MCP_TAG="${{ inputs.espresso_mcp_image_tag }}"
+          FRONTEND_TAG="${{ inputs.frontend_image_tag }}"
+
+          if [ -z "$AGENT_TAG$MCP_TAG$FRONTEND_TAG" ]; then
+            echo "Provide at least one image tag to deploy." >&2
+            exit 1
+          fi
+
+          if [ -n "$AGENT_TAG" ]; then
+            sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$AGENT_TAG#" infra/k8s/agent.yaml
+          fi
+          if [ -n "$MCP_TAG" ]; then
+            sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$MCP_TAG#" infra/k8s/espresso-mcp.yaml
+          fi
+          if [ -n "$FRONTEND_TAG" ]; then
+            sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$FRONTEND_TAG#" infra/k8s/frontend.yaml
+          fi
           sed -i "s#DIALEDIN_MEDIA_UPLOAD_BUCKET: .*#DIALEDIN_MEDIA_UPLOAD_BUCKET: $DIALEDIN_MEDIA_UPLOAD_BUCKET#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_PROFILE_TABLE: .*#DIALEDIN_PROFILE_TABLE: $DIALEDIN_PROFILE_TABLE#" infra/k8s/agent.yaml
           sed -i "s#DIALEDIN_SHOT_RESULTS_TABLE: .*#DIALEDIN_SHOT_RESULTS_TABLE: $DIALEDIN_SHOT_RESULTS_TABLE#" infra/k8s/agent.yaml
@@ -101,17 +123,29 @@ jobs:
 
       - name: Apply production manifests
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/agent.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/espresso-mcp.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/frontend.yaml
+          if [ -n "${{ inputs.agent_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/agent.yaml
+          fi
+          if [ -n "${{ inputs.espresso_mcp_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/espresso-mcp.yaml
+          fi
+          if [ -n "${{ inputs.frontend_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/frontend.yaml
+          fi
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/ingress-prod.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/hpa.yaml
 
       - name: Wait for production rollout
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-agent --timeout=360s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/espresso-mcp --timeout=360s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-frontend --timeout=360s
+          if [ -n "${{ inputs.agent_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-agent --timeout=360s
+          fi
+          if [ -n "${{ inputs.espresso_mcp_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/espresso-mcp --timeout=360s
+          fi
+          if [ -n "${{ inputs.frontend_image_tag }}" ]; then
+            kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialchat-frontend --timeout=360s
+          fi
 
       - name: Revoke runner Kubernetes API access
         if: always() && env.CONTROL_PLANE_SECURITY_GROUP_ID != '' && env.RUNNER_K8S_API_CIDR != ''
