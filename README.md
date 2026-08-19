@@ -269,7 +269,7 @@ Install Calico networking before deploying app workloads:
 
 ```bash
 KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.1/manifests/tigera-operator.yaml
-KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f /Users/ahmadrayan/Desktop/Fursa/PolyAIFursa/infra/k8s/calico/custom-resources.yaml
+KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true apply -f infra/k8s/calico/dev-custom-resources.yaml
 KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get nodes -o wide
 ```
 
@@ -381,7 +381,7 @@ KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get nodes 
 KUBECONFIG=.kube/dialedin-dev kubectl --insecure-skip-tls-verify=true get pods -n dev -o wide
 ```
 
-If nodes are not ready after recreating EC2, install Calico again, then redeploy the app manifests. This is a manual dev step for now; CI/CD should automate it later.
+The Dev and Prod GitHub deploy workflows now restore Calico, the fixed ingress-nginx NodePort controller, namespaces, and app manifests. After stopping and starting an environment, run its deploy workflow once; it restores networking and workloads idempotently.
 
 ### 3. Deploy Or Refresh App Workloads
 

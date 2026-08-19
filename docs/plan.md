@@ -661,6 +661,7 @@ attach_draft_profile(candidate_key, draft_profile)
 - [x] Build and push images to personal-dev ECR.
 - [x] Deploy to personal-dev Kubernetes through manual port-forward-first cloud rollout. Personal-dev now has VPC, one control-plane EC2, one worker ASG, IAM, SGs, SNS alerts, Calico, ECR pull secret, and all five app services running in the `dev` namespace.
 - [x] Verify full mobile simulator flow against personal-dev after GitHub vars/secrets are set. Cloud smoke passed for `/health`, `/machines`, S3-backed images, media upload URL generation, chat, espresso MCP, frontend, backend, landing, and Bedrock image recognition.
+- [x] Make cluster recovery reproducible in the Dev and Prod deploy workflows: environment-specific Calico pod CIDRs, ingress-nginx NodePort controller, namespaces, and workloads.
 
 ## Checkpoint 30: Public Personal Dev Ingress
 
