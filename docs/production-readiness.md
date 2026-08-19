@@ -4,7 +4,7 @@ This document is the release gate before DialedIN is pointed at real users. Pers
 
 ## Current Status
 
-Production deployment is intentionally not enabled yet. The current working cloud environment is personal-dev:
+Production is deployed separately from personal-dev and is protected by the GitHub `production` environment. Personal-dev remains the integration environment:
 
 ```text
 DialChat API:   http://api-dev.dialedin.me
@@ -12,7 +12,7 @@ DialChat admin: http://ai-dev.dialedin.me
 Landing site:   http://app-dev.dialedin.me
 ```
 
-`deploy-prod.yaml` is a guarded placeholder. It requires manual confirmation and the GitHub `production` environment, but it does not apply Terraform or Kubernetes manifests yet.
+`deploy-prod.yaml` is a guarded application deploy. It requires manual confirmation and the GitHub `production` environment, then applies the production manifests using a deploy-only Kubernetes service account. Cluster bootstrap operations such as Calico and ingress installation are intentionally admin-only.
 
 ## Hard Rules Before Production
 

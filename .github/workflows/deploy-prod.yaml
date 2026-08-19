@@ -86,29 +86,8 @@ jobs:
           chmod 600 "$KUBECONFIG"
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true get deployments -n prod
 
-      - name: Ensure Calico networking
-        run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.1/manifests/tigera-operator.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true wait \
-            --for=condition=Established crd/installations.operator.tigera.io --timeout=120s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f infra/k8s/calico/prod-custom-resources.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n tigera-operator deployment/tigera-operator --timeout=240s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n calico-system daemonset/calico-node --timeout=300s
-
-      - name: Ensure ingress controller
-        run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx patch svc ingress-nginx-controller \
-            -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":"http","protocol":"TCP","nodePort":30080},{"name":"https","port":443,"targetPort":"https","protocol":"TCP","nodePort":30443}]}}'
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx rollout status \
-            deployment/ingress-nginx-controller --timeout=300s
-
+      # Calico and ingress are cluster bootstrap concerns. The GitHub deployer is
+      # intentionally restricted to the prod namespace and deploys the app only.
       - name: Refresh ECR pull secret
         run: |
           ECR_PASSWORD=$(aws ecr get-login-password --region "$AWS_REGION")
