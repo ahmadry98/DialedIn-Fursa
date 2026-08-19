@@ -504,7 +504,7 @@ Workflow roles:
 .github/workflows/ci.yml              PR/unit/frontend/monitoring checks
 .github/workflows/build-images.yaml    Build and push DialChat agent/MCP/frontend images
 .github/workflows/deploy-dev.yaml      Manually deploy a chosen image tag to dev Kubernetes
-.github/workflows/deploy-prod.yaml     Guarded production placeholder
+.github/workflows/deploy-prod.yaml     Guarded production application deploy
 ```
 
 Mobile and landing have their own repo-level workflows in their repositories.
@@ -641,7 +641,7 @@ Do not run production deployment until these are done:
 [ ] Add rollback steps and verify health checks before exposing users.
 ```
 
-`deploy-prod.yaml` is intentionally guarded. It requires typing `deploy-prod`, but it does not apply real production manifests yet. Treat it as a placeholder until the prod infrastructure checkpoint is complete.
+`deploy-prod.yaml` is intentionally guarded. It requires the GitHub `production` environment and typing `deploy-prod`, then applies the production application manifests. Cluster networking and ingress remain admin/bootstrap concerns, outside the restricted GitHub application deploy credential.
 
 ## Useful Checks
 
