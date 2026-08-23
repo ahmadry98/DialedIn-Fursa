@@ -397,11 +397,14 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatRespons
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     analysis = response.analysis_result
-    if settings.profile_research_autorun and analysis and analysis.profile_candidates:
+    candidates_to_research = list(response.profile_candidates)
+    if analysis:
+        candidates_to_research.extend(analysis.profile_candidates)
+    if settings.profile_research_autorun and candidates_to_research:
         print(
             "Profile research autorun scheduled from chat: "
             f"limit={settings.profile_research_autorun_limit}, "
-            f"candidates={[candidate.get('candidate_key') for candidate in analysis.profile_candidates]}"
+            f"candidates={[candidate.get('candidate_key') for candidate in candidates_to_research]}"
         )
         background_tasks.add_task(
             _run_profile_research_background,
