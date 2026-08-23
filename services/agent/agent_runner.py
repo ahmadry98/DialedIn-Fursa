@@ -11,7 +11,7 @@ from typing import Any
 
 from services.agent import conversation, observability
 from services.agent.prompts import SYSTEM_PROMPT
-from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse
+from services.agent.schemas import AnalyzeShotRequest, AnalyzeShotResponse, ChatRequest, ChatResponse, ShotContext
 from services.espresso_mcp import app as espresso_tools
 from services.espresso_mcp import grinder_profiles, machine_profiles
 
@@ -78,6 +78,7 @@ def chat(request: ChatRequest) -> ChatResponse:
     """Run the guided espresso coach conversation."""
     METRICS["chat_requests_total"] += 1
     response = conversation.handle_chat(request, analyze_shot)
+    response.profile_candidates = _capture_new_profile_candidates(request, response)
     response.system_prompt = SYSTEM_PROMPT
     if response.shot_context:
         METRICS["last_missing_fields_count"] = len(response.missing_fields)
@@ -90,6 +91,29 @@ def chat(request: ChatRequest) -> ChatResponse:
             confidence=response.image_guess.get("confidence") or "unknown",
         )
     return response
+
+
+def _capture_new_profile_candidates(request: ChatRequest, response: ChatResponse) -> list[dict[str, Any]]:
+    """Queue newly accepted unknown gear before the user finishes the shot flow."""
+    context = response.shot_context
+    if context is None:
+        return []
+
+    previous = request.shot_context or ShotContext()
+    machine = context.machine if context.machine and context.machine != previous.machine else None
+    grinder = None
+    if not context.uses_built_in_grinder and context.grinder and context.grinder != previous.grinder:
+        grinder = context.grinder
+
+    candidates = espresso_tools.capture_unknown_gear(
+        context.user_id,
+        machine,
+        grinder,
+        context.model_dump(),
+    )
+    if candidates:
+        observability.increment("dialedin_profile_candidates_captured_total", amount=len(candidates))
+    return candidates
 
 
 def metrics() -> dict[str, int]:
