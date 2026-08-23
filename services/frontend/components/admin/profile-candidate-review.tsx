@@ -89,9 +89,11 @@ export function ProfileCandidateReview() {
   const [candidateImageFile, setCandidateImageFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function refresh(nextSelectedKey?: string) {
-    setLoading(true);
-    setError(null);
+  async function refresh(nextSelectedKey?: string, options?: { silent?: boolean }) {
+    if (!options?.silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [candidatePayload, machinePayload] = await Promise.all([listProfileCandidates(), listMachines()]);
       setCandidates(candidatePayload.candidates);
@@ -100,15 +102,31 @@ export function ProfileCandidateReview() {
       const nextKey = nextSelectedKey ?? selectedKey ?? candidatePayload.candidates[0]?.candidate_key ?? "";
       setSelectedKey(candidatePayload.candidates.some((candidate) => candidate.candidate_key === nextKey) ? nextKey : candidatePayload.candidates[0]?.candidate_key ?? "");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Could not load admin data");
+      if (!options?.silent) {
+        setError(requestError instanceof Error ? requestError.message : "Could not load admin data");
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    if (!candidates.some((candidate) => candidate.status === "needs_research")) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void refresh(undefined, { silent: true });
+    }, 5_000);
+
+    return () => window.clearInterval(interval);
+  }, [candidates, selectedKey]);
 
   const selected = useMemo(
     () => candidates.find((candidate) => candidate.candidate_key === selectedKey) ?? null,
