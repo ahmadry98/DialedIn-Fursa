@@ -486,7 +486,7 @@ Create the kubeconfig secret from your machine with:
 base64 -i /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/.kube/dialedin-dev | pbcopy
 ```
 
-Then paste it into the `DIALEDIN_DEV_KUBE_CONFIG_B64` GitHub secret. If the cluster is recreated, regenerate and replace this secret because the API server IP or certificate data can change.
+Then paste it into the `DIALEDIN_DEV_KUBE_CONFIG_B64` GitHub secret. The deploy workflow resolves the control plane's current public IP at runtime, so a normal EC2 stop/start does not require replacing this secret. Regenerate the secret only when the cluster itself is recreated or its Kubernetes credentials change.
 
 The GitHub OIDC role currently needs these permission groups:
 
