@@ -109,6 +109,7 @@ data "aws_iam_policy_document" "github_actions_k8s_deploy" {
   statement {
     sid = "DiscoverControlPlaneSecurityGroup"
     actions = [
+      "ec2:DescribeInstances",
       "ec2:DescribeSecurityGroups"
     ]
     resources = ["*"]
