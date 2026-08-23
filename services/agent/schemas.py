@@ -66,6 +66,7 @@ class ChatResponse(BaseModel):
     next_field: str | None = None
     missing_fields: list[str] = []
     image_guess: dict[str, Any] | None = None
+    profile_candidates: list[dict[str, Any]] = []
 
 
 

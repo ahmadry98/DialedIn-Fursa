@@ -66,6 +66,23 @@ class ConversationApiTest(unittest.TestCase):
         self.assertIn("machine", payload["response"].lower())
         self.assertFalse(payload["needs_shot_analysis"])
 
+    def test_chat_queues_unknown_machine_immediately(self):
+        payload = self.post_chat("Profitec Drive")
+
+        self.assertEqual(payload["shot_context"]["machine"], "Profitec Drive")
+        self.assertEqual(payload["next_field"], "grinder")
+        self.assertEqual(len(payload["profile_candidates"]), 1)
+        self.assertEqual(payload["profile_candidates"][0]["candidate_key"], "machine:profitec drive")
+        self.assertEqual(profile_candidates.load_profile_candidates()[0]["name_entered"], "Profitec Drive")
+
+    def test_chat_queues_unknown_grinder_immediately(self):
+        context = self.post_chat("Rancilio Silvia")["shot_context"]
+        payload = self.post_chat("Mazzer Philos", context)
+
+        self.assertEqual(payload["next_field"], "dose_g")
+        self.assertEqual(len(payload["profile_candidates"]), 1)
+        self.assertEqual(payload["profile_candidates"][0]["candidate_key"], "grinder:mazzer philos")
+
     def test_chat_collects_context_and_runs_analysis(self):
         context = self.post_chat("Breville Barista Express")["shot_context"]
         self.assertEqual(context["machine"], "Breville Barista Express")
