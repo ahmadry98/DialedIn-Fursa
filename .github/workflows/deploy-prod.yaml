@@ -15,6 +15,11 @@ on:
         description: Optional frontend image tag to deploy.
         required: false
         type: string
+      deploy_observability:
+        description: Deploy or reconcile private production Prometheus and Grafana.
+        required: false
+        default: false
+        type: boolean
       confirm:
         description: Type deploy-prod to confirm.
         required: true
@@ -121,8 +126,8 @@ jobs:
           MCP_TAG="${{ inputs.espresso_mcp_image_tag }}"
           FRONTEND_TAG="${{ inputs.frontend_image_tag }}"
 
-          if [ -z "$AGENT_TAG$MCP_TAG$FRONTEND_TAG" ]; then
-            echo "Provide at least one image tag to deploy." >&2
+          if [ -z "$AGENT_TAG$MCP_TAG$FRONTEND_TAG" ] && [ "${{ inputs.deploy_observability }}" != "true" ]; then
+            echo "Provide at least one image tag or select production observability." >&2
             exit 1
           fi
 
@@ -154,6 +159,17 @@ jobs:
           fi
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/ingress-prod.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/hpa.yaml
+
+      - name: Deploy private production observability
+        if: inputs.deploy_observability
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+        run: |
+          : "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD production secret is required}"
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true create secret generic dialedin-grafana-auth -n prod --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" --dry-run=client -o yaml | kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f -
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n prod -f infra/k8s/observability.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialedin-prometheus --timeout=180s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n prod deployment/dialedin-grafana --timeout=180s
 
       - name: Wait for production rollout
         run: |

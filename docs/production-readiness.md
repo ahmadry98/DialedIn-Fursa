@@ -68,9 +68,30 @@ Production secrets should be separate from dev secrets:
 
 ```text
 DIALEDIN_PROD_KUBE_CONFIG_B64=<base64 kubeconfig for prod, if Kubernetes>
+GRAFANA_ADMIN_PASSWORD=<strong private Grafana admin password>
 ```
 
 Do not reuse `DIALEDIN_DEV_KUBE_CONFIG_B64` for production.
+
+## Private Production Observability
+
+Production Prometheus and Grafana run privately inside the `prod` Kubernetes namespace. Neither has a public ingress. Prometheus scrapes the DialChat agent and Espresso MCP every 15 seconds, and Grafana includes the `DialedIN Production Observability` dashboard.
+
+In the **Deploy Prod** GitHub workflow, enter `deploy-prod` and select `deploy_observability`. Image tags are not needed when you only want to deploy or update monitoring. Set the `GRAFANA_ADMIN_PASSWORD` production environment secret first.
+
+Open Grafana through a local SSH tunnel and keep that terminal open:
+
+```bash
+cd /Users/ahmadrayan/Desktop/DialedIn/Fursa-project/infra/terraform
+export AWS_PROFILE=dialedin-personal
+export AWS_REGION=us-east-1
+terraform workspace select prod
+
+ssh -L 3001:127.0.0.1:3001 ubuntu@$(terraform output -raw control_plane_public_ip) \
+  'sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl -n prod port-forward svc/dialedin-grafana 3001:3000 --address 127.0.0.1'
+```
+
+Open `http://127.0.0.1:3001`, sign in as `admin`, and use the password from the GitHub production secret. Prometheus retains metrics for seven days while its pod is running; persistent monitoring storage is a later production hardening step.
 
 ## Data Promotion
 
