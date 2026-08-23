@@ -112,6 +112,21 @@ jobs:
             exit 1
           fi
 
+
+          CONTROL_PLANE_PUBLIC_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=$CONTROL_PLANE_SECURITY_GROUP_NAME" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          if [ -z "$CONTROL_PLANE_PUBLIC_IP" ] || [ "$CONTROL_PLANE_PUBLIC_IP" = "None" ]; then
+            echo "No running control-plane instance was found. Start $CONTROL_PLANE_SECURITY_GROUP_NAME before deploying." >&2
+            exit 1
+          fi
+
+          # EC2 public addresses change after a stop/start. Keep credentials in
+          # the secret, but resolve the live API endpoint for this deployment.
+          sed -i "s#server: https://[^[:space:]]*:6443#server: https://$CONTROL_PLANE_PUBLIC_IP:6443#" "$KUBECONFIG"
+          echo "Using live Kubernetes API endpoint: $CONTROL_PLANE_PUBLIC_IP:6443"
+
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true config current-context
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true cluster-info
 
