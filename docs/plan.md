@@ -782,6 +782,23 @@ attach_draft_profile(candidate_key, draft_profile)
 - [ ] Consider richer image evidence using multiple photos or user-selected equipment type.
 - [ ] Keep deterministic recommendation and timing logic unchanged unless separately validated.
 
+## Checkpoint 38: Private Production Observability
+
+**Files:**
+- `infra/k8s/observability.yaml`
+- `.github/workflows/deploy-prod.yaml`
+- `docs/production-readiness.md`
+
+**Deliverable:** Private, authenticated Prometheus and Grafana for production.
+
+- [x] Scrape agent and Espresso MCP metrics every 15 seconds.
+- [x] Provision the DialedIN production dashboard.
+- [x] Keep Prometheus and Grafana ClusterIP-only with no public ingress.
+- [x] Add a manual production workflow option to deploy observability without app images.
+- [x] Document the GitHub secret and SSH port-forward access.
+- [ ] Set `GRAFANA_ADMIN_PASSWORD` in GitHub production secrets and run the monitoring-only deployment.
+- [ ] Add persistent monitoring storage after the course demo.
+
 ## Checkpoint 36: Development Media Delivery And Audio-First Timing
 
 **Files:**

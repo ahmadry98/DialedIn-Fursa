@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialedin-prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: dialedin-agent
+        metrics_path: /metrics.prometheus
+        static_configs:
+          - targets: ["dialchat-agent-svc:8000"]
+      - job_name: espresso-mcp
+        metrics_path: /metrics.prometheus
+        static_configs:
+          - targets: ["espresso-mcp-svc:9000"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialedin-grafana-provisioning
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: DialedIN Prometheus
+        type: prometheus
+        uid: dialedin-prometheus
+        access: proxy
+        url: http://dialedin-prometheus:9090
+        isDefault: true
+        editable: false
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: DialedIN dashboards
+        orgId: 1
+        folder: DialedIN
+        type: file
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dialedin-grafana-dashboard
+data:
+  shot-analysis.json: |
+    {"annotations":{"list":[]},"editable":true,"panels":[{"id":1,"title":"Agent Up","type":"stat","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":5,"w":6,"x":0,"y":0},"targets":[{"expr":"up{job=\"dialedin-agent\"}","refId":"A"}]},{"id":2,"title":"Espresso MCP Up","type":"stat","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":5,"w":6,"x":6,"y":0},"targets":[{"expr":"up{job=\"espresso-mcp\"}","refId":"A"}]},{"id":3,"title":"Chat Requests (5m)","type":"timeseries","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":5,"w":12,"x":12,"y":0},"targets":[{"expr":"increase(dialedin_chat_requests_total[5m])","refId":"A"}]},{"id":4,"title":"Shot Analysis Requests (5m)","type":"timeseries","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":6,"w":12,"x":0,"y":5},"targets":[{"expr":"increase(dialedin_shot_analysis_requests_total[5m])","refId":"A"}]},{"id":5,"title":"Latest Audio Timing Confidence","type":"gauge","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":6,"w":6,"x":12,"y":5},"targets":[{"expr":"dialedin_audio_timing_confidence_latest","refId":"A"}],"fieldConfig":{"defaults":{"min":0,"max":1},"overrides":[]}},{"id":6,"title":"HTTP 5xx (10m)","type":"stat","datasource":{"type":"prometheus","uid":"dialedin-prometheus"},"gridPos":{"h":6,"w":6,"x":18,"y":5},"targets":[{"expr":"increase(dialedin_http_5xx_total[10m])","refId":"A"}]}],"schemaVersion":39,"tags":["dialedin","production"],"templating":{"list":[]},"time":{"from":"now-6h","to":"now"},"title":"DialedIN Production Observability","uid":"dialedin-production","version":1}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialedin-prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dialedin-prometheus
+  template:
+    metadata:
+      labels:
+        app: dialedin-prometheus
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.1
+          args: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=7d"]
+          ports:
+            - name: http
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+              readOnly: true
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: dialedin-prometheus-config
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dialedin-prometheus
+spec:
+  type: ClusterIP
+  selector:
+    app: dialedin-prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dialedin-grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dialedin-grafana
+  template:
+    metadata:
+      labels:
+        app: dialedin-grafana
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.4.0
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dialedin-grafana-auth
+                  key: admin-password
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasource.yml
+              subPath: datasource.yml
+              readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yml
+              subPath: dashboards.yml
+              readOnly: true
+            - name: dashboard
+              mountPath: /var/lib/grafana/dashboards/shot-analysis.json
+              subPath: shot-analysis.json
+              readOnly: true
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: provisioning
+          configMap:
+            name: dialedin-grafana-provisioning
+        - name: dashboard
+          configMap:
+            name: dialedin-grafana-dashboard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dialedin-grafana
+spec:
+  type: ClusterIP
+  selector:
+    app: dialedin-grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
