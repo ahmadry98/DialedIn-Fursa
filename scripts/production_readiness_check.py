@@ -47,6 +47,7 @@ def check_required_files() -> list[Check]:
         "infra/k8s/espresso-mcp.yaml",
         "infra/k8s/frontend.yaml",
         "infra/k8s/ingress.yaml",
+        "infra/k8s/observability.yaml",
         "infra/terraform/prod.tfvars",
         "docs/production-readiness.md",
     ]
@@ -92,6 +93,7 @@ def check_ci() -> list[Check]:
             ),
             "deploy-prod.yaml",
         ),
+        Check("Prod deploy can reconcile private observability", has_all(deploy_prod, ["deploy_observability", "Deploy private production observability", "GRAFANA_ADMIN_PASSWORD", "infra/k8s/observability.yaml"]), "deploy-prod.yaml"),
     ]
 
 
@@ -100,6 +102,7 @@ def check_k8s() -> list[Check]:
     ingress = read("infra/k8s/ingress.yaml")
     frontend = read("infra/k8s/frontend.yaml")
     espresso = read("infra/k8s/espresso-mcp.yaml")
+    observability = read("infra/k8s/observability.yaml")
     return [
         Check("Agent uses S3 media storage", "DIALEDIN_MEDIA_STORAGE_MODE: s3" in agent, "agent.yaml"),
         Check("Agent uses DynamoDB profile storage", "DIALEDIN_PROFILE_STORAGE: dynamodb" in agent, "agent.yaml"),
@@ -110,6 +113,8 @@ def check_k8s() -> list[Check]:
         Check("Espresso MCP has probes and resource limits", has_all(espresso, ["readinessProbe:", "livenessProbe:", "resources:", "limits:"]), "espresso-mcp.yaml"),
         Check("Personal dev ingress hosts exist", has_all(ingress, ["api-dev.dialedin.me", "ai-dev.dialedin.me", "app-dev.dialedin.me"]), "ingress.yaml"),
         Check("Dev ingress is still HTTP-only", True, "HTTPS/ACM remains before production release", warning=True),
+        Check("Production Prometheus scrapes agent and MCP metrics", has_all(observability, ["dialchat-agent-svc:8000", "espresso-mcp-svc:9000", "/metrics.prometheus"]), "observability.yaml"),
+        Check("Production Grafana is private and authenticated", has_all(observability, ["name: dialedin-grafana", "type: ClusterIP", "GF_AUTH_ANONYMOUS_ENABLED", "value: \"false\""]), "observability.yaml"),
     ]
 
 
