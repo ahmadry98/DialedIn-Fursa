@@ -30,6 +30,7 @@ from services.espresso_mcp import app as espresso_tools
 from services.espresso_mcp import machine_profiles
 from services.espresso_mcp import profile_candidates
 from services.espresso_mcp import profile_promoter
+from services.espresso_mcp import profile_research
 from services.espresso_mcp import profile_research_worker
 
 settings = get_settings()
@@ -326,6 +327,7 @@ def update_profile_candidate(candidate_key: str, request: ProfileCandidateUpdate
             review_notes=request.review_notes,
             status=request.status,
         )
+        candidate = profile_research.refresh_candidate_quality(candidate_key)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"candidate": candidate}

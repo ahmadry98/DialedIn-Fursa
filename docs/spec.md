@@ -480,3 +480,31 @@ Migration requirements:
 Production readiness requires separate prod resources, manual approval, rollback instructions, monitoring checks, and store-release configuration. Dev success in the course account is not enough to run prod.
 
 The concrete migration checklist lives in `docs/aws-migration.md`. It records current course-account values, values that must be parameterized, personal AWS setup steps, data migration tasks, and production readiness gates.
+
+## 25. Post-Demo Accounts, Entitlements, And Cost Control
+
+Public mobile release must not let anonymous clients create unlimited S3, Bedrock, audio-processing, and DynamoDB cost. This phase follows the course demo and adds a paid product foundation without changing the demonstrated analysis logic.
+
+### Identity
+
+Amazon Cognito is the authentication provider for email sign-up, sign-in, verification, password reset, and token refresh. The mobile application stores tokens securely and sends an access token with every protected API call. FastAPI validates the Cognito JWT against Cognito JWKS and derives the durable user identity from the `sub` claim. Client-supplied user identifiers are never an authorization boundary.
+
+A limited guest trial may be offered, but durable shot history, monthly allowance, and subscription ownership belong to a signed-in Cognito user.
+
+### Entitlements And Quotas
+
+The service must check a user's entitlement before creating a presigned upload target, invoking Bedrock image recognition, running audio timing, or saving the completed shot. A rejected request must not upload or invoke an expensive service first.
+
+DynamoDB stores subscription/entitlement state and per-user, per-billing-period counters. Updates must be atomic and idempotent so retries cannot consume more than one allowance. The initial free allowance is intentionally small and configurable, for example three image recognitions and three timing analyses each month. Dose and roast remain optional context, not usage limits.
+
+Quota enforcement also includes per-user rate limits, request-size and duration caps, allowed media types, and monitoring for abnormal usage. A quota rejection returns a stable `quota_exceeded` API response that lets the mobile client explain the limit and offer an upgrade without exposing internal AWS details.
+
+### Billing
+
+Consumer iOS and Android subscriptions use RevenueCat, which handles App Store and Google Play purchase state, restores, and entitlement updates. The backend receives and verifies RevenueCat webhook events, then persists the authoritative Pro entitlement. The app must not grant Pro features from a client-side purchase claim alone.
+
+Stripe is a separate later integration for a cafe/team web subscription. It should support organizations, seats, shared machine inventories, shot history, and reporting, and must not be used to bypass native mobile in-app-purchase requirements.
+
+### Legal And Store Requirements
+
+Before a public release, DialedIn needs a privacy policy, terms of service, subscription terms, account deletion/export path, media retention policy, and accurate App Store/Play Store privacy disclosures. User media and authentication information must be handled as private data; logs and metrics must not store image/video content.

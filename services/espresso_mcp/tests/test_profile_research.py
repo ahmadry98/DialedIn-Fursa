@@ -94,6 +94,42 @@ class ProfileResearchTest(unittest.TestCase):
         self.assertEqual(updated["research_quality"]["status"], "research_failed")
         self.assertIn("no source URLs found", updated["research_quality"]["warnings"])
 
+    def test_refresh_candidate_quality_marks_manual_sourced_draft_ready(self):
+        candidate = profile_candidates.save_profile_candidate("machine", "Profitec Drive", "user-1", {})
+        draft = {
+            "machine_name": "Profitec Drive",
+            "aliases": ["PROFITEC DRIVE", "Drive"],
+            "specs": {
+                "portafilter_mm": 58,
+                "pump_type": "rotary",
+                "pressure_type": "dual boiler with rotary pump and flow profile valve",
+                "has_preinfusion": True,
+                "has_built_in_grinder": False,
+            },
+            "brew_defaults": {
+                "target_total_shot_seconds": [25, 32],
+                "target_visible_flow_seconds": [20, 28],
+                "typical_startup_delay_seconds": None,
+            },
+            "grind_adjustment_notes": "Use an external espresso grinder and make small changes.",
+            "sources": {
+                "aliases": ["https://www.profitec-espresso.com/en/products/drive"],
+                "portafilter_mm": ["https://www.profitec-espresso.com/media/pages/produkte/drive/a59dfadb82-1782907095/ba-drive.pdf"],
+                "pump_type": ["https://www.profitec-espresso.com/en/products/drive"],
+                "pressure_type": ["https://www.profitec-espresso.com/en/products/drive"],
+                "has_preinfusion": ["https://www.profitec-espresso.com/en/products/drive"],
+                "has_built_in_grinder": ["https://www.profitec-espresso.com/en/products/drive"],
+            },
+        }
+
+        profile_candidates.update_profile_candidate(candidate["candidate_key"], draft_profile=draft)
+        updated = profile_research.refresh_candidate_quality(candidate["candidate_key"])
+
+        self.assertTrue(updated["draft_validation"]["is_valid"])
+        self.assertEqual(updated["status"], "draft_ready")
+        self.assertGreater(updated["research_quality"]["score"], 55)
+
+
     def test_invalid_grinder_draft_without_sources_is_research_failed(self):
         candidate = profile_candidates.save_profile_candidate("grinder", "Mystery Grinder Y", "user-1", {})
 
