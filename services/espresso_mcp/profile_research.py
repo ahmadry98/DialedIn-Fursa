@@ -95,6 +95,30 @@ def attach_research_evidence(candidate_key: str, evidence: dict[str, Any]) -> di
             return dict(candidate)
     raise ValueError(f"Unknown candidate_key: {candidate_key}")
 
+def refresh_candidate_quality(candidate_key: str) -> dict[str, Any]:
+    """Revalidate and score an existing draft after an admin manually edits it."""
+    candidates = profile_candidates.load_profile_candidates()
+    for candidate in candidates:
+        if candidate.get("candidate_key") != candidate_key:
+            continue
+
+        draft_profile = candidate.get("draft_profile")
+        if not isinstance(draft_profile, dict):
+            return dict(candidate)
+
+        validation = validate_draft_profile(str(candidate.get("type", "")), draft_profile)
+        quality = research_quality.evaluate_research_quality(
+            str(candidate.get("type", "")),
+            draft_profile,
+            candidate.get("research_evidence", {}),
+        )
+        candidate["draft_validation"] = validation
+        candidate["research_quality"] = quality
+        candidate["status"] = research_quality.status_for_quality(validation, quality)
+        profile_candidates._write_candidates(candidates)  # type: ignore[attr-defined]
+        return dict(candidate)
+    raise ValueError(f"Unknown candidate_key: {candidate_key}")
+
 
 def validate_draft_profile(gear_type: str, draft_profile: dict[str, Any]) -> dict[str, Any]:
     """Validate draft shape before it can be reviewed and copied into profile JSON."""

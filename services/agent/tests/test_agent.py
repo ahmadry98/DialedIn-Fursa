@@ -156,7 +156,7 @@ class AgentApiTest(unittest.TestCase):
 
         self.assertEqual(update.status_code, 200)
         updated = update.json()["candidate"]
-        self.assertEqual(updated["status"], "draft_needs_review")
+        self.assertEqual(updated["status"], "research_failed")
         self.assertEqual(updated["draft_profile"]["machine_name"], "Admin Machine")
         self.assertEqual(updated["review_notes"], ["verified source urls"])
 
@@ -205,6 +205,27 @@ class AgentApiTest(unittest.TestCase):
                         "draft_profile": {
                             "machine_name": "Admin Promote",
                             "aliases": ["admin promote"],
+                            "specs": {
+                                "portafilter_mm": 58,
+                                "pump_type": "vibration",
+                                "pressure_type": "single boiler vibration pump",
+                                "has_preinfusion": False,
+                                "has_built_in_grinder": False,
+                            },
+                            "brew_defaults": {
+                                "target_total_shot_seconds": [25, 32],
+                                "target_visible_flow_seconds": [20, 28],
+                                "typical_startup_delay_seconds": None,
+                            },
+                            "grind_adjustment_notes": "Use an external grinder.",
+                            "sources": {
+                                "aliases": ["https://example.com/manual.pdf"],
+                                "portafilter_mm": ["https://example.com/manual.pdf"],
+                                "pump_type": ["https://example.com/manual.pdf"],
+                                "pressure_type": ["https://example.com/manual.pdf"],
+                                "has_preinfusion": ["https://example.com/manual.pdf"],
+                                "has_built_in_grinder": ["https://example.com/manual.pdf"],
+                            },
                             "image": {
                                 "media_key": "dialchat-media/admin/machine_photo/admin-promote.jpg",
                                 "storage_mode": "s3",
