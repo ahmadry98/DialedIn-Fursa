@@ -48,3 +48,26 @@ resource "aws_dynamodb_table" "equipment_profiles" {
   tags = local.common_tags
 }
 
+resource "aws_dynamodb_table" "user_access" {
+  name         = "${local.name_prefix}-user-access"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+  range_key    = "record_key"
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "record_key"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = local.common_tags
+}

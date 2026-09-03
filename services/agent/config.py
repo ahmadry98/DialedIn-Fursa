@@ -40,6 +40,15 @@ class AgentSettings:
     chat_llm_model_id: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     vision_model_id: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
     aws_region: str = "us-east-1"
+    auth_enabled: bool = False
+    cognito_user_pool_id: str | None = None
+    cognito_app_client_id: str | None = None
+    quota_enabled: bool = False
+    usage_storage: str = "memory"
+    usage_table_name: str | None = None
+    free_monthly_analysis_limit: int = 3
+    pro_monthly_analysis_limit: int = 100
+    revenuecat_webhook_authorization: str | None = None
 
 
 def get_settings() -> AgentSettings:
@@ -59,6 +68,9 @@ def get_settings() -> AgentSettings:
     chat_llm_model = os.getenv("CHAT_LLM_MODEL") or os.getenv("MODEL") or "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     vision_model = os.getenv("VISION_MODEL") or os.getenv("IMAGE_RECOGNITION_MODEL") or chat_llm_model
     region = os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "us-east-1"
+    auth_enabled = os.getenv("DIALEDIN_AUTH_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
+    quota_enabled = os.getenv("DIALEDIN_QUOTA_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
+    usage_storage = os.getenv("DIALEDIN_USAGE_STORAGE", "memory").lower()
     return AgentSettings(
         local_upload_dir=upload_dir,
         local_media_upload_dir=media_upload_dir,
@@ -74,4 +86,13 @@ def get_settings() -> AgentSettings:
         chat_llm_model_id=chat_llm_model.removeprefix("bedrock/"),
         vision_model_id=vision_model.removeprefix("bedrock/"),
         aws_region=region,
+        auth_enabled=auth_enabled,
+        cognito_user_pool_id=os.getenv("DIALEDIN_COGNITO_USER_POOL_ID") or None,
+        cognito_app_client_id=os.getenv("DIALEDIN_COGNITO_APP_CLIENT_ID") or None,
+        quota_enabled=quota_enabled,
+        usage_storage=usage_storage if usage_storage in {"memory", "dynamodb"} else "memory",
+        usage_table_name=os.getenv("DIALEDIN_USAGE_TABLE") or None,
+        free_monthly_analysis_limit=max(1, int(os.getenv("DIALEDIN_FREE_MONTHLY_ANALYSIS_LIMIT", "3"))),
+        pro_monthly_analysis_limit=max(1, int(os.getenv("DIALEDIN_PRO_MONTHLY_ANALYSIS_LIMIT", "100"))),
+        revenuecat_webhook_authorization=os.getenv("REVENUECAT_WEBHOOK_AUTHORIZATION") or None,
     )

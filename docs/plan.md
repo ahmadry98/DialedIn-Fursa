@@ -819,7 +819,7 @@ attach_draft_profile(candidate_key, draft_profile)
 
 ## Checkpoint 37: Accounts, Usage Limits, And Subscription Foundation
 
-**Status:** Planned after the course demo. The current demo remains available without a paywall.
+**Status:** In progress for the public mobile release. Implement and validate in personal-dev before changing production.
 
 **Files:**
 - `services/agent/auth.py`, `services/agent/entitlements.py`, `services/agent/usage_limits.py`, `services/agent/app.py`
@@ -829,16 +829,16 @@ attach_draft_profile(candidate_key, draft_profile)
 
 **Deliverable:** An authenticated, cost-controlled release foundation that gives new users a useful free allowance and gates expensive AI/media work before it creates AWS cost.
 
-- [ ] Define the launch allowance and pricing after measuring Bedrock, media, and support costs. Initial proposal: guest trial, then three photo recognitions and three timing analyses per free account each month.
-- [ ] Add Amazon Cognito email sign-up, sign-in, verification, password reset, secure token storage, and sign-out.
+- [x] Define the launch allowance and pricing: three AI shot analyses per free account each month and DialedIn Pro at USD 19.99/year.
+- [x] Add Amazon Cognito email sign-up, sign-in, verification, password reset, secure token storage, and sign-out.
 - [ ] Support an optional guest trial, but attach durable usage/history only to an authenticated Cognito user.
-- [ ] Derive the backend user id from the verified Cognito JWT subject; do not trust a client-provided `user_id`.
-- [ ] Add DynamoDB entitlement and monthly usage records with atomic/idempotent counters and reset/TTL strategy.
-- [ ] Check quota before presigning media uploads, invoking Bedrock vision, running audio timing, and saving a result.
+- [x] Derive the backend user id from the verified Cognito JWT subject; do not trust a client-provided `user_id`.
+- [x] Add DynamoDB entitlement records and atomic monthly usage counters with TTL support.
+- [x] Check quota before presigning media uploads, invoking Bedrock vision, running audio timing, and saving a result.
 - [ ] Return a clear `quota_exceeded` response and show an upgrade/try-again screen in mobile rather than starting costly work.
 - [ ] Add per-user rate limits, request-size/video-duration caps, allowed media types, and abuse alerts.
 - [ ] Add RevenueCat for native iOS/Android subscriptions; server-side webhook verification is the source of truth for Pro entitlement.
-- [ ] Add subscription/account settings, restore purchases, and a paywall only after free usage is working end-to-end.
+- [x] Add account settings, usage display, restore purchases, a native paywall, and in-app account deletion.
 - [ ] Keep Stripe as a later, separate path for cafe/team web billing; do not use it to bypass native mobile in-app purchase rules.
 - [ ] Add cafe/team design work later: organization account, shared equipment, seats, team history, and reporting.
 - [ ] Add tests for auth, unauthenticated denial, quota races, entitlement changes, webhook replay handling, and failed billing state.
@@ -850,7 +850,7 @@ attach_draft_profile(candidate_key, draft_profile)
 | --- | --- | --- |
 | Guest | Try the flow | One limited analysis; no durable history |
 | Free account | Learn and decide if DialedIn helps | Machines, grinders, and guides; small monthly AI/media allowance |
-| DialedIn Pro | Regular home or enthusiast user | Higher fair-use AI/media allowance, history, comparisons, and advanced coaching |
+| DialedIn Pro | Regular home or enthusiast user | Generous fair-use access with an initial 100-analysis monthly safety ceiling, history, comparisons, and advanced coaching |
 | Cafe/Team | Later B2B offer | Shared equipment, multi-user history, admin controls, and reporting |
 
 **Billing Direction:** RevenueCat manages Apple App Store and Google Play purchase state for consumer subscriptions. The backend stores verified entitlement state after a RevenueCat webhook. Stripe is reserved for a future cafe/team web plan.

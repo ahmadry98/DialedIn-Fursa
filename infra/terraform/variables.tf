@@ -33,6 +33,12 @@ variable "enable_media_cdn" {
   default     = false
 }
 
+variable "enable_cognito_auth" {
+  description = "Create the Cognito user pool and public native mobile app client."
+  type        = bool
+  default     = false
+}
+
 variable "ecr_repository_names" {
   description = "ECR repositories created for DialedIN Docker images."
   type        = list(string)
