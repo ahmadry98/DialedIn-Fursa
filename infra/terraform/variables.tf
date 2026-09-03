@@ -127,6 +127,12 @@ variable "public_ingress_enable_https_listener" {
   default     = true
 }
 
+variable "public_ingress_certificate_arn" {
+  description = "Optional ARN of an existing ACM certificate to use for HTTPS instead of creating one."
+  type        = string
+  default     = null
+}
+
 variable "domain_name" {
   description = "Existing public Route 53 hosted zone used for public Kubernetes endpoints."
   type        = string
