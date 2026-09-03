@@ -1,5 +1,5 @@
 resource "aws_acm_certificate" "main" {
-  count             = var.enable_https ? 1 : 0
+  count             = var.enable_https && var.certificate_arn == null ? 1 : 0
   domain_name       = "*.${var.domain_name}"
   validation_method = "DNS"
 
@@ -11,7 +11,7 @@ resource "aws_acm_certificate" "main" {
 }
 
 resource "aws_route53_record" "certificate_validation" {
-  for_each = var.enable_https && var.manage_dns ? {
+  for_each = var.enable_https && var.manage_dns && var.certificate_arn == null ? {
     for option in aws_acm_certificate.main[0].domain_validation_options :
     option.domain_name => {
       name   = option.resource_record_name
@@ -29,7 +29,7 @@ resource "aws_route53_record" "certificate_validation" {
 }
 
 resource "aws_acm_certificate_validation" "main" {
-  count                   = var.enable_https && var.manage_dns ? 1 : 0
+  count                   = var.enable_https && var.manage_dns && var.certificate_arn == null ? 1 : 0
   certificate_arn         = aws_acm_certificate.main[0].arn
   validation_record_fqdns = [for record in aws_route53_record.certificate_validation : record.fqdn]
 }
@@ -129,7 +129,7 @@ resource "aws_lb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.manage_dns ? aws_acm_certificate_validation.main[0].certificate_arn : aws_acm_certificate.main[0].arn
+  certificate_arn   = var.certificate_arn != null ? var.certificate_arn : (var.manage_dns ? aws_acm_certificate_validation.main[0].certificate_arn : aws_acm_certificate.main[0].arn)
 
   default_action {
     type             = "forward"
