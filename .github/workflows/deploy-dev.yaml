@@ -132,30 +132,12 @@ jobs:
           echo "Using live Kubernetes API endpoint: $CONTROL_PLANE_PUBLIC_IP:6443"
 
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true config current-context
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true cluster-info
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true get deployments -n dev
 
-      - name: Ensure Calico networking
+      - name: Verify cluster prerequisites
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.1/manifests/tigera-operator.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true wait \
-            --for=condition=Established crd/installations.operator.tigera.io --timeout=120s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f infra/k8s/calico/dev-custom-resources.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n tigera-operator deployment/tigera-operator --timeout=240s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n calico-system daemonset/calico-node --timeout=300s
-
-      - name: Ensure ingress controller
-        run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx patch svc ingress-nginx-controller \
-            -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":"http","protocol":"TCP","nodePort":30080},{"name":"https","port":443,"targetPort":"https","protocol":"TCP","nodePort":30443}]}}'
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx rollout status \
-            deployment/ingress-nginx-controller --timeout=300s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true auth can-i create deployments.apps -n dev | grep -qx yes
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true auth can-i create secrets -n dev | grep -qx yes
 
       - name: Refresh ECR pull secret
         run: |
@@ -194,7 +176,6 @@ jobs:
 
       - name: Apply manifests
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
