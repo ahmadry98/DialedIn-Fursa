@@ -28,6 +28,9 @@ jobs:
       DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
       DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
       DIALEDIN_MEDIA_CDN_BASE_URL: ${{ vars.DIALEDIN_MEDIA_CDN_BASE_URL || '' }}
+      DIALEDIN_COGNITO_USER_POOL_ID: ${{ vars.DIALEDIN_COGNITO_USER_POOL_ID }}
+      DIALEDIN_COGNITO_APP_CLIENT_ID: ${{ vars.DIALEDIN_COGNITO_APP_CLIENT_ID }}
+      DIALEDIN_USAGE_TABLE: ${{ vars.DIALEDIN_USAGE_TABLE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -164,6 +167,14 @@ jobs:
           REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$TAG#" infra/k8s/agent.yaml
           sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$TAG#" infra/k8s/espresso-mcp.yaml
+          if [ -n "$DIALEDIN_COGNITO_USER_POOL_ID" ] && [ -n "$DIALEDIN_COGNITO_APP_CLIENT_ID" ] && [ -n "$DIALEDIN_USAGE_TABLE" ]; then
+            sed -i 's#DIALEDIN_AUTH_ENABLED: "false"#DIALEDIN_AUTH_ENABLED: "true"#' infra/k8s/agent.yaml
+            sed -i 's#DIALEDIN_QUOTA_ENABLED: "false"#DIALEDIN_QUOTA_ENABLED: "true"#' infra/k8s/agent.yaml
+            sed -i 's#DIALEDIN_USAGE_STORAGE: memory#DIALEDIN_USAGE_STORAGE: dynamodb#' infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_COGNITO_USER_POOL_ID: .*#DIALEDIN_COGNITO_USER_POOL_ID: $DIALEDIN_COGNITO_USER_POOL_ID#" infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_COGNITO_APP_CLIENT_ID: .*#DIALEDIN_COGNITO_APP_CLIENT_ID: $DIALEDIN_COGNITO_APP_CLIENT_ID#" infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_USAGE_TABLE: .*#DIALEDIN_USAGE_TABLE: $DIALEDIN_USAGE_TABLE#" infra/k8s/agent.yaml
+          fi
           sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
 
       - name: Patch dev runtime resources

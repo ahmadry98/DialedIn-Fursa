@@ -54,6 +54,7 @@ module "k8s_cluster" {
   dynamodb_table_arns = [
     aws_dynamodb_table.shot_results.arn,
     aws_dynamodb_table.equipment_profiles.arn,
+    aws_dynamodb_table.user_access.arn,
   ]
   alert_sns_topic_arn = aws_sns_topic.alerts[0].arn
   tags                = local.common_tags
