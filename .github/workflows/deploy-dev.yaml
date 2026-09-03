@@ -31,6 +31,7 @@ jobs:
       DIALEDIN_COGNITO_USER_POOL_ID: ${{ vars.DIALEDIN_COGNITO_USER_POOL_ID }}
       DIALEDIN_COGNITO_APP_CLIENT_ID: ${{ vars.DIALEDIN_COGNITO_APP_CLIENT_ID }}
       DIALEDIN_USAGE_TABLE: ${{ vars.DIALEDIN_USAGE_TABLE }}
+      REVENUECAT_WEBHOOK_AUTHORIZATION: ${{ secrets.REVENUECAT_WEBHOOK_AUTHORIZATION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -174,6 +175,9 @@ jobs:
             sed -i "s#DIALEDIN_COGNITO_USER_POOL_ID: .*#DIALEDIN_COGNITO_USER_POOL_ID: $DIALEDIN_COGNITO_USER_POOL_ID#" infra/k8s/agent.yaml
             sed -i "s#DIALEDIN_COGNITO_APP_CLIENT_ID: .*#DIALEDIN_COGNITO_APP_CLIENT_ID: $DIALEDIN_COGNITO_APP_CLIENT_ID#" infra/k8s/agent.yaml
             sed -i "s#DIALEDIN_USAGE_TABLE: .*#DIALEDIN_USAGE_TABLE: $DIALEDIN_USAGE_TABLE#" infra/k8s/agent.yaml
+          fi
+          if [ -n "$REVENUECAT_WEBHOOK_AUTHORIZATION" ]; then
+            sed -i "s#REVENUECAT_WEBHOOK_AUTHORIZATION: .*#REVENUECAT_WEBHOOK_AUTHORIZATION: \"$REVENUECAT_WEBHOOK_AUTHORIZATION\"#" infra/k8s/agent.yaml
           fi
           sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
 
