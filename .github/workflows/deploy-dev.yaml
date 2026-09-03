@@ -179,6 +179,7 @@ jobs:
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/ingress.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
 
       - name: Wait for rollout
