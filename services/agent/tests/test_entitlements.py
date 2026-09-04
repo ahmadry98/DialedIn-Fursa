@@ -16,7 +16,7 @@ class EntitlementsTest(unittest.TestCase):
             quota_enabled=True,
             usage_storage="memory",
             free_monthly_analysis_limit=3,
-            pro_monthly_analysis_limit=100,
+            pro_monthly_analysis_limit=20,
         )
 
     def tearDown(self):
@@ -40,8 +40,8 @@ class EntitlementsTest(unittest.TestCase):
         status = entitlements.consume_analysis("pro-user", self.settings)
 
         self.assertEqual(status.tier, "pro")
-        self.assertEqual(status.limit, 100)
-        self.assertEqual(status.remaining, 99)
+        self.assertEqual(status.limit, 20)
+        self.assertEqual(status.remaining, 19)
 
     def test_expired_pro_entitlement_falls_back_to_free(self):
         expires_at = int((datetime.now(UTC) - timedelta(seconds=1)).timestamp())

@@ -850,7 +850,7 @@ attach_draft_profile(candidate_key, draft_profile)
 | --- | --- | --- |
 | Guest | Try the flow | One limited analysis; no durable history |
 | Free account | Learn and decide if DialedIn helps | Machines, grinders, and guides; small monthly AI/media allowance |
-| DialedIn Pro | Regular home or enthusiast user | Generous fair-use access with an initial 100-analysis monthly safety ceiling, history, comparisons, and advanced coaching |
+| DialedIn Pro | Regular home or enthusiast user | Generous fair-use access with a 20-analysis monthly allowance, history, comparisons, and advanced coaching |
 | Cafe/Team | Later B2B offer | Shared equipment, multi-user history, admin controls, and reporting |
 
 **Billing Direction:** RevenueCat manages Apple App Store and Google Play purchase state for consumer subscriptions. The backend stores verified entitlement state after a RevenueCat webhook. Stripe is reserved for a future cafe/team web plan.
