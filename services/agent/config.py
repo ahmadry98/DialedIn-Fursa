@@ -47,7 +47,7 @@ class AgentSettings:
     usage_storage: str = "memory"
     usage_table_name: str | None = None
     free_monthly_analysis_limit: int = 3
-    pro_monthly_analysis_limit: int = 100
+    pro_monthly_analysis_limit: int = 20
     revenuecat_webhook_authorization: str | None = None
 
 
@@ -93,6 +93,6 @@ def get_settings() -> AgentSettings:
         usage_storage=usage_storage if usage_storage in {"memory", "dynamodb"} else "memory",
         usage_table_name=os.getenv("DIALEDIN_USAGE_TABLE") or None,
         free_monthly_analysis_limit=max(1, int(os.getenv("DIALEDIN_FREE_MONTHLY_ANALYSIS_LIMIT", "3"))),
-        pro_monthly_analysis_limit=max(1, int(os.getenv("DIALEDIN_PRO_MONTHLY_ANALYSIS_LIMIT", "100"))),
+        pro_monthly_analysis_limit=max(1, int(os.getenv("DIALEDIN_PRO_MONTHLY_ANALYSIS_LIMIT", "20"))),
         revenuecat_webhook_authorization=os.getenv("REVENUECAT_WEBHOOK_AUTHORIZATION") or None,
     )
