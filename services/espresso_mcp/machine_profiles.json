@@ -593,7 +593,60 @@
       "has_preinfusion": [
         "https://www.breville.com/en-us/product/bes920"
       ],
-      "has_built_in_grinder": []
+      "has_built_in_grinder": [
+        "https://www.breville.com/en-us/product/bes920"
+      ]
+    }
+  },
+  {
+    "machine_name": "Breville Oracle Dual Boiler",
+    "aliases": [
+      "breville oracle dual boiler",
+      "oracle dual boiler",
+      "bes995",
+      "bes995bss"
+    ],
+    "specs": {
+      "portafilter_mm": 58,
+      "pump_type": "vibration",
+      "pressure_type": "dual boiler system with low-pressure pre-infusion and 9 bar extraction",
+      "has_preinfusion": true,
+      "has_built_in_grinder": true
+    },
+    "brew_defaults": {
+      "target_total_shot_seconds": [
+        25,
+        32
+      ],
+      "target_visible_flow_seconds": [
+        20,
+        28
+      ],
+      "typical_startup_delay_seconds": [
+        4,
+        8
+      ]
+    },
+    "grind_adjustment_notes": "Use the integrated grinder's numbered settings. Keep dose and yield fixed, then change one grind step at a time while the automatic dial-in system adapts.",
+    "sources": {
+      "aliases": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ],
+      "portafilter_mm": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ],
+      "pump_type": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ],
+      "pressure_type": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ],
+      "has_preinfusion": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ],
+      "has_built_in_grinder": [
+        "https://www.breville.com/en-us/producthub/bes995"
+      ]
     },
     "image": {
       "media_key": "dialchat-media/admin/machine_photo/f276089511ba4802acb5d22af2fc72de-breville-dual-boiler.jpg",
