@@ -2,6 +2,8 @@
 
 ### AI-Powered Espresso Companion
 
+🌐 **Website:** https://www.dialedin.me/
+
 DialedIn is a mobile espresso companion designed to help home baristas understand their shots, diagnose extraction problems, and make better dialing decisions.
 
 Instead of relying only on trial and error, DialedIn combines **equipment profiles, shot parameters, taste feedback, media analysis, and AI-assisted conversation** to guide users toward better espresso.
