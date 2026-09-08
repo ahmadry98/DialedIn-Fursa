@@ -184,6 +184,7 @@ jobs:
 
       - name: Wait for rollout
         run: |
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout restart -n dev deployment/dialchat-agent
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend --timeout=240s
