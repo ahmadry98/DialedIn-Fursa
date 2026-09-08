@@ -415,6 +415,10 @@ AWS infrastructure definitions are located under:
 infra/terraform/
 ```
 
+### Prod Readiness Checklist
+
+Before deploying a production release, complete the full [production readiness checklist](docs/production-readiness.md), including isolated production resources, HTTPS, smoke testing, monitoring, and rollback validation.
+
 ---
 
 ## 🔐 Configuration
