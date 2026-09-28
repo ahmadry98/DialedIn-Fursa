@@ -17,6 +17,21 @@ output "equipment_profiles_table_name" {
   description = "DynamoDB table for trusted machine and grinder profiles when profile repository storage is enabled."
   value       = aws_dynamodb_table.equipment_profiles.name
 }
+output "user_access_table_name" {
+  description = "DynamoDB table for subscription entitlements and monthly usage counters."
+  value       = aws_dynamodb_table.user_access.name
+}
+
+
+output "cognito_user_pool_id" {
+  description = "Cognito user pool used by DialedIN accounts when authentication is enabled."
+  value       = try(aws_cognito_user_pool.dialedin[0].id, null)
+}
+
+output "cognito_mobile_app_client_id" {
+  description = "Public Cognito app client ID used by the native mobile application."
+  value       = try(aws_cognito_user_pool_client.mobile[0].id, null)
+}
 
 
 

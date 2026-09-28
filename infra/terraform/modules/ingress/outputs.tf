@@ -15,7 +15,7 @@ output "target_group_arn_suffix" {
 
 output "certificate_validation_records" {
   description = "DNS records required to validate the ACM certificate when DNS is managed outside Route 53."
-  value = var.enable_https ? [
+  value = var.enable_https && var.certificate_arn == null ? [
     for option in aws_acm_certificate.main[0].domain_validation_options : {
       domain_name = option.domain_name
       name        = option.resource_record_name

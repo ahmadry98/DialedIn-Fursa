@@ -28,6 +28,10 @@ jobs:
       DIALEDIN_PROFILE_TABLE: ${{ vars.DIALEDIN_PROFILE_TABLE }}
       DIALEDIN_SHOT_RESULTS_TABLE: ${{ vars.DIALEDIN_SHOT_RESULTS_TABLE }}
       DIALEDIN_MEDIA_CDN_BASE_URL: ${{ vars.DIALEDIN_MEDIA_CDN_BASE_URL || '' }}
+      DIALEDIN_COGNITO_USER_POOL_ID: ${{ vars.DIALEDIN_COGNITO_USER_POOL_ID }}
+      DIALEDIN_COGNITO_APP_CLIENT_ID: ${{ vars.DIALEDIN_COGNITO_APP_CLIENT_ID }}
+      DIALEDIN_USAGE_TABLE: ${{ vars.DIALEDIN_USAGE_TABLE }}
+      REVENUECAT_WEBHOOK_AUTHORIZATION: ${{ secrets.REVENUECAT_WEBHOOK_AUTHORIZATION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,30 +132,12 @@ jobs:
           echo "Using live Kubernetes API endpoint: $CONTROL_PLANE_PUBLIC_IP:6443"
 
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true config current-context
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true cluster-info
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true get deployments -n dev
 
-      - name: Ensure Calico networking
+      - name: Verify cluster prerequisites
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/projectcalico/calico/v3.32.1/manifests/tigera-operator.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true wait \
-            --for=condition=Established crd/installations.operator.tigera.io --timeout=120s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f infra/k8s/calico/dev-custom-resources.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n tigera-operator deployment/tigera-operator --timeout=240s
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status \
-            -n calico-system daemonset/calico-node --timeout=300s
-
-      - name: Ensure ingress controller
-        run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply \
-            -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/cloud/deploy.yaml
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx patch svc ingress-nginx-controller \
-            -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"targetPort":"http","protocol":"TCP","nodePort":30080},{"name":"https","port":443,"targetPort":"https","protocol":"TCP","nodePort":30443}]}}'
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true -n ingress-nginx rollout status \
-            deployment/ingress-nginx-controller --timeout=300s
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true auth can-i create deployments.apps -n dev | grep -qx yes
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true auth can-i create secrets -n dev | grep -qx yes
 
       - name: Refresh ECR pull secret
         run: |
@@ -164,6 +150,17 @@ jobs:
           REGISTRY="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           sed -i "s#image: .*/dialedin-fursa-agent:.*#image: $REGISTRY/dialedin-fursa-agent:$TAG#" infra/k8s/agent.yaml
           sed -i "s#image: .*/dialedin-fursa-espresso-mcp:.*#image: $REGISTRY/dialedin-fursa-espresso-mcp:$TAG#" infra/k8s/espresso-mcp.yaml
+          if [ -n "$DIALEDIN_COGNITO_USER_POOL_ID" ] && [ -n "$DIALEDIN_COGNITO_APP_CLIENT_ID" ] && [ -n "$DIALEDIN_USAGE_TABLE" ]; then
+            sed -i 's#DIALEDIN_AUTH_ENABLED: "false"#DIALEDIN_AUTH_ENABLED: "true"#' infra/k8s/agent.yaml
+            sed -i 's#DIALEDIN_QUOTA_ENABLED: "false"#DIALEDIN_QUOTA_ENABLED: "true"#' infra/k8s/agent.yaml
+            sed -i 's#DIALEDIN_USAGE_STORAGE: memory#DIALEDIN_USAGE_STORAGE: dynamodb#' infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_COGNITO_USER_POOL_ID: .*#DIALEDIN_COGNITO_USER_POOL_ID: $DIALEDIN_COGNITO_USER_POOL_ID#" infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_COGNITO_APP_CLIENT_ID: .*#DIALEDIN_COGNITO_APP_CLIENT_ID: $DIALEDIN_COGNITO_APP_CLIENT_ID#" infra/k8s/agent.yaml
+            sed -i "s#DIALEDIN_USAGE_TABLE: .*#DIALEDIN_USAGE_TABLE: $DIALEDIN_USAGE_TABLE#" infra/k8s/agent.yaml
+          fi
+          if [ -n "$REVENUECAT_WEBHOOK_AUTHORIZATION" ]; then
+            sed -i "s#REVENUECAT_WEBHOOK_AUTHORIZATION: .*#REVENUECAT_WEBHOOK_AUTHORIZATION: \"$REVENUECAT_WEBHOOK_AUTHORIZATION\"#" infra/k8s/agent.yaml
+          fi
           sed -i "s#image: .*/dialedin-fursa-frontend:.*#image: $REGISTRY/dialedin-fursa-frontend:$TAG#" infra/k8s/frontend.yaml
 
       - name: Patch dev runtime resources
@@ -179,14 +176,15 @@ jobs:
 
       - name: Apply manifests
         run: |
-          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -f infra/k8s/00-namespaces.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/agent.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/espresso-mcp.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/frontend.yaml
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/ingress.yaml
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true apply -n dev -f infra/k8s/hpa.yaml
 
       - name: Wait for rollout
         run: |
+          kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout restart -n dev deployment/dialchat-agent
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-agent --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/espresso-mcp --timeout=240s
           kubectl --kubeconfig "$KUBECONFIG" --insecure-skip-tls-verify=true rollout status -n dev deployment/dialchat-frontend --timeout=240s

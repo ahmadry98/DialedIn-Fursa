@@ -34,6 +34,7 @@ class MachineProfilesTest(unittest.TestCase):
     def test_new_aliases_resolve_popular_machines(self):
         cases = {
             "BES920": "Breville Dual Boiler",
+            "BES995": "Breville Oracle Dual Boiler",
             "MaraX": "Lelit Mara X",
             "Bianca V3": "Lelit Bianca V3",
             "Rocket Appartamento TCA": "Rocket Appartamento",
@@ -46,6 +47,13 @@ class MachineProfilesTest(unittest.TestCase):
         for alias, expected_name in cases.items():
             with self.subTest(alias=alias):
                 self.assertEqual(get_machine_profile(alias)["machine_name"], expected_name)
+
+    def test_breville_dual_boiler_models_have_distinct_grinder_specs(self):
+        dual_boiler = get_machine_profile("BES920")
+        oracle_dual_boiler = get_machine_profile("BES995")
+
+        self.assertFalse(dual_boiler["specs"]["has_built_in_grinder"])
+        self.assertTrue(oracle_dual_boiler["specs"]["has_built_in_grinder"])
 
     def test_anita_profile_has_reviewed_technical_details(self):
         profile = get_machine_profile("PL042TEMD")
