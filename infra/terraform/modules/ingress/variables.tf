@@ -15,6 +15,12 @@ variable "enable_https_listener" {
   default     = true
 }
 
+variable "certificate_arn" {
+  description = "Optional existing ACM certificate ARN for the HTTPS listener."
+  type        = string
+  default     = null
+}
+
 variable "manage_dns" {
   description = "Whether Terraform manages Route 53 records for hostnames and ACM validation."
   type        = bool

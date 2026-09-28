@@ -40,3 +40,4 @@ infra/terraform/personal-*.tfvars
 
 # Personal production access values
 infra/terraform/prod.local.tfvars
+docs/assets/dialchat-langgraph.svg

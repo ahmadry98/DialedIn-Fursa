@@ -33,6 +33,12 @@ variable "enable_media_cdn" {
   default     = false
 }
 
+variable "enable_cognito_auth" {
+  description = "Create the Cognito user pool and public native mobile app client."
+  type        = bool
+  default     = false
+}
+
 variable "ecr_repository_names" {
   description = "ECR repositories created for DialedIN Docker images."
   type        = list(string)
@@ -119,6 +125,12 @@ variable "public_ingress_enable_https_listener" {
   description = "Whether the HTTPS listener is enabled. Set false for the first external-DNS apply, validate ACM, then set true."
   type        = bool
   default     = true
+}
+
+variable "public_ingress_certificate_arn" {
+  description = "Optional ARN of an existing ACM certificate to use for HTTPS instead of creating one."
+  type        = string
+  default     = null
 }
 
 variable "domain_name" {

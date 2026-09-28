@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 from time import perf_counter
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.agent import agent_runner, equipment_profiles, observability, storage
+from services.agent import agent_runner, entitlements, equipment_profiles, observability, storage
+from services.agent.account_cleanup import delete_user_data
+from services.agent.auth import AuthenticatedUser, current_user
 from services.agent.config import get_settings
 from services.agent.schemas import (
     AnalyzeShotRequest,
@@ -125,10 +128,64 @@ def _run_profile_research_background(*, limit: int) -> None:
         observability.increment("dialedin_profile_research_runs_total", status="error")
         print(f"Profile research autorun failed: {error}")
 
+def _quota_http_error(error: entitlements.QuotaExceeded) -> HTTPException:
+    status = entitlements.public_status(error.status)
+    return HTTPException(
+        status_code=429,
+        detail={
+            "code": "quota_exceeded",
+            "message": "Your monthly analysis allowance is used. Upgrade to Pro to continue.",
+            "usage": status,
+        },
+    )
+
+
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok", service=settings.app_name, tool_count=len(espresso_tools.get_registered_tool_names()))
+
+
+@app.get("/me")
+def me(user: AuthenticatedUser = Depends(current_user)) -> dict[str, object]:
+    usage = entitlements.usage_status(user.user_id, settings)
+    return {
+        "user_id": user.user_id,
+        "email": user.email,
+        "tier": usage.tier,
+        "usage": entitlements.public_status(usage),
+    }
+
+@app.delete("/me")
+def delete_account_data(user: AuthenticatedUser = Depends(current_user)) -> dict[str, object]:
+    try:
+        deleted = delete_user_data(user.user_id, settings)
+    except Exception as error:
+        logger.exception("Account data deletion failed for user %s", user.user_id)
+        raise HTTPException(status_code=500, detail={"code": "account_deletion_failed"}) from error
+    return {"deleted": True, "records": deleted}
+
+
+@app.post("/webhooks/revenuecat")
+async def revenuecat_webhook(request: Request) -> dict[str, object]:
+    expected = settings.revenuecat_webhook_authorization
+    received = request.headers.get("authorization", "")
+    if not expected or not secrets.compare_digest(received, expected):
+        raise HTTPException(status_code=401, detail={"code": "invalid_webhook_authorization"})
+    payload = await request.json()
+    event = payload.get("event") if isinstance(payload, dict) else None
+    if not isinstance(event, dict):
+        raise HTTPException(status_code=400, detail={"code": "invalid_webhook_payload"})
+    try:
+        processed = entitlements.apply_revenuecat_event(event, settings)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail={"code": "invalid_webhook_payload", "message": str(error)}) from error
+    return {
+        "received": True,
+        "processed": processed,
+        "event_id": event.get("id"),
+    }
+
 
 
 @app.get("/metrics", response_model=MetricsResponse)
@@ -241,12 +298,16 @@ def get_grinder_compat(slug_or_alias: str) -> dict[str, object]:
 
 
 @app.post("/media/upload-url", response_model=MediaUploadUrlResponse)
-def create_media_upload_url(request_body: MediaUploadUrlRequest, request: Request) -> MediaUploadUrlResponse:
+def create_media_upload_url(
+    request_body: MediaUploadUrlRequest,
+    request: Request,
+    user: AuthenticatedUser = Depends(current_user),
+) -> MediaUploadUrlResponse:
     try:
         target = storage.create_upload_target(
             settings=settings,
             base_url=str(request.base_url),
-            user_id=request_body.user_id,
+            user_id=user.user_id,
             filename=request_body.filename,
             content_type=request_body.content_type,
             media_kind=request_body.media_kind,
@@ -272,7 +333,10 @@ async def upload_local_media(media_key: str, request: Request) -> dict[str, obje
 
 
 @app.post("/media/register", response_model=MediaRegisterResponse)
-def register_media_upload(request_body: MediaRegisterRequest) -> MediaRegisterResponse:
+def register_media_upload(
+    request_body: MediaRegisterRequest,
+    _user: AuthenticatedUser = Depends(current_user),
+) -> MediaRegisterResponse:
     try:
         metadata = storage.register_uploaded_media(
             media_key=request_body.media_key,
@@ -367,12 +431,27 @@ def promote_profile_candidate(candidate_key: str) -> dict[str, object]:
 
 
 @app.post("/analyze-shot", response_model=AnalyzeShotResponse)
-def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks) -> AnalyzeShotResponse:
+def analyze_shot(
+    request: AnalyzeShotRequest,
+    background_tasks: BackgroundTasks,
+    user: AuthenticatedUser = Depends(current_user),
+) -> AnalyzeShotResponse:
+    try:
+        entitlements.require_available(user.user_id, settings)
+    except entitlements.QuotaExceeded as error:
+        raise _quota_http_error(error) from error
+
+    request = request.model_copy(update={"user_id": user.user_id})
     try:
         response = agent_runner.analyze_shot(request)
     except Exception as error:
         observability.increment("dialedin_mcp_tool_errors_total", tool="analyze_shot")
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+    try:
+        entitlements.consume_analysis(user.user_id, settings)
+    except entitlements.QuotaExceeded as error:
+        raise _quota_http_error(error) from error
 
     if settings.profile_research_autorun and response.profile_candidates:
         print(
@@ -389,7 +468,18 @@ def analyze_shot(request: AnalyzeShotRequest, background_tasks: BackgroundTasks)
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatResponse:
+def chat(
+    request: ChatRequest,
+    background_tasks: BackgroundTasks,
+    user: AuthenticatedUser = Depends(current_user),
+) -> ChatResponse:
+    shot_context = request.shot_context or AnalyzeShotRequest()
+    try:
+        entitlements.require_available(user.user_id, settings)
+    except entitlements.QuotaExceeded as error:
+        raise _quota_http_error(error) from error
+
+    request = request.model_copy(update={"shot_context": shot_context.model_copy(update={"user_id": user.user_id})})
     try:
         response = agent_runner.chat(request)
     except Exception as error:
@@ -397,6 +487,11 @@ def chat(request: ChatRequest, background_tasks: BackgroundTasks) -> ChatRespons
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     analysis = response.analysis_result
+    if analysis:
+        try:
+            entitlements.consume_analysis(user.user_id, settings)
+        except entitlements.QuotaExceeded as error:
+            raise _quota_http_error(error) from error
     candidates_to_research = list(response.profile_candidates)
     if analysis:
         candidates_to_research.extend(analysis.profile_candidates)

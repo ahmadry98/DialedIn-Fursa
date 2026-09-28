@@ -54,6 +54,7 @@ module "k8s_cluster" {
   dynamodb_table_arns = [
     aws_dynamodb_table.shot_results.arn,
     aws_dynamodb_table.equipment_profiles.arn,
+    aws_dynamodb_table.user_access.arn,
   ]
   alert_sns_topic_arn = aws_sns_topic.alerts[0].arn
   tags                = local.common_tags
@@ -66,6 +67,7 @@ module "ingress" {
   domain_name              = var.domain_name
   enable_https             = var.public_ingress_enable_https
   enable_https_listener    = var.public_ingress_enable_https_listener
+  certificate_arn          = var.public_ingress_certificate_arn
   manage_dns               = var.public_ingress_manage_dns
   hosted_zone_id           = var.public_ingress_manage_dns ? data.aws_route53_zone.shared[0].zone_id : null
   http_node_port           = var.ingress_http_node_port

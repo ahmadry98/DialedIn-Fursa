@@ -121,7 +121,7 @@ data "aws_iam_policy_document" "worker_runtime" {
   statement {
     sid       = "ListApplicationBucket"
     effect    = "Allow"
-    actions   = ["s3:ListBucket"]
+    actions   = ["s3:ListBucket", "s3:ListBucketVersions"]
     resources = ["arn:aws:s3:::${var.application_s3_bucket}"]
   }
 
